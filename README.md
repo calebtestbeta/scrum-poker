@@ -28,21 +28,14 @@
 
 #### 1. 設定 Firebase
 
+**詳細設定教學請參考：[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**
+
+快速步驟：
 1. 前往 [Firebase Console](https://console.firebase.google.com/)
 2. 建立新專案
 3. 啟用 Realtime Database
-4. 設定資料庫規則：
-
-```json
-{
-  "rules": {
-    ".read": true,
-    ".write": true
-  }
-}
-```
-
-5. 在專案設定中獲取 **Project ID** 和 **Web API Key**
+4. 設定資料庫規則
+5. 取得 **Project ID** 和 **API Key**
 
 #### 2. 設定應用程式
 

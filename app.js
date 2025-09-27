@@ -454,7 +454,7 @@ class ScrumPoker {
     }
 
     updateGameState(roomData) {
-        this.updatePlayersList(roomData.members || {});
+        this.updatePlayersList(roomData.members || {}, roomData.votes || {}, roomData.gameState);
         this.updateVotingProgress(roomData.members || {}, roomData.votes || {});
         this.updateGameStatus(roomData.gameState);
         
@@ -465,7 +465,7 @@ class ScrumPoker {
         }
     }
 
-    updatePlayersList(members) {
+    updatePlayersList(members, votes, gameState) {
         const roleIcons = {
             dev: '<i class="fas fa-code text-blue-500"></i>',
             qa: '<i class="fas fa-bug text-green-500"></i>',
@@ -483,27 +483,75 @@ class ScrumPoker {
         };
 
         const playersHtml = Object.entries(members).map(([playerId, player]) => {
+            const isCurrentPlayer = this.currentPlayer && playerId === this.currentPlayer.id;
             const votedClass = player.voted ? 'voted' : '';
-            const votedIcon = player.voted ? '<i class="fas fa-check text-green-500"></i>' : '<i class="fas fa-clock text-gray-400"></i>';
+            const selfClass = isCurrentPlayer ? 'self' : '';
             const roleIcon = roleIcons[player.role] || roleIcons.other;
             const roleLabel = roleLabels[player.role] || 'Other';
             
+            // 決定要顯示的投票狀態
+            let votingStatus = '';
+            let votedIcon = '';
+            
+            if (player.voted) {
+                const playerVote = votes[playerId];
+                
+                if (gameState === 'revealed' && playerVote) {
+                    // 開牌後顯示所有人的點數
+                    votingStatus = `已投票 - ${this.formatPoints(playerVote.points)}`;
+                    votedIcon = '<i class="fas fa-check-circle text-green-500 text-lg"></i>';
+                } else if (isCurrentPlayer && playerVote) {
+                    // 投票階段只顯示自己的點數
+                    votingStatus = `已投票 - ${this.formatPoints(playerVote.points)}`;
+                    votedIcon = '<i class="fas fa-check-circle text-blue-500 text-lg"></i>';
+                } else {
+                    // 其他人的投票狀態（隱藏點數）
+                    votingStatus = '已投票';
+                    votedIcon = '<i class="fas fa-check text-green-500"></i>';
+                }
+            } else {
+                votingStatus = '等待中';
+                votedIcon = '<i class="fas fa-clock text-gray-400"></i>';
+            }
+            
             return `
-                <div class="player-card ${votedClass}">
-                    <div class="font-semibold text-gray-800">${player.name}</div>
+                <div class="player-card ${votedClass} ${selfClass}" data-player-id="${playerId}">
+                    <div class="font-semibold text-gray-800">
+                        ${player.name}
+                        ${isCurrentPlayer ? '<span class="text-blue-500 text-xs ml-1">(你)</span>' : ''}
+                    </div>
                     <div class="flex items-center justify-center mt-1">
                         ${roleIcon}
                         <span class="text-xs text-gray-600 ml-1">${roleLabel}</span>
                     </div>
                     <div class="mt-2">${votedIcon}</div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        ${player.voted ? '已投票' : '等待中'}
+                    <div class="text-xs ${isCurrentPlayer && player.voted ? 'text-blue-600 font-medium' : 'text-gray-500'} mt-1">
+                        ${votingStatus}
                     </div>
+                    <button class="remove-player-btn hidden mt-2 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors" 
+                            onclick="window.scrumPoker.removePlayer('${playerId}', '${player.name}')">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `;
         }).join('');
         
         this.elements.playersList.innerHTML = playersHtml;
+        
+        // 顯示移除按鈕（如果有多於一個玩家）
+        if (Object.keys(members).length > 1) {
+            document.querySelectorAll('.remove-player-btn').forEach(btn => {
+                btn.classList.remove('hidden');
+            });
+        }
+    }
+
+    formatPoints(points) {
+        // 格式化點數顯示
+        if (points === 'coffee') return '☕';
+        if (points === 'question') return '❓';
+        if (points === 'infinity') return '∞';
+        return points;
     }
 
     updateVotingProgress(members, votes) {
@@ -512,9 +560,16 @@ class ScrumPoker {
         
         this.elements.votingProgress.textContent = `${votedPlayers}/${totalPlayers} 已投票`;
         
-        // 更新開牌按鈕狀態
-        const allVoted = votedPlayers === totalPlayers && totalPlayers > 0;
-        this.elements.revealBtn.disabled = !allVoted;
+        // 更新開牌按鈕狀態 - 任何時候都可以開牌
+        const canReveal = totalPlayers > 0;
+        this.elements.revealBtn.disabled = !canReveal;
+        
+        // 更新開牌按鈕文字顯示投票進度
+        if (votedPlayers === totalPlayers && totalPlayers > 0) {
+            this.elements.revealBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>開牌';
+        } else {
+            this.elements.revealBtn.innerHTML = `<i class="fas fa-eye mr-2"></i>開牌 (${votedPlayers}/${totalPlayers})`;
+        }
     }
 
     updateGameStatus(gameState) {
@@ -893,6 +948,28 @@ class ScrumPoker {
 
     generatePlayerId() {
         return `player_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    }
+
+    async removePlayer(playerId, playerName) {
+        if (!this.roomRef) return;
+
+        // 確認對話框
+        if (!confirm(`確定要移除玩家 "${playerName}" 嗎？`)) {
+            return;
+        }
+
+        try {
+            // 從 members 中移除玩家
+            await this.roomRef.child('members').child(playerId).remove();
+            
+            // 從 votes 中移除玩家的投票
+            await this.roomRef.child('votes').child(playerId).remove();
+
+            this.showToast(`已移除玩家 ${playerName}`, 'success');
+        } catch (error) {
+            console.error('移除玩家失敗:', error);
+            this.showToast('移除玩家失敗', 'error');
+        }
     }
 
     cleanup() {

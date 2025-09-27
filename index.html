@@ -326,7 +326,7 @@
         }
         
         .player-card {
-            @apply bg-gray-50 border-2 border-gray-200 rounded-lg p-4 text-center transition-all duration-200;
+            @apply bg-gray-50 border-2 border-gray-200 rounded-lg p-4 text-center transition-all duration-200 relative;
         }
         
         .player-card.voted {
@@ -335,6 +335,22 @@
         
         .player-card.revealed {
             @apply border-indigo-400 bg-indigo-50;
+        }
+        
+        .player-card.self {
+            @apply border-blue-400 bg-blue-50 ring-2 ring-blue-200;
+        }
+        
+        .player-card.self.voted {
+            @apply border-blue-500 bg-blue-100 ring-2 ring-blue-300;
+        }
+        
+        .remove-player-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .remove-player-btn:hover {
+            transform: scale(1.05);
         }
     </style>
 
