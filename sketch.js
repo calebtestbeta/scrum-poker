@@ -75,8 +75,8 @@ let deviceInfo = {
 };
 
 // 版本信息
-const VERSION_HASH = 'bdf84813';
-const BUILD_TIME = '20250927_2341';
+const VERSION_HASH = '93a9f17d';
+const BUILD_TIME = '20250927_2355';
 const VERSION_STRING = `v${VERSION_HASH}-${BUILD_TIME}`;
 
 // p5.js 設定函數
@@ -90,7 +90,7 @@ function setup() {
     detectDevice();
     
     // 建立畫布
-    createCanvas();
+    setupCanvas();
     
     // 初始化管理器
     try {
@@ -234,7 +234,7 @@ function drawBackgroundPattern() {
 }
 
 // 建立響應式畫布
-function createCanvas() {
+function setupCanvas() {
     let canvasWidth = GAME_CONFIG.canvas.width;
     let canvasHeight = GAME_CONFIG.canvas.height;
     
@@ -252,18 +252,28 @@ function createCanvas() {
     canvasWidth = Math.max(canvasWidth, GAME_CONFIG.canvas.minWidth);
     canvasHeight = Math.max(canvasHeight, GAME_CONFIG.canvas.minHeight);
     
+    // 移除舊畫布（如果存在）
+    if (canvas) {
+        canvas.remove();
+    }
+    
+    // 使用 p5.js 的 createCanvas 函數建立新畫布
     canvas = createCanvas(canvasWidth, canvasHeight);
     canvas.parent('gameContainer');
     
     // 更新遊戲設定
     GAME_CONFIG.table.centerX = canvasWidth / 2;
     GAME_CONFIG.table.centerY = canvasHeight / 2;
+    
+    console.log(`🖼️ 畫布建立完成: ${canvasWidth}x${canvasHeight}`);
+    
+    // 重新初始化動畫背景元素
+    if (animationManager && typeof animationManager.initializeBackgroundElements === 'function') {
+        animationManager.initializeBackgroundElements();
+    }
 }
 
-// 視窗大小變更
-function windowResized() {
-    createCanvas();
-}
+// 注意：windowResized 函數在檔案後面已定義
 
 // 滑鼠點擊事件
 function mousePressed() {
@@ -611,7 +621,7 @@ function windowResized() {
     detectDevice();
     
     // 重新建立畫布
-    createCanvas();
+    setupCanvas();
     
     // 重新設定觸控優化
     setupTouchOptimizations();

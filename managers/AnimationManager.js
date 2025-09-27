@@ -69,6 +69,16 @@ class AnimationManager {
     
     // 初始化背景元素
     initializeBackgroundElements() {
+        // 如果 width/height 未定義，延遲初始化
+        if (typeof width === 'undefined' || typeof height === 'undefined') {
+            console.log('⏱️ 延遲背景元素初始化，等候畫布');
+            return;
+        }
+        
+        // 清除現有元素
+        this.backgroundAnimation.stars = [];
+        this.backgroundAnimation.floatingElements = [];
+        
         // 初始化星星
         for (let i = 0; i < 50; i++) {
             this.backgroundAnimation.stars.push({
@@ -94,6 +104,8 @@ class AnimationManager {
                 type: random(['circle', 'triangle', 'diamond'])
             });
         }
+        
+        console.log(`⭐ 背景元素初始化完成 (${this.backgroundAnimation.stars.length} 星星, ${this.backgroundAnimation.floatingElements.length} 浮動元素)`);
     }
     
     // 更新動畫
