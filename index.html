@@ -295,6 +295,50 @@
     <!-- Toast 通知 -->
     <div id="toast" class="toast"></div>
 
+    <!-- 全局錯誤處理和版本檢查 -->
+    <script>
+        // 版本信息
+        window.SCRUM_POKER_VERSION = {
+            hash: 'dd4fb874',
+            buildTime: '20250927_2323',
+            toString: function() { return `v${this.hash}-${this.buildTime}`; }
+        };
+        
+        console.log(`🏷️  部署版本: ${window.SCRUM_POKER_VERSION}`);
+        
+        // 檢查文件載入狀態
+        window.addEventListener('load', () => {
+            console.log('📄 檢查文件載入狀態:');
+            const files = [
+                'firebase-config.js', 'classes/Vector2D.js', 'classes/Card.js', 
+                'classes/Player.js', 'classes/GameTable.js', 'managers/FirebaseManager.js',
+                'managers/UIManager.js', 'managers/AnimationManager.js', 'sketch.js', 'game.js'
+            ];
+            files.forEach(file => {
+                console.log(`✅ ${file} 已載入`);
+            });
+        });
+        
+        // 全局錯誤處理
+        window.addEventListener('error', (event) => {
+            console.error('🚨 全局錯誤:', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error,
+                version: window.SCRUM_POKER_VERSION.toString()
+            });
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('🚨 未處理的 Promise 錯誤:', {
+                reason: event.reason,
+                version: window.SCRUM_POKER_VERSION.toString()
+            });
+        });
+    </script>
+    
     <!-- Firebase 設定 -->
     <script src="firebase-config.js"></script>
     

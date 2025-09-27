@@ -74,8 +74,18 @@ let deviceInfo = {
     pixelRatio: 1
 };
 
+// 版本信息
+const VERSION_HASH = 'dd4fb874';
+const BUILD_TIME = '20250927_2323';
+const VERSION_STRING = `v${VERSION_HASH}-${BUILD_TIME}`;
+
 // p5.js 設定函數
 function setup() {
+    // 顯示版本信息
+    console.log(`🎮 Scrum Poker 遊戲版本: ${VERSION_STRING}`);
+    console.log(`📅 構建時間: ${BUILD_TIME}`);
+    console.log(`🔑 版本代碼: ${VERSION_HASH}`);
+    
     // 檢測裝置類型
     detectDevice();
     

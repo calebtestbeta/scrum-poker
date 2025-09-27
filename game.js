@@ -1,6 +1,26 @@
 // 遊戲整合邏輯 - 連接所有管理器和 UI 元素
 // 全域函數供 HTML 呼叫
 
+// 版本檢查和錯誤監控
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Scrum Poker 遊戲邏輯已載入 - 版本: dd4fb874');
+    
+    // 檢查必要的依賴
+    const dependencies = [
+        { name: 'p5.js', check: () => typeof p5 !== 'undefined' },
+        { name: 'Firebase', check: () => typeof firebase !== 'undefined' },
+        { name: 'GAME_CONFIG', check: () => typeof GAME_CONFIG !== 'undefined' }
+    ];
+    
+    dependencies.forEach(dep => {
+        if (dep.check()) {
+            console.log(`✅ ${dep.name} 已載入`);
+        } else {
+            console.error(`❌ ${dep.name} 載入失敗`);
+        }
+    });
+});
+
 // 開始遊戲
 async function startGame() {
     const playerName = document.getElementById('playerName').value.trim();
