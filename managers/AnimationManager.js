@@ -1,4 +1,4 @@
-// 動畫管理器 - 處理全域動畫效果和視覺特效
+// 動畫管理器 - 處理所有動畫效果和粒子系統
 class AnimationManager {
     constructor() {
         // 粒子系統
@@ -9,15 +9,15 @@ class AnimationManager {
         this.screenEffects = {
             flash: {
                 active: false,
-                intensity: 0,
                 color: null,
-                duration: 0,
+                intensity: 0,
+                duration: 300,
                 startTime: 0
             },
             shake: {
                 active: false,
-                intensity: 0,
-                duration: 0,
+                intensity: 10,
+                duration: 500,
                 startTime: 0,
                 offsetX: 0,
                 offsetY: 0
@@ -39,11 +39,11 @@ class AnimationManager {
             }
         };
         
-        // 背景動畫
+        // 背景動画
         this.backgroundAnimation = {
             stars: [],
-            meteors: [],
-            floatingElements: []
+            floatingElements: [],
+            meteors: []
         };
         
         // 轉場動畫
@@ -57,4 +57,569 @@ class AnimationManager {
         };
         
         // 性能設定
-        this.performanceMode = 'high'; // 'low', 'medium', 'high'\n        this.frameSkip = 0;\n        this.targetFPS = 60;\n        \n        // 初始化背景元素\n        this.initializeBackgroundElements();\n        \n        console.log('✨ AnimationManager 已初始化');\n    }\n    \n    // 初始化背景元素\n    initializeBackgroundElements() {\n        // 初始化星星\n        for (let i = 0; i < 50; i++) {\n            this.backgroundAnimation.stars.push({\n                x: random(width),\n                y: random(height),\n                size: random(1, 3),\n                opacity: random(50, 255),\n                twinkleSpeed: random(0.01, 0.05),\n                twinklePhase: random(TWO_PI)\n            });\n        }\n        \n        // 初始化浮動元素\n        for (let i = 0; i < 20; i++) {\n            this.backgroundAnimation.floatingElements.push({\n                x: random(width),\n                y: random(height),\n                size: random(10, 30),\n                speed: random(0.1, 0.5),\n                angle: random(TWO_PI),\n                rotationSpeed: random(-0.02, 0.02),\n                opacity: random(10, 50),\n                type: random(['circle', 'triangle', 'diamond'])\n            });\n        }\n    }\n    \n    // 更新動畫\n    update() {\n        // 性能控制\n        if (this.performanceMode === 'low' && this.frameSkip++ % 2 !== 0) {\n            return;\n        }\n        \n        // 更新粒子\n        this.updateParticles();\n        \n        // 更新螢幕效果\n        this.updateScreenEffects();\n        \n        // 更新背景動畫\n        this.updateBackgroundAnimation();\n        \n        // 更新轉場動畫\n        this.updateTransitions();\n        \n        // 繪製效果\n        this.draw();\n    }\n    \n    // 更新粒子系統\n    updateParticles() {\n        for (let i = this.particles.length - 1; i >= 0; i--) {\n            const particle = this.particles[i];\n            \n            // 更新位置\n            particle.x += particle.vx;\n            particle.y += particle.vy;\n            \n            // 重力\n            if (particle.gravity) {\n                particle.vy += particle.gravity;\n            }\n            \n            // 阻力\n            if (particle.drag) {\n                particle.vx *= particle.drag;\n                particle.vy *= particle.drag;\n            }\n            \n            // 更新屬性\n            particle.life -= particle.decay;\n            particle.size *= particle.sizeDecay || 1;\n            particle.opacity = particle.life * particle.maxOpacity;\n            \n            // 移除死亡粒子\n            if (particle.life <= 0 || particle.size < 0.1) {\n                this.particles.splice(i, 1);\n            }\n        }\n    }\n    \n    // 更新螢幕效果\n    updateScreenEffects() {\n        const currentTime = millis();\n        \n        // 更新閃光效果\n        if (this.screenEffects.flash.active) {\n            const elapsed = currentTime - this.screenEffects.flash.startTime;\n            const progress = elapsed / this.screenEffects.flash.duration;\n            \n            if (progress >= 1) {\n                this.screenEffects.flash.active = false;\n                this.screenEffects.flash.intensity = 0;\n            } else {\n                // 閃光衰減\n                this.screenEffects.flash.intensity = (1 - progress) * 255;\n            }\n        }\n        \n        // 更新震動效果\n        if (this.screenEffects.shake.active) {\n            const elapsed = currentTime - this.screenEffects.shake.startTime;\n            const progress = elapsed / this.screenEffects.shake.duration;\n            \n            if (progress >= 1) {\n                this.screenEffects.shake.active = false;\n                this.screenEffects.shake.offsetX = 0;\n                this.screenEffects.shake.offsetY = 0;\n            } else {\n                const intensity = (1 - progress) * this.screenEffects.shake.intensity;\n                this.screenEffects.shake.offsetX = random(-intensity, intensity);\n                this.screenEffects.shake.offsetY = random(-intensity, intensity);\n            }\n        }\n        \n        // 更新淡入淡出效果\n        if (this.screenEffects.fade.active) {\n            const diff = this.screenEffects.fade.targetOpacity - this.screenEffects.fade.opacity;\n            this.screenEffects.fade.opacity += diff * this.screenEffects.fade.speed;\n            \n            if (Math.abs(diff) < 0.01) {\n                this.screenEffects.fade.opacity = this.screenEffects.fade.targetOpacity;\n                if (this.screenEffects.fade.opacity === 0) {\n                    this.screenEffects.fade.active = false;\n                }\n            }\n        }\n        \n        // 更新縮放效果\n        if (this.screenEffects.zoom.active) {\n            const diff = this.screenEffects.zoom.targetScale - this.screenEffects.zoom.scale;\n            this.screenEffects.zoom.scale += diff * this.screenEffects.zoom.speed;\n            \n            if (Math.abs(diff) < 0.001) {\n                this.screenEffects.zoom.scale = this.screenEffects.zoom.targetScale;\n                if (this.screenEffects.zoom.scale === 1) {\n                    this.screenEffects.zoom.active = false;\n                }\n            }\n        }\n    }\n    \n    // 更新背景動畫\n    updateBackgroundAnimation() {\n        // 更新星星閃爍\n        for (const star of this.backgroundAnimation.stars) {\n            star.twinklePhase += star.twinkleSpeed;\n            star.opacity = 100 + sin(star.twinklePhase) * 155;\n        }\n        \n        // 更新浮動元素\n        for (const element of this.backgroundAnimation.floatingElements) {\n            element.x += cos(element.angle) * element.speed;\n            element.y += sin(element.angle) * element.speed;\n            element.angle += element.rotationSpeed;\n            \n            // 邊界回繞\n            if (element.x < -50) element.x = width + 50;\n            if (element.x > width + 50) element.x = -50;\n            if (element.y < -50) element.y = height + 50;\n            if (element.y > height + 50) element.y = -50;\n        }\n        \n        // 更新流星\n        for (let i = this.backgroundAnimation.meteors.length - 1; i >= 0; i--) {\n            const meteor = this.backgroundAnimation.meteors[i];\n            meteor.x += meteor.vx;\n            meteor.y += meteor.vy;\n            meteor.life -= meteor.decay;\n            \n            if (meteor.life <= 0 || meteor.x > width + 100 || meteor.y > height + 100) {\n                this.backgroundAnimation.meteors.splice(i, 1);\n            }\n        }\n        \n        // 隨機產生流星\n        if (random() < 0.001 && this.backgroundAnimation.meteors.length < 3) {\n            this.createMeteor();\n        }\n    }\n    \n    // 更新轉場動畫\n    updateTransitions() {\n        if (!this.transitions.active) return;\n        \n        const currentTime = millis();\n        const elapsed = currentTime - this.transitions.startTime;\n        this.transitions.progress = Math.min(elapsed / this.transitions.duration, 1);\n        \n        if (this.transitions.progress >= 1) {\n            this.transitions.active = false;\n            if (this.transitions.onComplete) {\n                this.transitions.onComplete();\n            }\n        }\n    }\n    \n    // 繪製動畫效果\n    draw() {\n        push();\n        \n        // 套用震動效果\n        if (this.screenEffects.shake.active) {\n            translate(this.screenEffects.shake.offsetX, this.screenEffects.shake.offsetY);\n        }\n        \n        // 套用縮放效果\n        if (this.screenEffects.zoom.active) {\n            translate(this.screenEffects.zoom.centerX, this.screenEffects.zoom.centerY);\n            scale(this.screenEffects.zoom.scale);\n            translate(-this.screenEffects.zoom.centerX, -this.screenEffects.zoom.centerY);\n        }\n        \n        // 繪製背景動畫\n        this.drawBackgroundAnimation();\n        \n        // 繪製粒子\n        this.drawParticles();\n        \n        pop();\n        \n        // 繪製螢幕效果（不受變換影響）\n        this.drawScreenEffects();\n        \n        // 繪製轉場效果\n        this.drawTransitions();\n    }\n    \n    // 繪製背景動畫\n    drawBackgroundAnimation() {\n        if (this.performanceMode === 'low') return;\n        \n        // 繪製星星\n        for (const star of this.backgroundAnimation.stars) {\n            fill(255, star.opacity);\n            noStroke();\n            circle(star.x, star.y, star.size);\n        }\n        \n        // 繪製浮動元素\n        if (this.performanceMode === 'high') {\n            for (const element of this.backgroundAnimation.floatingElements) {\n                push();\n                translate(element.x, element.y);\n                rotate(element.angle);\n                fill(255, element.opacity);\n                noStroke();\n                \n                if (element.type === 'circle') {\n                    circle(0, 0, element.size);\n                } else if (element.type === 'triangle') {\n                    triangle(-element.size/2, element.size/2, \n                            element.size/2, element.size/2, \n                            0, -element.size/2);\n                } else if (element.type === 'diamond') {\n                    quad(0, -element.size/2, \n                         element.size/2, 0, \n                         0, element.size/2, \n                         -element.size/2, 0);\n                }\n                \n                pop();\n            }\n        }\n        \n        // 繪製流星\n        for (const meteor of this.backgroundAnimation.meteors) {\n            push();\n            stroke(255, meteor.life * 255);\n            strokeWeight(2);\n            const tailLength = 30;\n            line(meteor.x, meteor.y, \n                 meteor.x - meteor.vx * tailLength, \n                 meteor.y - meteor.vy * tailLength);\n            \n            // 流星頭部\n            fill(255, meteor.life * 255);\n            noStroke();\n            circle(meteor.x, meteor.y, 4);\n            pop();\n        }\n    }\n    \n    // 繪製粒子\n    drawParticles() {\n        for (const particle of this.particles) {\n            push();\n            translate(particle.x, particle.y);\n            \n            if (particle.rotation !== undefined) {\n                rotate(particle.rotation);\n            }\n            \n            fill(particle.color.r, particle.color.g, particle.color.b, particle.opacity);\n            noStroke();\n            \n            if (particle.shape === 'circle') {\n                circle(0, 0, particle.size);\n            } else if (particle.shape === 'square') {\n                rectMode(CENTER);\n                rect(0, 0, particle.size, particle.size);\n            } else if (particle.shape === 'triangle') {\n                triangle(-particle.size/2, particle.size/2, \n                        particle.size/2, particle.size/2, \n                        0, -particle.size/2);\n            }\n            \n            pop();\n        }\n    }\n    \n    // 繪製螢幕效果\n    drawScreenEffects() {\n        // 閃光效果\n        if (this.screenEffects.flash.active) {\n            push();\n            if (this.screenEffects.flash.color) {\n                fill(red(this.screenEffects.flash.color), \n                     green(this.screenEffects.flash.color), \n                     blue(this.screenEffects.flash.color), \n                     this.screenEffects.flash.intensity);\n            } else {\n                fill(255, this.screenEffects.flash.intensity);\n            }\n            noStroke();\n            rect(0, 0, width, height);\n            pop();\n        }\n        \n        // 淡入淡出效果\n        if (this.screenEffects.fade.active && this.screenEffects.fade.opacity > 0) {\n            push();\n            if (this.screenEffects.fade.color) {\n                fill(red(this.screenEffects.fade.color), \n                     green(this.screenEffects.fade.color), \n                     blue(this.screenEffects.fade.color), \n                     this.screenEffects.fade.opacity);\n            } else {\n                fill(0, this.screenEffects.fade.opacity);\n            }\n            noStroke();\n            rect(0, 0, width, height);\n            pop();\n        }\n    }\n    \n    // 繪製轉場效果\n    drawTransitions() {\n        if (!this.transitions.active) return;\n        \n        push();\n        const progress = this.easeInOutCubic(this.transitions.progress);\n        \n        if (this.transitions.type === 'fade') {\n            fill(0, progress * 255);\n            noStroke();\n            rect(0, 0, width, height);\n        } else if (this.transitions.type === 'slide') {\n            fill(0);\n            noStroke();\n            rect(0, 0, width * (1 - progress), height);\n        } else if (this.transitions.type === 'wipe') {\n            fill(0);\n            noStroke();\n            rect(0, 0, width, height * progress);\n        } else if (this.transitions.type === 'zoom') {\n            const scale = 1 + progress * 2;\n            const opacity = progress * 255;\n            translate(width/2, height/2);\n            scale(scale);\n            translate(-width/2, -height/2);\n            fill(0, opacity);\n            noStroke();\n            rect(0, 0, width, height);\n        }\n        \n        pop();\n    }\n    \n    // 建立粒子爆炸效果\n    createExplosion(x, y, count = 20, color = null) {\n        for (let i = 0; i < count; i++) {\n            const angle = (i / count) * TWO_PI;\n            const speed = random(2, 8);\n            const size = random(3, 12);\n            \n            this.particles.push({\n                x: x,\n                y: y,\n                vx: cos(angle) * speed,\n                vy: sin(angle) * speed,\n                size: size,\n                life: 1.0,\n                decay: random(0.01, 0.03),\n                maxOpacity: 255,\n                opacity: 255,\n                color: color || {\n                    r: random(100, 255),\n                    g: random(100, 255),\n                    b: random(100, 255)\n                },\n                shape: random(['circle', 'square', 'triangle']),\n                gravity: 0.1,\n                drag: 0.98,\n                sizeDecay: 0.99\n            });\n        }\n        \n        // 限制粒子數量\n        while (this.particles.length > this.maxParticles) {\n            this.particles.shift();\n        }\n    }\n    \n    // 建立慶祝效果\n    createCelebration(x, y) {\n        this.createExplosion(x, y, 30, color(251, 191, 36)); // 金色\n        \n        // 額外的彩色粒子\n        for (let i = 0; i < 10; i++) {\n            const angle = random(TWO_PI);\n            const speed = random(1, 4);\n            \n            this.particles.push({\n                x: x,\n                y: y,\n                vx: cos(angle) * speed,\n                vy: sin(angle) * speed - 2, // 向上偏移\n                size: random(5, 15),\n                life: 1.0,\n                decay: random(0.005, 0.015),\n                maxOpacity: 200,\n                opacity: 200,\n                color: {\n                    r: random(200, 255),\n                    g: random(200, 255),\n                    b: random(100, 255)\n                },\n                shape: 'circle',\n                gravity: 0.05,\n                drag: 0.99,\n                sizeDecay: 0.995\n            });\n        }\n    }\n    \n    // 建立流星\n    createMeteor() {\n        this.backgroundAnimation.meteors.push({\n            x: random(-50, width/2),\n            y: random(-50, height/2),\n            vx: random(2, 5),\n            vy: random(2, 5),\n            life: 1.0,\n            decay: 0.01\n        });\n    }\n    \n    // 觸發閃光效果\n    flash(color = null, duration = 300) {\n        this.screenEffects.flash.active = true;\n        this.screenEffects.flash.color = color;\n        this.screenEffects.flash.duration = duration;\n        this.screenEffects.flash.startTime = millis();\n        this.screenEffects.flash.intensity = 255;\n    }\n    \n    // 觸發震動效果\n    shake(intensity = 10, duration = 500) {\n        this.screenEffects.shake.active = true;\n        this.screenEffects.shake.intensity = intensity;\n        this.screenEffects.shake.duration = duration;\n        this.screenEffects.shake.startTime = millis();\n    }\n    \n    // 觸發淡入淡出效果\n    fade(targetOpacity, speed = 0.05, color = null) {\n        this.screenEffects.fade.active = true;\n        this.screenEffects.fade.targetOpacity = targetOpacity;\n        this.screenEffects.fade.speed = speed;\n        this.screenEffects.fade.color = color;\n    }\n    \n    // 觸發縮放效果\n    zoom(targetScale, speed = 0.05, centerX = width/2, centerY = height/2) {\n        this.screenEffects.zoom.active = true;\n        this.screenEffects.zoom.targetScale = targetScale;\n        this.screenEffects.zoom.speed = speed;\n        this.screenEffects.zoom.centerX = centerX;\n        this.screenEffects.zoom.centerY = centerY;\n    }\n    \n    // 開始轉場動畫\n    startTransition(type, duration = 1000, onComplete = null) {\n        this.transitions.active = true;\n        this.transitions.type = type;\n        this.transitions.duration = duration;\n        this.transitions.startTime = millis();\n        this.transitions.progress = 0;\n        this.transitions.onComplete = onComplete;\n    }\n    \n    // 設定性能模式\n    setPerformanceMode(mode) {\n        this.performanceMode = mode;\n        \n        if (mode === 'low') {\n            this.maxParticles = 50;\n        } else if (mode === 'medium') {\n            this.maxParticles = 100;\n        } else {\n            this.maxParticles = 200;\n        }\n        \n        // 清除多餘粒子\n        while (this.particles.length > this.maxParticles) {\n            this.particles.shift();\n        }\n    }\n    \n    // 清除所有效果\n    clearAllEffects() {\n        this.particles = [];\n        this.screenEffects.flash.active = false;\n        this.screenEffects.shake.active = false;\n        this.screenEffects.fade.active = false;\n        this.screenEffects.zoom.active = false;\n        this.transitions.active = false;\n    }\n    \n    // 緩動函數\n    easeInOutCubic(t) {\n        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;\n    }\n    \n    // 取得性能統計\n    getPerformanceStats() {\n        return {\n            particleCount: this.particles.length,\n            maxParticles: this.maxParticles,\n            performanceMode: this.performanceMode,\n            activeEffects: {\n                flash: this.screenEffects.flash.active,\n                shake: this.screenEffects.shake.active,\n                fade: this.screenEffects.fade.active,\n                zoom: this.screenEffects.zoom.active,\n                transition: this.transitions.active\n            }\n        };\n    }\n}\n
+        this.performanceMode = 'high'; // 'low', 'medium', 'high'
+        this.frameSkip = 0;
+        this.targetFPS = 60;
+        
+        // 初始化背景元素
+        this.initializeBackgroundElements();
+        
+        console.log('✨ AnimationManager 已初始化');
+    }
+    
+    // 初始化背景元素
+    initializeBackgroundElements() {
+        // 初始化星星
+        for (let i = 0; i < 50; i++) {
+            this.backgroundAnimation.stars.push({
+                x: random(width),
+                y: random(height),
+                size: random(1, 3),
+                opacity: random(50, 255),
+                twinkleSpeed: random(0.01, 0.05),
+                twinklePhase: random(TWO_PI)
+            });
+        }
+        
+        // 初始化浮動元素
+        for (let i = 0; i < 20; i++) {
+            this.backgroundAnimation.floatingElements.push({
+                x: random(width),
+                y: random(height),
+                size: random(10, 30),
+                speed: random(0.1, 0.5),
+                angle: random(TWO_PI),
+                rotationSpeed: random(-0.02, 0.02),
+                opacity: random(10, 50),
+                type: random(['circle', 'triangle', 'diamond'])
+            });
+        }
+    }
+    
+    // 更新動畫
+    update() {
+        // 性能控制
+        if (this.performanceMode === 'low' && this.frameSkip++ % 2 !== 0) {
+            return;
+        }
+        
+        // 更新粒子
+        this.updateParticles();
+        
+        // 更新螢幕效果
+        this.updateScreenEffects();
+        
+        // 更新背景動畫
+        this.updateBackgroundAnimation();
+        
+        // 更新轉場動畫
+        this.updateTransitions();
+        
+        // 繪製效果
+        this.draw();
+    }
+    
+    // 更新粒子系統
+    updateParticles() {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            
+            // 更新位置
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            
+            // 重力
+            if (particle.gravity) {
+                particle.vy += particle.gravity;
+            }
+            
+            // 阻力
+            if (particle.drag) {
+                particle.vx *= particle.drag;
+                particle.vy *= particle.drag;
+            }
+            
+            // 更新屬性
+            particle.life -= particle.decay;
+            particle.size *= particle.sizeDecay || 1;
+            particle.opacity = particle.life * particle.maxOpacity;
+            
+            // 移除死亡粒子
+            if (particle.life <= 0 || particle.size < 0.1) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+    
+    // 更新螢幕效果
+    updateScreenEffects() {
+        const currentTime = millis();
+        
+        // 更新閃光效果
+        if (this.screenEffects.flash.active) {
+            const elapsed = currentTime - this.screenEffects.flash.startTime;
+            const progress = elapsed / this.screenEffects.flash.duration;
+            
+            if (progress >= 1) {
+                this.screenEffects.flash.active = false;
+                this.screenEffects.flash.intensity = 0;
+            } else {
+                // 閃光衰減
+                this.screenEffects.flash.intensity = (1 - progress) * 255;
+            }
+        }
+        
+        // 更新震動效果
+        if (this.screenEffects.shake.active) {
+            const elapsed = currentTime - this.screenEffects.shake.startTime;
+            const progress = elapsed / this.screenEffects.shake.duration;
+            
+            if (progress >= 1) {
+                this.screenEffects.shake.active = false;
+                this.screenEffects.shake.offsetX = 0;
+                this.screenEffects.shake.offsetY = 0;
+            } else {
+                const intensity = (1 - progress) * this.screenEffects.shake.intensity;
+                this.screenEffects.shake.offsetX = random(-intensity, intensity);
+                this.screenEffects.shake.offsetY = random(-intensity, intensity);
+            }
+        }
+        
+        // 更新淡入淡出效果
+        if (this.screenEffects.fade.active) {
+            const diff = this.screenEffects.fade.targetOpacity - this.screenEffects.fade.opacity;
+            this.screenEffects.fade.opacity += diff * this.screenEffects.fade.speed;
+            
+            if (Math.abs(diff) < 0.01) {
+                this.screenEffects.fade.opacity = this.screenEffects.fade.targetOpacity;
+                if (this.screenEffects.fade.opacity === 0) {
+                    this.screenEffects.fade.active = false;
+                }
+            }
+        }
+        
+        // 更新縮放效果
+        if (this.screenEffects.zoom.active) {
+            const diff = this.screenEffects.zoom.targetScale - this.screenEffects.zoom.scale;
+            this.screenEffects.zoom.scale += diff * this.screenEffects.zoom.speed;
+            
+            if (Math.abs(diff) < 0.001) {
+                this.screenEffects.zoom.scale = this.screenEffects.zoom.targetScale;
+                if (this.screenEffects.zoom.scale === 1) {
+                    this.screenEffects.zoom.active = false;
+                }
+            }
+        }
+    }
+    
+    // 更新背景動畫
+    updateBackgroundAnimation() {
+        // 更新星星閃爍
+        for (const star of this.backgroundAnimation.stars) {
+            star.twinklePhase += star.twinkleSpeed;
+            star.opacity = 100 + sin(star.twinklePhase) * 155;
+        }
+        
+        // 更新浮動元素
+        for (const element of this.backgroundAnimation.floatingElements) {
+            element.x += cos(element.angle) * element.speed;
+            element.y += sin(element.angle) * element.speed;
+            element.angle += element.rotationSpeed;
+            
+            // 邊界回繞
+            if (element.x < -50) element.x = width + 50;
+            if (element.x > width + 50) element.x = -50;
+            if (element.y < -50) element.y = height + 50;
+            if (element.y > height + 50) element.y = -50;
+        }
+        
+        // 更新流星
+        for (let i = this.backgroundAnimation.meteors.length - 1; i >= 0; i--) {
+            const meteor = this.backgroundAnimation.meteors[i];
+            meteor.x += meteor.vx;
+            meteor.y += meteor.vy;
+            meteor.life -= meteor.decay;
+            
+            if (meteor.life <= 0 || meteor.x > width + 100 || meteor.y > height + 100) {
+                this.backgroundAnimation.meteors.splice(i, 1);
+            }
+        }
+        
+        // 隨機產生流星
+        if (random() < 0.001 && this.backgroundAnimation.meteors.length < 3) {
+            this.createMeteor();
+        }
+    }
+    
+    // 更新轉場動畫
+    updateTransitions() {
+        if (!this.transitions.active) return;
+        
+        const currentTime = millis();
+        const elapsed = currentTime - this.transitions.startTime;
+        this.transitions.progress = Math.min(elapsed / this.transitions.duration, 1);
+        
+        if (this.transitions.progress >= 1) {
+            this.transitions.active = false;
+            if (this.transitions.onComplete) {
+                this.transitions.onComplete();
+            }
+        }
+    }
+    
+    // 繪製動畫效果
+    draw() {
+        push();
+        
+        // 套用震動效果
+        if (this.screenEffects.shake.active) {
+            translate(this.screenEffects.shake.offsetX, this.screenEffects.shake.offsetY);
+        }
+        
+        // 套用縮放效果
+        if (this.screenEffects.zoom.active) {
+            translate(this.screenEffects.zoom.centerX, this.screenEffects.zoom.centerY);
+            scale(this.screenEffects.zoom.scale);
+            translate(-this.screenEffects.zoom.centerX, -this.screenEffects.zoom.centerY);
+        }
+        
+        // 繪製背景動畫
+        this.drawBackgroundAnimation();
+        
+        // 繪製粒子
+        this.drawParticles();
+        
+        pop();
+        
+        // 繪製螢幕效果（不受變換影響）
+        this.drawScreenEffects();
+        
+        // 繪製轉場效果
+        this.drawTransitions();
+    }
+    
+    // 繪製背景動畫
+    drawBackgroundAnimation() {
+        if (this.performanceMode === 'low') return;
+        
+        // 繪製星星
+        for (const star of this.backgroundAnimation.stars) {
+            fill(255, star.opacity);
+            noStroke();
+            circle(star.x, star.y, star.size);
+        }
+        
+        // 繪製浮動元素
+        if (this.performanceMode === 'high') {
+            for (const element of this.backgroundAnimation.floatingElements) {
+                push();
+                translate(element.x, element.y);
+                rotate(element.angle);
+                fill(255, element.opacity);
+                noStroke();
+                
+                if (element.type === 'circle') {
+                    circle(0, 0, element.size);
+                } else if (element.type === 'triangle') {
+                    triangle(-element.size/2, element.size/2, 
+                            element.size/2, element.size/2, 
+                            0, -element.size/2);
+                } else if (element.type === 'diamond') {
+                    quad(0, -element.size/2, 
+                         element.size/2, 0, 
+                         0, element.size/2, 
+                         -element.size/2, 0);
+                }
+                
+                pop();
+            }
+        }
+        
+        // 繪製流星
+        for (const meteor of this.backgroundAnimation.meteors) {
+            push();
+            stroke(255, meteor.life * 255);
+            strokeWeight(2);
+            const tailLength = 30;
+            line(meteor.x, meteor.y, 
+                 meteor.x - meteor.vx * tailLength, 
+                 meteor.y - meteor.vy * tailLength);
+            
+            // 流星頭部
+            fill(255, meteor.life * 255);
+            noStroke();
+            circle(meteor.x, meteor.y, 4);
+            pop();
+        }
+    }
+    
+    // 繪製粒子
+    drawParticles() {
+        for (const particle of this.particles) {
+            push();
+            translate(particle.x, particle.y);
+            
+            if (particle.rotation !== undefined) {
+                rotate(particle.rotation);
+            }
+            
+            fill(particle.color.r, particle.color.g, particle.color.b, particle.opacity);
+            noStroke();
+            
+            if (particle.shape === 'circle') {
+                circle(0, 0, particle.size);
+            } else if (particle.shape === 'square') {
+                rectMode(CENTER);
+                rect(0, 0, particle.size, particle.size);
+            } else if (particle.shape === 'triangle') {
+                triangle(-particle.size/2, particle.size/2, 
+                        particle.size/2, particle.size/2, 
+                        0, -particle.size/2);
+            }
+            
+            pop();
+        }
+    }
+    
+    // 繪製螢幕效果
+    drawScreenEffects() {
+        // 閃光效果
+        if (this.screenEffects.flash.active) {
+            push();
+            if (this.screenEffects.flash.color) {
+                fill(red(this.screenEffects.flash.color), 
+                     green(this.screenEffects.flash.color), 
+                     blue(this.screenEffects.flash.color), 
+                     this.screenEffects.flash.intensity);
+            } else {
+                fill(255, this.screenEffects.flash.intensity);
+            }
+            noStroke();
+            rect(0, 0, width, height);
+            pop();
+        }
+        
+        // 淡入淡出效果
+        if (this.screenEffects.fade.active && this.screenEffects.fade.opacity > 0) {
+            push();
+            if (this.screenEffects.fade.color) {
+                fill(red(this.screenEffects.fade.color), 
+                     green(this.screenEffects.fade.color), 
+                     blue(this.screenEffects.fade.color), 
+                     this.screenEffects.fade.opacity);
+            } else {
+                fill(0, this.screenEffects.fade.opacity);
+            }
+            noStroke();
+            rect(0, 0, width, height);
+            pop();
+        }
+    }
+    
+    // 繪製轉場效果
+    drawTransitions() {
+        if (!this.transitions.active) return;
+        
+        push();
+        const progress = this.easeInOutCubic(this.transitions.progress);
+        
+        if (this.transitions.type === 'fade') {
+            fill(0, progress * 255);
+            noStroke();
+            rect(0, 0, width, height);
+        } else if (this.transitions.type === 'slide') {
+            fill(0);
+            noStroke();
+            rect(0, 0, width * (1 - progress), height);
+        } else if (this.transitions.type === 'wipe') {
+            fill(0);
+            noStroke();
+            rect(0, 0, width, height * progress);
+        } else if (this.transitions.type === 'zoom') {
+            const scale = 1 + progress * 2;
+            const opacity = progress * 255;
+            translate(width/2, height/2);
+            scale(scale);
+            translate(-width/2, -height/2);
+            fill(0, opacity);
+            noStroke();
+            rect(0, 0, width, height);
+        }
+        
+        pop();
+    }
+    
+    // 建立粒子爆炸效果
+    createExplosion(x, y, count = 20, color = null) {
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * TWO_PI;
+            const speed = random(2, 8);
+            const size = random(3, 12);
+            
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: cos(angle) * speed,
+                vy: sin(angle) * speed,
+                size: size,
+                life: 1.0,
+                decay: random(0.01, 0.03),
+                maxOpacity: 255,
+                opacity: 255,
+                color: color || {
+                    r: random(100, 255),
+                    g: random(100, 255),
+                    b: random(100, 255)
+                },
+                shape: random(['circle', 'square', 'triangle']),
+                gravity: 0.1,
+                drag: 0.98,
+                sizeDecay: 0.99
+            });
+        }
+        
+        // 限制粒子數量
+        while (this.particles.length > this.maxParticles) {
+            this.particles.shift();
+        }
+    }
+    
+    // 建立慶祝效果
+    createCelebration(x, y) {
+        this.createExplosion(x, y, 30, color(251, 191, 36)); // 金色
+        
+        // 額外的彩色粒子
+        for (let i = 0; i < 10; i++) {
+            const angle = random(TWO_PI);
+            const speed = random(1, 4);
+            
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: cos(angle) * speed,
+                vy: sin(angle) * speed - 2, // 向上偏移
+                size: random(5, 15),
+                life: 1.0,
+                decay: random(0.005, 0.015),
+                maxOpacity: 200,
+                opacity: 200,
+                color: {
+                    r: random(200, 255),
+                    g: random(200, 255),
+                    b: random(100, 255)
+                },
+                shape: 'circle',
+                gravity: 0.05,
+                drag: 0.99,
+                sizeDecay: 0.995
+            });
+        }
+    }
+    
+    // 建立流星
+    createMeteor() {
+        this.backgroundAnimation.meteors.push({
+            x: random(-50, width/2),
+            y: random(-50, height/2),
+            vx: random(2, 5),
+            vy: random(2, 5),
+            life: 1.0,
+            decay: 0.01
+        });
+    }
+    
+    // 觸發閃光效果
+    flash(color = null, duration = 300) {
+        this.screenEffects.flash.active = true;
+        this.screenEffects.flash.color = color;
+        this.screenEffects.flash.duration = duration;
+        this.screenEffects.flash.startTime = millis();
+        this.screenEffects.flash.intensity = 255;
+    }
+    
+    // 觸發震動效果
+    shake(intensity = 10, duration = 500) {
+        this.screenEffects.shake.active = true;
+        this.screenEffects.shake.intensity = intensity;
+        this.screenEffects.shake.duration = duration;
+        this.screenEffects.shake.startTime = millis();
+    }
+    
+    // 觸發淡入淡出效果
+    fade(targetOpacity, speed = 0.05, color = null) {
+        this.screenEffects.fade.active = true;
+        this.screenEffects.fade.targetOpacity = targetOpacity;
+        this.screenEffects.fade.speed = speed;
+        this.screenEffects.fade.color = color;
+    }
+    
+    // 觸發縮放效果
+    zoom(targetScale, speed = 0.05, centerX = width/2, centerY = height/2) {
+        this.screenEffects.zoom.active = true;
+        this.screenEffects.zoom.targetScale = targetScale;
+        this.screenEffects.zoom.speed = speed;
+        this.screenEffects.zoom.centerX = centerX;
+        this.screenEffects.zoom.centerY = centerY;
+    }
+    
+    // 開始轉場動畫
+    startTransition(type, duration = 1000, onComplete = null) {
+        this.transitions.active = true;
+        this.transitions.type = type;
+        this.transitions.duration = duration;
+        this.transitions.startTime = millis();
+        this.transitions.progress = 0;
+        this.transitions.onComplete = onComplete;
+    }
+    
+    // 設定性能模式
+    setPerformanceMode(mode) {
+        this.performanceMode = mode;
+        
+        if (mode === 'low') {
+            this.maxParticles = 50;
+        } else if (mode === 'medium') {
+            this.maxParticles = 100;
+        } else {
+            this.maxParticles = 200;
+        }
+        
+        // 清除多餘粒子
+        while (this.particles.length > this.maxParticles) {
+            this.particles.shift();
+        }
+    }
+    
+    // 清除所有效果
+    clearAllEffects() {
+        this.particles = [];
+        this.screenEffects.flash.active = false;
+        this.screenEffects.shake.active = false;
+        this.screenEffects.fade.active = false;
+        this.screenEffects.zoom.active = false;
+        this.transitions.active = false;
+    }
+    
+    // 緩動函數
+    easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+    
+    // 取得性能統計
+    getPerformanceStats() {
+        return {
+            particleCount: this.particles.length,
+            maxParticles: this.maxParticles,
+            performanceMode: this.performanceMode,
+            activeEffects: {
+                flash: this.screenEffects.flash.active,
+                shake: this.screenEffects.shake.active,
+                fade: this.screenEffects.fade.active,
+                zoom: this.screenEffects.zoom.active,
+                transition: this.transitions.active
+            }
+        };
+    }
+}
+
+console.log('✨ AnimationManager 類別已載入');

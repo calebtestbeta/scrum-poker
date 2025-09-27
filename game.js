@@ -3,7 +3,7 @@
 
 // 版本檢查和錯誤監控
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Scrum Poker 遊戲邏輯已載入 - 版本: 2672f112');
+    console.log('🚀 Scrum Poker 遊戲邏輯已載入 - 版本: bdf84813');
     
     // 檢查必要的依賴
     const dependencies = [

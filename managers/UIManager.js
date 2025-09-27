@@ -57,44 +57,441 @@ class UIManager {
         }
         
         // 鍵盤快捷鍵
-        document.addEventListener('keydown', (e) => {
-            this.handleKeyPress(e);
+        document.addEventListener('keydown', (event) => {
+            if (!this.isGameStarted) return;
+            
+            // ESC - 離開房間
+            if (event.code === 'Escape') {
+                this.showLeaveConfirmation();
+                return;
+            }
+            
+            // Ctrl+R - 開牌
+            if (event.ctrlKey && event.code === 'KeyR') {
+                event.preventDefault();
+                if (this.revealBtn && !this.revealBtn.disabled) {
+                    this.revealBtn.click();
+                }
+                return;
+            }
+            
+            // Ctrl+C - 清除投票
+            if (event.ctrlKey && event.code === 'KeyC') {
+                event.preventDefault();
+                if (this.clearBtn && !this.clearBtn.disabled) {
+                    this.clearBtn.click();
+                }
+                return;
+            }
+            
+            // 數字鍵投票 (1-9, 0)
+            if (this.gamePhase === 'voting' && gameTable) {
+                const fibSequence = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55];
+                const keyNum = parseInt(event.key);
+                
+                if (!isNaN(keyNum) && keyNum >= 0 && keyNum <= 9) {
+                    const voteValue = fibSequence[keyNum];
+                    gameTable.handlePlayerVote(voteValue);
+                }
+            }
         });
         
-        // 視窗大小變更
+        // 視窗調整大小事件
         window.addEventListener('resize', () => {
             this.handleResize();
         });
+        
+        // 初始化響應式佈局
+        this.updateResponsiveLayout();
     }
     
-    // 處理鍵盤事件
-    handleKeyPress(event) {
-        if (!this.isGameStarted) return;
+    // 處理視窗調整大小
+    handleResize() {
+        // 更新響應式佈局
+        this.updateResponsiveLayout();
+    }
+    
+    // 更新響應式佈局
+    updateResponsiveLayout() {
+        const isMobile = window.innerWidth <= 768;
         
-        switch (event.code) {
-            case 'KeyR':
-                if (event.ctrlKey || event.metaKey) {
-                    event.preventDefault();
-                    if (gameTable) {
-                        gameTable.revealCards();
-                    }
-                }
-                break;
-                
-            case 'KeyC':
-                if (event.ctrlKey || event.metaKey) {
-                    event.preventDefault();
-                    if (gameTable) {
-                        gameTable.clearVotes();
-                    }
-                }
-                break;
-                
-            case 'Escape':
-                this.showLeaveConfirmation();
-                break;
+        if (isMobile) {
+            // 行動版佈局調整
+            if (this.gameInfo) {
+                this.gameInfo.style.position = 'relative';
+                this.gameInfo.style.textAlign = 'center';
+            }
+            
+            if (this.gameControls) {
+                this.gameControls.style.position = 'relative';
+                this.gameControls.style.textAlign = 'center';
+            }
+        } else {
+            // 桌面版佈局
+            if (this.gameInfo) {
+                this.gameInfo.style.position = 'absolute';
+                this.gameInfo.style.textAlign = 'left';
+            }
+            
+            if (this.gameControls) {
+                this.gameControls.style.position = 'absolute';
+                this.gameControls.style.textAlign = 'right';
+            }
         }
     }
     
-    // 處理視窗大小變更
-    handleResize() {\n        // 更新響應式佈局\n        this.updateResponsiveLayout();\n    }\n    \n    // 更新響應式佈局\n    updateResponsiveLayout() {\n        const isMobile = window.innerWidth <= 768;\n        \n        if (isMobile) {\n            // 行動版佈局調整\n            if (this.gameInfo) {\n                this.gameInfo.style.position = 'relative';\n                this.gameInfo.style.textAlign = 'center';\n            }\n            \n            if (this.gameControls) {\n                this.gameControls.style.position = 'relative';\n                this.gameControls.style.textAlign = 'center';\n            }\n        } else {\n            // 桌面版佈局\n            if (this.gameInfo) {\n                this.gameInfo.style.position = 'absolute';\n                this.gameInfo.style.textAlign = 'left';\n            }\n            \n            if (this.gameControls) {\n                this.gameControls.style.position = 'absolute';\n                this.gameControls.style.textAlign = 'right';\n            }\n        }\n    }\n    \n    // 開始遊戲\n    startGame(roomId, playerId) {\n        this.isGameStarted = true;\n        this.currentRoom = roomId;\n        \n        // 隱藏登入面板\n        if (this.loginPanel) {\n            this.loginPanel.style.display = 'none';\n        }\n        \n        // 顯示遊戲介面\n        if (this.gameInfo) {\n            this.gameInfo.style.display = 'block';\n        }\n        \n        if (this.gameControls) {\n            this.gameControls.style.display = 'block';\n        }\n        \n        // 更新房間資訊\n        this.updateRoomInfo(roomId);\n        \n        // 更新響應式佈局\n        this.updateResponsiveLayout();\n        \n        // 顯示成功訊息\n        this.showToast(`成功加入房間 ${roomId}`, 'success');\n        \n        // 切換遊戲狀態\n        gameState = 'game';\n        \n        console.log(`🎮 遊戲開始 - 房間: ${roomId}`);\n    }\n    \n    // 結束遊戲\n    endGame() {\n        this.isGameStarted = false;\n        this.currentRoom = null;\n        \n        // 顯示登入面板\n        if (this.loginPanel) {\n            this.loginPanel.style.display = 'block';\n        }\n        \n        // 隱藏遊戲介面\n        if (this.gameInfo) {\n            this.gameInfo.style.display = 'none';\n        }\n        \n        if (this.gameControls) {\n            this.gameControls.style.display = 'none';\n        }\n        \n        // 切換遊戲狀態\n        gameState = 'login';\n        \n        console.log('🚪 遊戲結束');\n    }\n    \n    // 更新房間資訊\n    updateRoomInfo(roomId) {\n        if (this.currentRoomSpan) {\n            this.currentRoomSpan.textContent = roomId || '-';\n        }\n    }\n    \n    // 更新玩家數量\n    updatePlayerCount(count) {\n        this.playerCount = count;\n        if (this.playerCountSpan) {\n            this.playerCountSpan.textContent = count.toString();\n        }\n    }\n    \n    // 更新遊戲狀態\n    updateGameStatus(phase, extra = '') {\n        this.gamePhase = phase;\n        \n        const statusText = {\n            'waiting': '等待中',\n            'voting': '投票中',\n            'revealing': '開牌中',\n            'finished': '已完成'\n        };\n        \n        let displayText = statusText[phase] || '未知';\n        if (extra) {\n            displayText += ` ${extra}`;\n        }\n        \n        if (this.gameStatusSpan) {\n            this.gameStatusSpan.textContent = displayText;\n        }\n        \n        // 更新控制按鈕狀態\n        this.updateControlButtons(phase);\n    }\n    \n    // 更新控制按鈕狀態\n    updateControlButtons(phase) {\n        if (this.revealBtn) {\n            this.revealBtn.disabled = (phase !== 'voting' || this.playerCount === 0);\n            this.revealBtn.textContent = phase === 'revealing' ? '開牌中...' : '🎭 開牌';\n        }\n        \n        if (this.clearBtn) {\n            this.clearBtn.disabled = (phase === 'waiting');\n        }\n    }\n    \n    // 更新投票進度\n    updateVotingProgress(votedCount, totalCount) {\n        const progressText = `(${votedCount}/${totalCount})`;\n        this.updateGameStatus('voting', progressText);\n        \n        // 更新開牌按鈕狀態\n        if (this.revealBtn) {\n            const canReveal = totalCount > 0; // 只要有玩家就可以開牌\n            this.revealBtn.disabled = !canReveal;\n        }\n    }\n    \n    // 顯示 Toast 通知\n    showToast(message, type = 'info', duration = 3000) {\n        if (!this.toast) return;\n        \n        this.toast.textContent = message;\n        this.toast.className = `toast ${type}`;\n        this.toast.classList.add('show');\n        \n        // 自動隱藏\n        setTimeout(() => {\n            this.toast.classList.remove('show');\n        }, duration);\n        \n        console.log(`📢 ${type.toUpperCase()}: ${message}`);\n    }\n    \n    // 顯示錯誤訊息\n    showError(message) {\n        this.showToast(message, 'error', 5000);\n    }\n    \n    // 顯示成功訊息\n    showSuccess(message) {\n        this.showToast(message, 'success');\n    }\n    \n    // 顯示離開確認對話框\n    showLeaveConfirmation() {\n        const confirmed = confirm('確定要離開房間嗎？');\n        if (confirmed) {\n            this.leaveGame();\n        }\n    }\n    \n    // 離開遊戲\n    leaveGame() {\n        if (firebaseManager) {\n            firebaseManager.leaveRoom();\n        }\n        \n        this.endGame();\n        this.showToast('已離開房間', 'info');\n    }\n    \n    // 更新統計資料\n    updateStatistics(votes) {\n        const numericVotes = votes.filter(v => typeof v.value === 'number');\n        \n        if (numericVotes.length === 0) {\n            this.statistics = {\n                totalVotes: votes.length,\n                averagePoints: 0,\n                consensus: 0,\n                devAverage: 0,\n                qaAverage: 0\n            };\n            return;\n        }\n        \n        // 計算平均分數\n        const total = numericVotes.reduce((sum, vote) => sum + vote.value, 0);\n        const average = total / numericVotes.length;\n        \n        // 計算共識度\n        const variance = numericVotes.reduce((sum, vote) => \n            sum + Math.pow(vote.value - average, 2), 0) / numericVotes.length;\n        const maxVariance = Math.pow(\n            Math.max(...numericVotes.map(v => v.value)) - \n            Math.min(...numericVotes.map(v => v.value)), 2\n        ) / 4;\n        const consensus = Math.round((1 - (variance / (maxVariance || 1))) * 100);\n        \n        // 計算角色別平均\n        const devVotes = numericVotes.filter(v => v.playerRole === 'dev');\n        const qaVotes = numericVotes.filter(v => v.playerRole === 'qa');\n        \n        const devAverage = devVotes.length > 0 ? \n            devVotes.reduce((sum, vote) => sum + vote.value, 0) / devVotes.length : 0;\n        const qaAverage = qaVotes.length > 0 ? \n            qaVotes.reduce((sum, vote) => sum + vote.value, 0) / qaVotes.length : 0;\n        \n        this.statistics = {\n            totalVotes: votes.length,\n            averagePoints: Math.round(average * 10) / 10,\n            consensus: consensus,\n            devAverage: Math.round(devAverage * 10) / 10,\n            qaAverage: Math.round(qaAverage * 10) / 10\n        };\n    }\n    \n    // 繪製統計資訊（在 p5.js 畫布上）\n    drawStatistics() {\n        if (this.gamePhase !== 'finished') return;\n        \n        push();\n        \n        // 背景\n        fill(0, 0, 0, 150);\n        noStroke();\n        rectMode(CORNER);\n        rect(width - 250, 20, 220, 160, 10);\n        \n        // 標題\n        fill(255);\n        textAlign(LEFT, TOP);\n        textSize(16);\n        textStyle(BOLD);\n        text('📊 投票統計', width - 240, 35);\n        \n        // 統計資料\n        textSize(12);\n        textStyle(NORMAL);\n        let y = 55;\n        \n        text(`總投票數: ${this.statistics.totalVotes}`, width - 240, y);\n        y += 18;\n        \n        if (this.statistics.averagePoints > 0) {\n            text(`平均點數: ${this.statistics.averagePoints}`, width - 240, y);\n            y += 18;\n            \n            text(`共識度: ${this.statistics.consensus}%`, width - 240, y);\n            y += 18;\n            \n            if (this.statistics.devAverage > 0) {\n                text(`開發平均: ${this.statistics.devAverage}`, width - 240, y);\n                y += 18;\n            }\n            \n            if (this.statistics.qaAverage > 0) {\n                text(`測試平均: ${this.statistics.qaAverage}`, width - 240, y);\n                y += 18;\n            }\n            \n            // 共識度顏色條\n            const barWidth = 180;\n            const barHeight = 8;\n            const barX = width - 240;\n            const barY = y + 5;\n            \n            // 背景條\n            fill(100);\n            rect(barX, barY, barWidth, barHeight, 4);\n            \n            // 進度條\n            const consensusColor = this.getConsensusColor(this.statistics.consensus);\n            fill(consensusColor);\n            const progressWidth = (this.statistics.consensus / 100) * barWidth;\n            rect(barX, barY, progressWidth, barHeight, 4);\n        }\n        \n        pop();\n    }\n    \n    // 取得共識度顏色\n    getConsensusColor(consensus) {\n        if (consensus >= 80) return color(34, 197, 94);   // 綠色\n        if (consensus >= 60) return color(251, 191, 36);  // 黃色\n        if (consensus >= 40) return color(249, 115, 22);  // 橘色\n        return color(239, 68, 68);                        // 紅色\n    }\n    \n    // 繪製 UI 元素（在 p5.js 畫布上）\n    draw() {\n        if (!this.isGameStarted) return;\n        \n        // 繪製統計資訊\n        this.drawStatistics();\n        \n        // 繪製快捷鍵提示\n        this.drawShortcutHints();\n        \n        // 繪製連線狀態\n        this.drawConnectionStatus();\n    }\n    \n    // 繪製快捷鍵提示\n    drawShortcutHints() {\n        if (this.gamePhase !== 'voting') return;\n        \n        push();\n        fill(255, 255, 255, 100);\n        textAlign(RIGHT, BOTTOM);\n        textSize(10);\n        text('快捷鍵: 數字鍵投票, Ctrl+R 開牌, Ctrl+C 重設', width - 20, height - 40);\n        text('ESC 離開房間', width - 20, height - 25);\n        pop();\n    }\n    \n    // 繪製連線狀態\n    drawConnectionStatus() {\n        if (!firebaseManager) return;\n        \n        const status = firebaseManager.getConnectionStatus();\n        \n        push();\n        const statusColor = status.isConnected ? \n            (status.useFirebase ? color(34, 197, 94) : color(251, 191, 36)) : \n            color(239, 68, 68);\n        \n        fill(statusColor);\n        noStroke();\n        circle(width - 30, 30, 12);\n        \n        // 狀態文字\n        fill(255, 200);\n        textAlign(RIGHT, CENTER);\n        textSize(10);\n        const statusText = status.isConnected ? \n            (status.useFirebase ? 'Firebase' : '本地模式') : '已斷線';\n        text(statusText, width - 45, 30);\n        \n        pop();\n    }\n    \n    // 取得統計資料\n    getStatistics() {\n        return { ...this.statistics };\n    }\n    \n    // 重設統計資料\n    resetStatistics() {\n        this.statistics = {\n            totalVotes: 0,\n            averagePoints: 0,\n            consensus: 0,\n            devAverage: 0,\n            qaAverage: 0\n        };\n    }\n}\n
+    // 開始遊戲
+    startGame(roomId, playerId) {
+        this.isGameStarted = true;
+        this.currentRoom = roomId;
+        
+        // 隱藏登入面板
+        if (this.loginPanel) {
+            this.loginPanel.style.display = 'none';
+        }
+        
+        // 顯示遊戲介面
+        if (this.gameInfo) {
+            this.gameInfo.style.display = 'block';
+        }
+        
+        if (this.gameControls) {
+            this.gameControls.style.display = 'block';
+        }
+        
+        // 更新房間資訊
+        this.updateRoomInfo(roomId);
+        
+        // 更新響應式佈局
+        this.updateResponsiveLayout();
+        
+        // 顯示成功訊息
+        this.showToast(`成功加入房間 ${roomId}`, 'success');
+        
+        // 切換遊戲狀態
+        gameState = 'game';
+        
+        console.log(`🎮 遊戲開始 - 房間: ${roomId}`);
+    }
+    
+    // 結束遊戲
+    endGame() {
+        this.isGameStarted = false;
+        this.currentRoom = null;
+        
+        // 顯示登入面板
+        if (this.loginPanel) {
+            this.loginPanel.style.display = 'block';
+        }
+        
+        // 隱藏遊戲介面
+        if (this.gameInfo) {
+            this.gameInfo.style.display = 'none';
+        }
+        
+        if (this.gameControls) {
+            this.gameControls.style.display = 'none';
+        }
+        
+        // 切換遊戲狀態
+        gameState = 'login';
+        
+        console.log('🚪 遊戲結束');
+    }
+    
+    // 更新房間資訊
+    updateRoomInfo(roomId) {
+        if (this.currentRoomSpan) {
+            this.currentRoomSpan.textContent = roomId || '-';
+        }
+    }
+    
+    // 更新玩家數量
+    updatePlayerCount(count) {
+        this.playerCount = count;
+        if (this.playerCountSpan) {
+            this.playerCountSpan.textContent = count.toString();
+        }
+    }
+    
+    // 更新遊戲狀態
+    updateGameStatus(phase, extra = '') {
+        this.gamePhase = phase;
+        
+        const statusText = {
+            'waiting': '等待中',
+            'voting': '投票中',
+            'revealing': '開牌中',
+            'finished': '已完成'
+        };
+        
+        let displayText = statusText[phase] || '未知';
+        if (extra) {
+            displayText += ` ${extra}`;
+        }
+        
+        if (this.gameStatusSpan) {
+            this.gameStatusSpan.textContent = displayText;
+        }
+        
+        // 更新控制按鈕狀態
+        this.updateControlButtons(phase);
+    }
+    
+    // 更新控制按鈕狀態
+    updateControlButtons(phase) {
+        if (this.revealBtn) {
+            this.revealBtn.disabled = (phase !== 'voting' || this.playerCount === 0);
+            this.revealBtn.textContent = phase === 'revealing' ? '開牌中...' : '🎭 開牌';
+        }
+        
+        if (this.clearBtn) {
+            this.clearBtn.disabled = (phase === 'waiting');
+        }
+    }
+    
+    // 更新投票進度
+    updateVotingProgress(votedCount, totalCount) {
+        const progressText = `(${votedCount}/${totalCount})`;
+        this.updateGameStatus('voting', progressText);
+        
+        // 更新開牌按鈕狀態
+        if (this.revealBtn) {
+            const canReveal = totalCount > 0; // 只要有玩家就可以開牌
+            this.revealBtn.disabled = !canReveal;
+        }
+    }
+    
+    // 顯示 Toast 通知
+    showToast(message, type = 'info', duration = 3000) {
+        if (!this.toast) return;
+        
+        this.toast.textContent = message;
+        this.toast.className = `toast ${type}`;
+        this.toast.classList.add('show');
+        
+        // 自動隱藏
+        setTimeout(() => {
+            this.toast.classList.remove('show');
+        }, duration);
+        
+        console.log(`📢 ${type.toUpperCase()}: ${message}`);
+    }
+    
+    // 顯示錯誤訊息
+    showError(message) {
+        this.showToast(message, 'error', 5000);
+    }
+    
+    // 顯示成功訊息
+    showSuccess(message) {
+        this.showToast(message, 'success');
+    }
+    
+    // 顯示離開確認對話框
+    showLeaveConfirmation() {
+        const confirmed = confirm('確定要離開房間嗎？');
+        if (confirmed) {
+            this.leaveGame();
+        }
+    }
+    
+    // 離開遊戲
+    leaveGame() {
+        if (firebaseManager) {
+            firebaseManager.leaveRoom();
+        }
+        
+        this.endGame();
+        this.showToast('已離開房間', 'info');
+    }
+    
+    // 更新統計資料
+    updateStatistics(votes) {
+        const numericVotes = votes.filter(v => typeof v.value === 'number');
+        
+        if (numericVotes.length === 0) {
+            this.statistics = {
+                totalVotes: votes.length,
+                averagePoints: 0,
+                consensus: 0,
+                devAverage: 0,
+                qaAverage: 0
+            };
+            return;
+        }
+        
+        // 計算平均分數
+        const total = numericVotes.reduce((sum, vote) => sum + vote.value, 0);
+        const average = total / numericVotes.length;
+        
+        // 計算共識度
+        const variance = numericVotes.reduce((sum, vote) => 
+            sum + Math.pow(vote.value - average, 2), 0) / numericVotes.length;
+        const maxVariance = Math.pow(
+            Math.max(...numericVotes.map(v => v.value)) - 
+            Math.min(...numericVotes.map(v => v.value)), 2
+        ) / 4;
+        const consensus = Math.round((1 - (variance / (maxVariance || 1))) * 100);
+        
+        // 計算角色別平均
+        const devVotes = numericVotes.filter(v => v.playerRole === 'dev');
+        const qaVotes = numericVotes.filter(v => v.playerRole === 'qa');
+        
+        const devAverage = devVotes.length > 0 ? 
+            devVotes.reduce((sum, vote) => sum + vote.value, 0) / devVotes.length : 0;
+        const qaAverage = qaVotes.length > 0 ? 
+            qaVotes.reduce((sum, vote) => sum + vote.value, 0) / qaVotes.length : 0;
+        
+        this.statistics = {
+            totalVotes: votes.length,
+            averagePoints: Math.round(average * 10) / 10,
+            consensus: consensus,
+            devAverage: Math.round(devAverage * 10) / 10,
+            qaAverage: Math.round(qaAverage * 10) / 10
+        };
+    }
+    
+    // 繪製統計資訊（在 p5.js 畫布上）
+    drawStatistics() {
+        if (this.gamePhase !== 'finished') return;
+        
+        push();
+        
+        // 背景
+        fill(0, 0, 0, 150);
+        noStroke();
+        rectMode(CORNER);
+        rect(width - 250, 20, 220, 160, 10);
+        
+        // 標題
+        fill(255);
+        textAlign(LEFT, TOP);
+        textSize(16);
+        textStyle(BOLD);
+        text('📊 投票統計', width - 240, 35);
+        
+        // 統計資料
+        textSize(12);
+        textStyle(NORMAL);
+        let y = 55;
+        
+        text(`總投票數: ${this.statistics.totalVotes}`, width - 240, y);
+        y += 18;
+        
+        if (this.statistics.averagePoints > 0) {
+            text(`平均點數: ${this.statistics.averagePoints}`, width - 240, y);
+            y += 18;
+            
+            text(`共識度: ${this.statistics.consensus}%`, width - 240, y);
+            y += 18;
+            
+            if (this.statistics.devAverage > 0) {
+                text(`開發平均: ${this.statistics.devAverage}`, width - 240, y);
+                y += 18;
+            }
+            
+            if (this.statistics.qaAverage > 0) {
+                text(`測試平均: ${this.statistics.qaAverage}`, width - 240, y);
+                y += 18;
+            }
+            
+            // 共識度顏色條
+            const barWidth = 180;
+            const barHeight = 8;
+            const barX = width - 240;
+            const barY = y + 5;
+            
+            // 背景條
+            fill(100);
+            rect(barX, barY, barWidth, barHeight, 4);
+            
+            // 進度條
+            const consensusColor = this.getConsensusColor(this.statistics.consensus);
+            fill(consensusColor);
+            const progressWidth = (this.statistics.consensus / 100) * barWidth;
+            rect(barX, barY, progressWidth, barHeight, 4);
+        }
+        
+        pop();
+    }
+    
+    // 取得共識度顏色
+    getConsensusColor(consensus) {
+        if (consensus >= 80) return color(34, 197, 94);   // 綠色
+        if (consensus >= 60) return color(251, 191, 36);  // 黃色
+        if (consensus >= 40) return color(249, 115, 22);  // 橘色
+        return color(239, 68, 68);                        // 紅色
+    }
+    
+    // 繪製 UI 元素（在 p5.js 畫布上）
+    draw() {
+        if (!this.isGameStarted) return;
+        
+        // 繪製統計資訊
+        this.drawStatistics();
+        
+        // 繪製快捷鍵提示
+        this.drawShortcutHints();
+        
+        // 繪製連線狀態
+        this.drawConnectionStatus();
+    }
+    
+    // 繪製快捷鍵提示
+    drawShortcutHints() {
+        if (this.gamePhase !== 'voting') return;
+        
+        push();
+        fill(255, 255, 255, 100);
+        textAlign(RIGHT, BOTTOM);
+        textSize(10);
+        text('快捷鍵: 數字鍵投票, Ctrl+R 開牌, Ctrl+C 重設', width - 20, height - 40);
+        text('ESC 離開房間', width - 20, height - 25);
+        pop();
+    }
+    
+    // 繪製連線狀態
+    drawConnectionStatus() {
+        if (!firebaseManager) return;
+        
+        const status = firebaseManager.getConnectionStatus();
+        
+        push();
+        const statusColor = status.isConnected ? 
+            (status.useFirebase ? color(34, 197, 94) : color(251, 191, 36)) : 
+            color(239, 68, 68);
+        
+        fill(statusColor);
+        noStroke();
+        circle(width - 30, 30, 12);
+        
+        // 狀態文字
+        fill(255, 200);
+        textAlign(RIGHT, CENTER);
+        textSize(10);
+        const statusText = status.isConnected ? 
+            (status.useFirebase ? 'Firebase' : '本地模式') : '已斷線';
+        text(statusText, width - 45, 30);
+        
+        pop();
+    }
+    
+    // 取得統計資料
+    getStatistics() {
+        return { ...this.statistics };
+    }
+    
+    // 重設統計資料
+    resetStatistics() {
+        this.statistics = {
+            totalVotes: 0,
+            averagePoints: 0,
+            consensus: 0,
+            devAverage: 0,
+            qaAverage: 0
+        };
+    }
+}
+
+console.log('🎨 UIManager 類別已載入');
