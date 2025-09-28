@@ -567,10 +567,7 @@ class GameTable {
             player.position.set(newX, newY);
             
             // 同步更新刪除按鈕位置
-            if (player.deleteButton) {
-                player.deleteButton.x = newX + 35;
-                player.deleteButton.y = newY - 35;
-            }
+            player.updateDeleteButtonPosition();
             
             console.log(`🔄 玩家 ${player.name} 重新定位: (${newX.toFixed(1)}, ${newY})`);
         }
@@ -964,6 +961,62 @@ class GameTable {
         
         console.log('🧪 刪除功能測試完成');
         return true;
+    }
+    
+    // 驗證刪除按鈕位置同步
+    validateDeleteButtonPositions() {
+        const report = {
+            totalPlayers: this.players.length,
+            positionErrors: [],
+            alignmentCheck: true
+        };
+        
+        for (const player of this.players) {
+            const expectedX = player.position.x + 35; // 預期的按鈕 X 位置
+            const expectedY = player.position.y - 35; // 預期的按鈕 Y 位置
+            const actualX = player.deleteButton.position.x;
+            const actualY = player.deleteButton.position.y;
+            
+            const xDiff = Math.abs(expectedX - actualX);
+            const yDiff = Math.abs(expectedY - actualY);
+            
+            if (xDiff > 0.1 || yDiff > 0.1) { // 允許0.1像素的誤差
+                report.positionErrors.push({
+                    playerId: player.id,
+                    playerName: player.name,
+                    playerPos: { x: player.position.x, y: player.position.y },
+                    expectedButtonPos: { x: expectedX, y: expectedY },
+                    actualButtonPos: { x: actualX, y: actualY },
+                    xDiff: xDiff,
+                    yDiff: yDiff
+                });
+                report.alignmentCheck = false;
+            }
+        }
+        
+        console.log('🔍 刪除按鈕位置驗證報告:', report);
+        return report;
+    }
+    
+    // 測試位置同步功能
+    testPositionSync() {
+        console.log('🧪 開始測試刪除按鈕位置同步...');
+        
+        // 測試 1：初始位置檢查
+        const initialReport = this.validateDeleteButtonPositions();
+        console.log('測試 1 - 初始位置:', initialReport.alignmentCheck ? '✅ 通過' : '❌ 失敗');
+        
+        // 測試 2：重新排列後位置檢查
+        this.rearrangeSeats();
+        const afterRearrangeReport = this.validateDeleteButtonPositions();
+        console.log('測試 2 - 重新排列後:', afterRearrangeReport.alignmentCheck ? '✅ 通過' : '❌ 失敗');
+        
+        console.log('🧪 位置同步測試完成');
+        return {
+            initialCheck: initialReport.alignmentCheck,
+            afterRearrangeCheck: afterRearrangeReport.alignmentCheck,
+            overallResult: initialReport.alignmentCheck && afterRearrangeReport.alignmentCheck
+        };
     }
     
     // 取得遊戲狀態

@@ -64,11 +64,11 @@ class Player {
             visible: false,
             hovered: false,
             size: 24,
-            position: new Vector2D(
-                this.position.x + this.seatSize / 2 - 12,
-                this.position.y - this.seatSize / 2 + 12
-            )
+            position: new Vector2D(0, 0) // 將在 updateDeleteButtonPosition 中計算
         };
+        
+        // 初始計算刪除按鈕位置
+        this.updateDeleteButtonPosition();
     }
     
     // 更新玩家
@@ -76,6 +76,19 @@ class Player {
         this.updateAnimations();
         this.updateTransforms();
         this.updateCard();
+    }
+    
+    // 更新刪除按鈕位置
+    updateDeleteButtonPosition() {
+        const offsetX = 35; // 按鈕相對於玩家中心的 X 偏移
+        const offsetY = -35; // 按鈕相對於玩家中心的 Y 偏移
+        
+        this.deleteButton.position.set(
+            this.position.x + offsetX,
+            this.position.y + offsetY
+        );
+        
+        console.log(`🔄 更新刪除按鈕位置: ${this.name} -> (${this.deleteButton.position.x.toFixed(1)}, ${this.deleteButton.position.y.toFixed(1)})`);
     }
     
     // 更新動畫

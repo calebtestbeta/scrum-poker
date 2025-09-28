@@ -12,6 +12,9 @@ class UIManager {
         this.revealBtn = document.getElementById('revealBtn');
         this.clearBtn = document.getElementById('clearBtn');
         
+        // 初始化按鈕事件監聽器
+        this.initializeButtonListeners();
+        
         // 狀態
         this.isGameStarted = false;
         this.currentRoom = null;
@@ -110,6 +113,46 @@ class UIManager {
         
         // 初始化響應式佈局
         this.updateResponsiveLayout();
+    }
+    
+    // 初始化按鈕事件監聽器
+    initializeButtonListeners() {
+        console.log('🔧 初始化按鈕事件監聽器');
+        
+        // 檢查按鈕是否存在
+        if (this.revealBtn) {
+            console.log('✅ 開牌按鈕找到，綁定事件監聽器');
+            // 添加額外的事件監聽器作為備用
+            this.revealBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🎭 開牌按鈕被點擊 (事件監聽器)');
+                if (typeof revealCards === 'function') {
+                    revealCards();
+                } else {
+                    console.error('❌ revealCards 函數未定義');
+                }
+            });
+        } else {
+            console.error('❌ 開牌按鈕未找到');
+        }
+        
+        if (this.clearBtn) {
+            console.log('✅ 重新開始按鈕找到，綁定事件監聽器');
+            // 添加額外的事件監聽器作為備用
+            this.clearBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔄 重新開始按鈕被點擊 (事件監聽器)');
+                if (typeof clearVotes === 'function') {
+                    clearVotes();
+                } else {
+                    console.error('❌ clearVotes 函數未定義');
+                }
+            });
+        } else {
+            console.error('❌ 重新開始按鈕未找到');
+        }
     }
     
     // 處理視窗調整大小
