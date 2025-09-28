@@ -36,19 +36,13 @@ class FirebaseManager {
                 console.log('🔍 Firebase 已由 firebase-config.js 初始化，重用現有實例');
                 this.db = firebase.database();
                 
-                // 檢查是否有 Auth 實例
-                try {
-                    this.auth = firebase.auth();
-                    console.log('✅ Firebase Auth 實例已獲取');
-                } catch (authError) {
-                    console.warn('⚠️ Firebase Auth 不可用，跳過身份驗證:', authError.message);
-                    this.auth = null;
-                }
+                console.log('⚠️ 跳過身份驗證，直接使用資料庫');
+                this.auth = null;
                 
                 this.useFirebase = true;
                 this.isConnected = true;
                 
-                console.log('✅ Firebase Manager 初始化成功 (重用模式)');
+                console.log('✅ Firebase Manager 初始化成功 (無身份驗證模式)');
                 return true;
             }
             
@@ -78,19 +72,13 @@ class FirebaseManager {
             
             this.db = firebase.database();
             
-            // 嘗試初始化 Auth
-            try {
-                this.auth = firebase.auth();
-                console.log('✅ Firebase Auth 初始化成功');
-            } catch (authError) {
-                console.warn('⚠️ Firebase Auth 初始化失敗，跳過身份驗證:', authError.message);
-                this.auth = null;
-            }
+            console.log('⚠️ 跳過身份驗證初始化');
+            this.auth = null;
             
             this.useFirebase = true;
             this.isConnected = true;
             
-            console.log('🔥 Firebase 初始化成功');
+            console.log('🔥 Firebase 初始化成功（無身份驗證模式）');
             return true;
             
         } catch (error) {
@@ -115,57 +103,10 @@ class FirebaseManager {
         }
     }
     
-    // 匿名身份驗證
+    // 跳過身份驗證（已移除）
     async authenticateAnonymously() {
-        try {
-            // 檢查是否有 Auth 實例
-            if (!this.auth) {
-                console.log('⚠️ Firebase Auth 未初始化，跳過身份驗證');
-                return null;
-            }
-            
-            // 檢查是否已經登入
-            if (this.auth.currentUser) {
-                console.log('🔑 用戶已驗證:', this.auth.currentUser.uid);
-                return this.auth.currentUser;
-            }
-            
-            // 進行匿名登入
-            const userCredential = await this.auth.signInAnonymously();
-            const user = userCredential.user;
-            
-            console.log('🔑 匿名身份驗證成功:', user.uid);
-            
-            // 監聽身份驗證狀態變化
-            this.auth.onAuthStateChanged((user) => {
-                if (user) {
-                    console.log('👤 用戶已登入:', user.uid);
-                } else {
-                    console.log('👤 用戶已登出');
-                }
-            });
-            
-            return user;
-            
-        } catch (error) {
-            console.error('❌ 匿名身份驗證失敗:', error);
-            
-            // 根據錯誤類型提供不同的處理
-            if (error.code === 'auth/network-request-failed') {
-                console.warn('網路連線失敗，繼續使用本地模式');
-            } else if (error.code === 'auth/operation-not-allowed') {
-                console.warn('匿名身份驗證未啟用，繼續使用本地模式');
-            } else if (error.code === 'auth/web-storage-unsupported') {
-                console.warn('瀏覽器不支援 Web Storage，繼續使用本地模式');
-            } else if (error.code === 'auth/configuration-not-found') {
-                console.warn('Firebase Auth 配置未找到，繼續使用本地模式');
-            } else {
-                console.warn('身份驗證失敗，繼續使用本地模式:', error.message);
-            }
-            
-            // 不拋出錯誤，而是返回 null 繼續執行
-            return null;
-        }
+        console.log('⚠️ 身份驗證已跳過，直接返回 null');
+        return null;
     }
     
     // 初始化模擬資料
@@ -198,24 +139,17 @@ class FirebaseManager {
     
     // 加入 Firebase 房間
     async joinFirebaseRoom(roomId, playerName, playerRole) {
-        // 確保用戶已驗證
-        if (!this.auth.currentUser) {
-            await this.authenticateAnonymously();
-        }
-        
         if (!roomId) {
             roomId = this.generateRoomId();
         }
         
         const playerId = this.generatePlayerId();
-        const currentUser = this.auth.currentUser;
         
-        // 建立玩家資料
+        // 建立玩家資料（無需身份驗證）
         const playerData = {
             id: playerId,
             name: playerName,
             role: playerRole,
-            uid: currentUser.uid, // 添加 Firebase UID
             joined: firebase.database.ServerValue.TIMESTAMP,
             connected: true,
             hasVoted: false,
@@ -233,7 +167,6 @@ class FirebaseManager {
             await roomRef.set({
                 id: roomId,
                 created: firebase.database.ServerValue.TIMESTAMP,
-                createdBy: currentUser.uid, // 添加創建者 UID
                 phase: 'waiting',
                 players: {},
                 votes: {},
@@ -260,7 +193,7 @@ class FirebaseManager {
         this.setupPlayersListener(roomId);
         this.setupVotesListener(roomId);
         
-        console.log(`✅ Firebase 房間 ${roomId} 連接完成 (玩家: ${playerName}, UID: ${currentUser.uid})`);
+        console.log(`✅ Firebase 房間 ${roomId} 連接完成 (玩家: ${playerName})`);
         return { roomId, playerId };
     }
     
@@ -377,12 +310,6 @@ class FirebaseManager {
         
         try {
             if (this.useFirebase) {
-                // 確保用戶已驗證
-                if (!this.auth.currentUser) {
-                    console.error('用戶未驗證，無法投票');
-                    return false;
-                }
-                
                 const playerRef = this.db.ref(`rooms/${this.currentRoom}/players/${this.currentPlayer.id}`);
                 await playerRef.update({
                     hasVoted: true,
@@ -432,12 +359,6 @@ class FirebaseManager {
         
         try {
             if (this.useFirebase) {
-                // 確保用戶已驗證
-                if (!this.auth.currentUser) {
-                    console.error('用戶未驗證，無法開牌');
-                    return false;
-                }
-                
                 const roomRef = this.db.ref(`rooms/${this.currentRoom}`);
                 await roomRef.update({
                     phase: 'revealing',
@@ -672,10 +593,10 @@ class FirebaseManager {
         return {
             isConnected: this.isConnected,
             useFirebase: this.useFirebase,
-            isAuthenticated: this.auth && this.auth.currentUser != null,
+            isAuthenticated: false, // 已停用身份驗證
             currentRoom: this.currentRoom,
             currentPlayer: this.currentPlayer,
-            userUid: this.auth && this.auth.currentUser ? this.auth.currentUser.uid : null
+            userUid: null // 無身份驗證
         };
     }
     

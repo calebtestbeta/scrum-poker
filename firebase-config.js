@@ -68,31 +68,14 @@ async function initializeFirebaseApp(customConfig = null) {
                 app = firebase.initializeApp(config);
                 database = firebase.database();
                 
-                // 初始化 Authentication（模擬器模式）
-                const auth = firebase.auth();
-                
-                // 連接到 Auth 模擬器
-                auth.useEmulator('http://localhost:9099');
-                
-                // 在模擬器模式下自動啟用匿名登入
-                if (auth && typeof auth.signInAnonymously === 'function') {
-                    auth.signInAnonymously().then((userCredential) => {
-                        console.log('🔐 Firebase Auth 模擬器匿名登入成功:', userCredential.user.uid);
-                    }).catch((error) => {
-                        console.warn('⚠️ Firebase Auth 模擬器匿名登入失敗:', error);
-                        console.log('💡 請確認 Firebase Auth 模擬器已啟動 (port 9099)');
-                    });
-                }
-                
-                console.log('🔥 Firebase 模擬器連接成功');
+                console.log('🔥 Firebase 模擬器連接成功（無身份驗證模式）');
                 console.log('📡 Database URL:', config.databaseURL);
-                return { app, database, auth };
+                return { app, database };
             } catch (error) {
                 console.warn('Firebase 模擬器連接失敗，回退到模擬模式:', error);
                 return {
                     app: null,
-                    database: createMockDatabase(),
-                    auth: createMockAuth()
+                    database: createMockDatabase()
                 };
             }
         }
@@ -106,21 +89,8 @@ async function initializeFirebaseApp(customConfig = null) {
         app = firebase.initializeApp(config);
         database = firebase.database();
         
-        // 初始化 Authentication
-        const auth = firebase.auth();
-        
-        // 自動執行匿名登入
-        if (auth && typeof auth.signInAnonymously === 'function') {
-            auth.signInAnonymously().then((userCredential) => {
-                console.log('🔐 Firebase 雲端匿名登入成功:', userCredential.user.uid);
-            }).catch((error) => {
-                console.error('❌ Firebase 雲端匿名登入失敗:', error);
-                console.log('💡 請確認 Firebase 控制台中已啟用匿名身份驗證');
-            });
-        }
-        
-        console.log('☁️ Firebase 雲端服務初始化成功');
-        return { app, database, auth };
+        console.log('☁️ Firebase 雲端服務初始化成功（無身份驗證模式）');
+        return { app, database };
     } catch (error) {
         console.error('Firebase 初始化失敗:', error);
         
