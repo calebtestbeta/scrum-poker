@@ -65,10 +65,22 @@
 
 ```
 scrum-poker/
-├── index.html          # 主頁面
-├── app.js             # 應用程式邏輯
-├── firebase-config.js # Firebase 設定
-└── README.md          # 說明檔案
+├── index.html                 # 主頁面
+├── game.js                    # 核心遊戲邏輯
+├── sketch.js                  # p5.js 畫布邏輯
+├── classes/                   # 遊戲物件類別
+│   ├── GameTable.js          # 遊戲桌面邏輯
+│   ├── Player.js             # 玩家管理
+│   ├── Card.js               # 卡牌系統
+│   └── Vector2D.js           # 數學向量
+├── managers/                  # 功能管理器
+│   ├── FirebaseManager.js    # 資料庫管理
+│   ├── UIManager.js          # 使用者介面
+│   ├── AnimationManager.js   # 動畫效果
+│   └── CookieManager.js      # 本地資料
+├── FIREBASE_SETUP.md         # Firebase 設定指南
+├── FEATURE_DEMO.md           # 功能演示說明
+└── README.md                 # 本說明檔案
 ```
 
 ## 使用方式

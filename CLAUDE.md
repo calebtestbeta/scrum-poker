@@ -81,7 +81,6 @@ scrum-poker/
 │   ├── AnimationManager.js # 動畫效果管理
 │   └── CookieManager.js   # 本地資料管理
 │
-├── test-new-features.html  # 功能測試頁面
 ├── FEATURE_DEMO.md        # 功能演示說明
 └── CLAUDE.md              # 本文件
 ```
