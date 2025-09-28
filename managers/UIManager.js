@@ -437,14 +437,15 @@ class UIManager {
         const panelX = width - panelWidth - margin;
         let panelY = 20;
         
-        // 動態計算高度
+        // 動態計算高度 - 確保包含所有內容區塊
         let contentHeight = 60; // 標題和基本間距
         contentHeight += 25; // 總投票數
         if (this.statistics.devAverage > 0) contentHeight += 70; // Dev組
         if (this.statistics.qaAverage > 0) contentHeight += 70; // QA組
-        if (this.statistics.devAverage > 0 && this.statistics.qaAverage > 0) contentHeight += 45; // 差異分析
+        if (this.statistics.devAverage > 0 && this.statistics.qaAverage > 0) contentHeight += 50; // 差異分析（增加高度）
+        contentHeight += 20; // 底部邊距
         
-        const panelHeight = Math.min(contentHeight, height * 0.4); // 最多佔螢幕高度40%
+        const panelHeight = Math.min(contentHeight, height * 0.5); // 調整最大高度限制
         
         // 背景面板（統一樣式）
         fill(30, 35, 42, 200); // 深色半透明背景
@@ -503,6 +504,7 @@ class UIManager {
         if (this.statistics.devAverage > 0 && this.statistics.qaAverage > 0) {
             const diff = Math.abs(this.statistics.devAverage - this.statistics.qaAverage);
             this.drawDifferenceAnalysis(contentX, currentY, panelWidth - 30, diff);
+            currentY += 50; // 確保正確計算內容高度
         }
         
         pop();
@@ -735,14 +737,14 @@ class UIManager {
     draw() {
         if (!this.isGameStarted) return;
         
-        // 繪製統計資訊
+        // 首先繪製連線狀態（背景層，較低優先級）
+        this.drawConnectionStatus();
+        
+        // 繪製統計資訊（主要內容層）
         this.drawStatistics();
         
         // 繪製快捷鍵提示
         this.drawShortcutHints();
-        
-        // 繪製連線狀態
-        this.drawConnectionStatus();
         
         // 繪製確認對話框（最後繪製，確保在最上層）
         this.drawConfirmDialog();
@@ -805,25 +807,41 @@ class UIManager {
         pop();
     }
     
-    // 繪製連線狀態
+    // 繪製連線狀態（低層級顯示，避免干擾主要內容）
     drawConnectionStatus() {
         if (!firebaseManager) return;
         
         const status = firebaseManager.getConnectionStatus();
         
         push();
+        
+        // 檢查是否有統計面板重疊，如果有則降低透明度或調整位置
+        const hasStatistics = this.gamePhase === 'finished';
+        let statusOpacity = hasStatistics ? 100 : 200; // 當有統計面板時降低透明度
+        let statusY = 30;
+        
+        // 如果統計面板存在且位於右上角，則將狀態移到左上角
+        if (hasStatistics) {
+            statusY = height - 30; // 移至畫面底部
+        }
+        
         const statusColor = status.isConnected ? 
-            (status.useFirebase ? color(34, 197, 94) : color(251, 191, 36)) : 
-            color(239, 68, 68);
+            (status.useFirebase ? color(34, 197, 94, statusOpacity) : color(251, 191, 36, statusOpacity)) : 
+            color(239, 68, 68, statusOpacity);
         
-        fill(statusColor);
+        // 繪製半透明背景圓圈
+        fill(0, 0, 0, 50);
         noStroke();
-        circle(width - 30, 30, 12);
+        circle(width - 30, statusY, 16);
         
-        // 狀態文字
-        fill(255, 200);
+        // 繪製狀態指示點
+        fill(statusColor);
+        circle(width - 30, statusY, 10);
+        
+        // 狀態文字（調整透明度和大小）
+        fill(255, 255, 255, statusOpacity);
         textAlign(RIGHT, CENTER);
-        textSize(10);
+        textSize(9); // 縮小字體
         let statusText = '已斷線';
         if (status.isConnected) {
             if (status.useFirebase) {
@@ -832,7 +850,7 @@ class UIManager {
                 statusText = '本地模式';
             }
         }
-        text(statusText, width - 45, 30);
+        text(statusText, width - 50, statusY);
         
         pop();
     }
