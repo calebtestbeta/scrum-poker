@@ -91,6 +91,9 @@ async function startGame() {
                 console.log(`🎯 任務類型已設定: ${taskType}`);
             }
             
+            // 顯示房間 ID
+            updateRoomIdDisplay(result.roomId);
+            
             // 啟動 UI
             uiManager.startGame(result.roomId, result.playerId);
             
@@ -157,6 +160,9 @@ function leaveGame() {
         cookieManager.clearGameSession();
         console.log('🧹 玩家主動離開，遊戲會話已清除');
     }
+    
+    // 隱藏房間 ID 顯示
+    hideRoomIdDisplay();
     
     // 清除遊戲狀態
     currentPlayer = null;
@@ -1238,6 +1244,9 @@ class ScrumMasterAdvice {
 // 建立 Scrum Master 建議系統實例
 let scrumMasterAdvice;
 
+// 房間 ID 管理
+let currentRoomId = null;
+
 // 當頁面載入完成時初始化
 window.addEventListener('DOMContentLoaded', () => {
     scrumMasterAdvice = new ScrumMasterAdvice();
@@ -1457,3 +1466,107 @@ console.log('💡 使用 testRoomCreation() 進行快速測試');
 console.log('💡 使用 addAdviceFeedback(rating, comment) 新增建議回饋');
 console.log('💡 使用 showAdviceFeedbackStats() 查看回饋統計');
 console.log('💡 使用 clearAdviceFeedback() 清除回饋資料');
+
+// 房間 ID 相關功能
+function updateRoomIdDisplay(roomId) {
+    currentRoomId = roomId;
+    const roomIdElement = document.getElementById('roomIdValue');
+    const roomIdDisplay = document.getElementById('roomIdDisplay');
+    
+    if (roomIdElement && roomIdDisplay) {
+        roomIdElement.textContent = roomId;
+        roomIdDisplay.style.display = 'block';
+        console.log(`🏠 房間 ID 已更新: ${roomId}`);
+    }
+}
+
+function hideRoomIdDisplay() {
+    const roomIdDisplay = document.getElementById('roomIdDisplay');
+    if (roomIdDisplay) {
+        roomIdDisplay.style.display = 'none';
+    }
+    currentRoomId = null;
+}
+
+async function copyRoomId() {
+    if (!currentRoomId) {
+        console.warn('⚠️ 沒有可複製的房間 ID');
+        return;
+    }
+    
+    try {
+        // 使用現代的 Clipboard API
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(currentRoomId);
+            showCopySuccess();
+        } else {
+            // 備援方案：使用傳統的 execCommand
+            const textArea = document.createElement('textarea');
+            textArea.value = currentRoomId;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                showCopySuccess();
+            } else {
+                throw new Error('複製失敗');
+            }
+        }
+        
+        console.log(`📋 已複製房間 ID: ${currentRoomId}`);
+        
+    } catch (error) {
+        console.error('複製房間 ID 失敗:', error);
+        showCopyError();
+    }
+}
+
+function showCopySuccess() {
+    const copyBtn = document.querySelector('#roomIdDisplay .copy-btn');
+    if (copyBtn) {
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '✅ 已複製';
+        copyBtn.classList.add('copied');
+        
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+            copyBtn.classList.remove('copied');
+        }, 2000);
+    }
+    
+    // 顯示 Toast 提示
+    if (typeof uiManager !== 'undefined' && uiManager.showSuccess) {
+        uiManager.showSuccess('房間 ID 已複製到剪貼板');
+    }
+}
+
+function showCopyError() {
+    const copyBtn = document.querySelector('#roomIdDisplay .copy-btn');
+    if (copyBtn) {
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '❌ 失敗';
+        copyBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+            copyBtn.style.background = '';
+        }, 2000);
+    }
+    
+    // 顯示錯誤提示
+    if (typeof uiManager !== 'undefined' && uiManager.showError) {
+        uiManager.showError('複製失敗，請手動選擇房間 ID');
+    }
+}
+
+// 獲取當前房間 ID
+function getCurrentRoomId() {
+    return currentRoomId;
+}

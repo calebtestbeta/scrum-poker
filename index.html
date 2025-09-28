@@ -177,6 +177,89 @@
             background: linear-gradient(135deg, #10b981, #059669);
         }
         
+        /* 房間 ID 顯示區域 */
+        #roomIdDisplay {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        #roomIdDisplay .room-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        
+        #roomIdDisplay .room-id-value {
+            font-family: 'Courier New', monospace;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 6px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            color: #1d4ed8;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: all;
+        }
+        
+        #roomIdDisplay .room-id-value:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+            transform: scale(1.02);
+        }
+        
+        #roomIdDisplay .copy-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 36px;
+        }
+        
+        #roomIdDisplay .copy-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-1px);
+        }
+        
+        #roomIdDisplay .copy-btn:active {
+            transform: translateY(0);
+        }
+        
+        #roomIdDisplay .copy-btn.copied {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            animation: pulse 0.3s ease;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
         /* gameInfo 相關樣式已移除，改由畫布顯示 */
         
         #gameControls {
@@ -322,6 +405,27 @@
         
         /* 響應式設計 */
         @media (max-width: 1024px) {
+            #roomIdDisplay {
+                top: 15px;
+                padding: 10px 16px;
+            }
+            
+            #roomIdDisplay .room-info {
+                gap: 10px;
+                font-size: 13px;
+            }
+            
+            #roomIdDisplay .room-id-value {
+                font-size: 14px;
+                padding: 5px 10px;
+            }
+            
+            #roomIdDisplay .copy-btn {
+                padding: 6px 12px;
+                font-size: 11px;
+                min-height: 32px;
+            }
+            
             #gameControls {
                 bottom: 140px; /* 平板尺寸的控制按鈕位置 */
                 right: 15px;
@@ -338,6 +442,36 @@
             #loginPanel {
                 min-width: 90vw;
                 padding: 30px 20px;
+            }
+            
+            #roomIdDisplay {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                transform: none;
+                width: auto;
+                padding: 8px 12px;
+            }
+            
+            #roomIdDisplay .room-info {
+                flex-direction: column;
+                gap: 8px;
+                font-size: 12px;
+                text-align: center;
+            }
+            
+            #roomIdDisplay .room-id-value {
+                font-size: 13px;
+                padding: 4px 8px;
+                width: 100%;
+                text-align: center;
+            }
+            
+            #roomIdDisplay .copy-btn {
+                padding: 5px 10px;
+                font-size: 10px;
+                min-height: 28px;
+                align-self: center;
             }
             
             /* gameInfo 樣式已移除 */
@@ -460,7 +594,18 @@
             </div>
         </div>
         
-        <!-- 遊戲資訊區塊已移除，改由畫布顯示 -->
+        <!-- 房間 ID 顯示區域 -->
+        <div id="roomIdDisplay" style="display: none;">
+            <div class="room-info">
+                <span>房間 ID：</span>
+                <span class="room-id-value" id="roomIdValue" onclick="copyRoomId()" title="點擊複製房間 ID">
+                    ----
+                </span>
+                <button class="copy-btn" onclick="copyRoomId()">
+                    📋 複製
+                </button>
+            </div>
+        </div>
         
         <!-- 遊戲控制 -->
         <div id="gameControls" style="display: none;">
@@ -477,8 +622,8 @@
     <script>
         // 版本信息
         window.SCRUM_POKER_VERSION = {
-            hash: 'v2.0.0', 
-            buildTime: '20250928_2400',
+            hash: 'v2.1.0', 
+            buildTime: '20250928_2500',
             toString: function() { return `${this.hash}-${this.buildTime}`; }
         };
         
