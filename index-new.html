@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrum Poker 遊戲版 - 敏捷估點工具 (重新設計版)</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    
+    <!-- 主樣式文件 -->
+    <link rel="stylesheet" href="src/styles/main.css">
+    
+    <style>
+        /* 載入動畫 */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-game);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: var(--z-top);
+            transition: opacity var(--duration-slow) var(--ease-out);
+        }
+        
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--text-inverse);
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-medium);
+            text-align: center;
+        }
+        
+        .loading-progress {
+            margin-top: var(--spacing-md);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: var(--font-size-sm);
+        }
+    </style>
+</head>
+<body>
+    <!-- 跳過連結（無障礙） -->
+    <a href="#main-content" class="skip-link">跳到主要內容</a>
+    
+    <!-- 載入畫面 -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">🎮 Scrum Poker 遊戲版</div>
+        <div class="loading-progress" id="loadingProgress">正在初始化...</div>
+    </div>
+    
+    <!-- 主應用容器 -->
+    <div class="app-container" id="appContainer">
+        <!-- 登入畫面 -->
+        <div class="login-screen" id="loginScreen">
+            <div class="modal-backdrop">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2>🎮 Scrum Poker 遊戲版</h2>
+                        <p class="text-secondary">敏捷估點協作工具 - 重新設計版</p>
+                    </div>
+                    
+                    <form class="modal-body" id="loginForm">
+                        <div class="input-group">
+                            <label for="playerName" class="input-label">你的名字</label>
+                            <input type="text" id="playerName" class="input-field" placeholder="輸入你的名字" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="playerRole" class="input-label">角色</label>
+                            <select id="playerRole" class="input-field" required>
+                                <option value="dev">👨‍💻 開發者 (Dev)</option>
+                                <option value="qa">🐛 測試者 (QA)</option>
+                                <option value="scrum_master">👥 Scrum Master</option>
+                                <option value="po">👔 Product Owner</option>
+                                <option value="other">👤 其他</option>
+                            </select>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="roomId" class="input-label">房間 ID（選填）</label>
+                            <input type="text" id="roomId" class="input-field" placeholder="留空自動建立新房間">
+                        </div>
+                        
+                        <!-- 任務類型選擇（僅對 PO 和 SM 顯示） -->
+                        <div class="input-group hidden" id="taskTypeGroup">
+                            <label for="taskType" class="input-label">任務類型（選填）</label>
+                            <select id="taskType" class="input-field">
+                                <option value="">不指定類型</option>
+                                <option value="frontend">🖥️ 前端開發</option>
+                                <option value="backend">⚙️ 後端開發</option>
+                                <option value="fullstack">🔄 全端開發</option>
+                                <option value="mobile_app">📱 手機應用程式</option>
+                                <option value="api_integration">🔌 API 整合</option>
+                                <option value="database">🗄️ 資料庫相關</option>
+                                <option value="testing">🧪 測試相關</option>
+                                <option value="devops">🚀 DevOps/部署</option>
+                                <option value="ui_ux">🎨 UI/UX 設計</option>
+                                <option value="research">🔍 技術研究</option>
+                                <option value="maintenance">🔧 系統維護</option>
+                                <option value="security">🛡️ 資安相關</option>
+                            </select>
+                            <small class="text-muted">💡 選擇任務類型可獲得更精準的技術建議</small>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="rememberMe" checked>
+                                <span class="ml-2">記住我的資訊（儲存在本機）</span>
+                            </label>
+                            <small class="text-muted">🔒 隱私保護：資訊僅儲存在您的瀏覽器中，不會上傳到伺服器</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-lg">🚀 開始遊戲</button>
+                        
+                        <!-- Firebase 設定區域 -->
+                        <div class="firebase-config" id="firebaseConfig">
+                            <h3>🔧 Firebase 設定（首次使用）</h3>
+                            
+                            <div class="input-group">
+                                <label for="projectId" class="input-label">Project ID</label>
+                                <input type="text" id="projectId" class="input-field" placeholder="your-project-id">
+                            </div>
+                            
+                            <div class="input-group">
+                                <label for="apiKey" class="input-label">API Key</label>
+                                <input type="text" id="apiKey" class="input-field" placeholder="AIza...">
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button type="button" class="btn btn-secondary" id="saveConfigBtn">💾 儲存設定</button>
+                                <button type="button" class="btn btn-outline" id="localModeBtn">💻 本地模式</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 遊戲主畫面 -->
+        <main class="game-container hidden" id="gameContainer" role="main">
+            <div class="game-layout">
+                <!-- 頁首區域 -->
+                <header class="game-header">
+                    <div class="room-info">
+                        <h1 class="text-inverse">🎮 Scrum Poker</h1>
+                        <div class="room-details" id="roomDetails">
+                            <span class="room-id">房間: <strong id="currentRoomId">----</strong></span>
+                            <button class="btn btn-sm btn-ghost" id="copyRoomBtn" title="複製房間 ID">
+                                📋 複製
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="connection-status" id="connectionStatus">
+                        <div class="status-indicator"></div>
+                        <span class="status-text">連接中...</span>
+                    </div>
+                </header>
+                
+                <!-- 玩家區域 -->
+                <section class="players-area" id="playersArea" aria-label="遊戲玩家">
+                    <!-- 玩家動態生成在這裡 -->
+                </section>
+                
+                <!-- 統計面板 -->
+                <aside class="stats-panel" id="statsPanel" aria-label="遊戲統計">
+                    <h3 class="text-inverse font-bold mb-4">📊 估點統計</h3>
+                    <div class="stats-content" id="statsContent">
+                        <p class="text-muted">等待遊戲開始...</p>
+                    </div>
+                </aside>
+                
+                <!-- 主遊戲區域 -->
+                <section class="game-area" id="gameArea" aria-label="遊戲主區域">
+                    <div class="game-status" id="gameStatus">
+                        <h2 class="text-inverse text-center">等待玩家加入...</h2>
+                    </div>
+                    
+                    <div class="game-actions" id="gameActions">
+                        <!-- 中央按鈕動態生成在這裡 -->
+                    </div>
+                </section>
+                
+                <!-- 通知面板 -->
+                <aside class="notifications-panel" id="notificationsPanel" aria-label="通知訊息">
+                    <!-- 快捷鍵提示 -->
+                    <div class="shortcut-hints" id="shortcutHints">
+                        <h4 class="text-inverse font-medium mb-2">⌨️ 快捷鍵</h4>
+                        <div class="shortcuts-list">
+                            <!-- 快捷鍵動態生成在這裡 -->
+                        </div>
+                    </div>
+                </aside>
+                
+                <!-- 遊戲控制 -->
+                <div class="game-controls" id="gameControls">
+                    <button class="btn btn-primary" id="revealBtn" disabled>🎭 開牌</button>
+                    <button class="btn btn-secondary" id="clearBtn">🔄 重新開始</button>
+                    <button class="btn btn-outline" id="leaveBtn">🚪 離開房間</button>
+                </div>
+            </div>
+            
+            <!-- 卡牌區域 -->
+            <div class="cards-area" id="cardsArea" role="group" aria-label="估點卡牌">
+                <!-- 卡牌動態生成在這裡 -->
+            </div>
+        </main>
+    </div>
+    
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true">
+        <!-- Toast 動態生成在這裡 -->
+    </div>
+    
+    <!-- 確認對話框 -->
+    <div class="modal-backdrop hidden" id="confirmModal" role="dialog" aria-modal="true">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="confirmTitle">確認操作</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">您確定要執行此操作嗎？</p>
+            </div>
+            <div class="modal-footer flex justify-end gap-2">
+                <button class="btn btn-outline" id="confirmCancelBtn">取消</button>
+                <button class="btn btn-primary" id="confirmOkBtn">確認</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scrum Master 建議對話框 -->
+    <div class="modal-backdrop hidden" id="adviceModal" role="dialog" aria-modal="true">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📋 Scrum Master 建議</h3>
+            </div>
+            <div class="modal-body" id="adviceContent">
+                <!-- 建議內容動態生成在這裡 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="adviceCloseBtn">關閉</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 版本資訊 -->
+    <script>
+        // 版本信息
+        window.SCRUM_POKER_VERSION = {
+            hash: 'v3.0.0-vanilla', 
+            buildTime: new Date().toISOString().slice(0,10).replace(/-/g,'') + '_' + new Date().toTimeString().slice(0,5).replace(':',''),
+            architecture: 'Vanilla JavaScript + CSS',
+            toString: function() { return `${this.hash}-${this.buildTime}`; }
+        };
+        
+        console.log(`🏷️  新版本部署: ${window.SCRUM_POKER_VERSION}`);
+        console.log(`🏗️  架構: ${window.SCRUM_POKER_VERSION.architecture}`);
+        
+        // 載入進度追蹤
+        let loadingProgress = 0;
+        const totalSteps = 6;
+        
+        function updateLoadingProgress(step, message) {
+            loadingProgress = Math.min(step, totalSteps);
+            const percentage = Math.round((loadingProgress / totalSteps) * 100);
+            const progressElement = document.getElementById('loadingProgress');
+            if (progressElement) {
+                progressElement.textContent = `${message} (${percentage}%)`;
+            }
+            console.log(`📈 載入進度: ${percentage}% - ${message}`);
+        }
+        
+        // 全域錯誤處理
+        window.addEventListener('error', (event) => {
+            console.error('🚨 全域錯誤:', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error,
+                version: window.SCRUM_POKER_VERSION.toString()
+            });
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('🚨 未處理的 Promise 錯誤:', {
+                reason: event.reason,
+                version: window.SCRUM_POKER_VERSION.toString()
+            });
+        });
+        
+        // 頁面載入完成後隱藏載入畫面
+        window.addEventListener('load', () => {
+            updateLoadingProgress(totalSteps, '載入完成');
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden');
+                }
+            }, 500);
+        });
+        
+        // DOM 內容載入完成
+        document.addEventListener('DOMContentLoaded', () => {
+            updateLoadingProgress(1, '初始化 DOM');
+        });
+    </script>
+    
+    <!-- 核心模組載入 -->
+    <script>
+        updateLoadingProgress(2, '載入核心模組');
+    </script>
+    <script src="src/core/EventBus.js"></script>
+    <script src="src/core/GameState.js"></script>
+    <script src="src/core/Utils.js"></script>
+    
+    <!-- 服務層載入 -->
+    <script>
+        updateLoadingProgress(3, '載入服務層');
+    </script>
+    <!-- Firebase 設定 -->
+    <script src="firebase-config.js"></script>
+    <!-- 待建立的服務模組 -->
+    <!-- <script src="src/services/FirebaseService.js"></script> -->
+    <!-- <script src="src/services/StorageService.js"></script> -->
+    <!-- <script src="src/services/NotificationService.js"></script> -->
+    
+    <!-- 組件載入 -->
+    <script>
+        updateLoadingProgress(4, '載入 UI 組件');
+    </script>
+    <!-- 待建立的組件模組 -->
+    <!-- <script src="src/components/Card.js"></script> -->
+    <!-- <script src="src/components/Player.js"></script> -->
+    <!-- <script src="src/components/GameTable.js"></script> -->
+    <!-- <script src="src/components/StatPanel.js"></script> -->
+    
+    <!-- 主應用程式 -->
+    <script>
+        updateLoadingProgress(5, '初始化應用程式');
+    </script>
+    <!-- <script src="src/app.js"></script> -->
+    
+    <script>
+        updateLoadingProgress(6, '準備就緒');
+    </script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+/**
+ * CSS 變數定義 - 設計系統基礎
+ * 定義全域的顏色、尺寸、動畫等設計變數
+ */
+
+:root {
+  /* === 顏色系統 === */
+  
+  /* 主要顏色 */
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-alpha: rgba(59, 130, 246, 0.1);
+  
+  /* 次要顏色 */
+  --color-secondary: #10b981;
+  --color-secondary-light: #34d399;
+  --color-secondary-dark: #047857;
+  --color-secondary-alpha: rgba(16, 185, 129, 0.1);
+  
+  /* 狀態顏色 */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+  
+  /* 中性顏色 */
+  --color-white: #ffffff;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-black: #000000;
+  
+  /* 漸變色 */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  --gradient-secondary: linear-gradient(135deg, var(--color-secondary), var(--color-secondary-dark));
+  --gradient-warm: linear-gradient(135deg, #f59e0b, #d97706);
+  --gradient-cool: linear-gradient(135deg, #06b6d4, #0891b2);
+  
+  /* 背景顏色 */
+  --bg-primary: var(--color-white);
+  --bg-secondary: var(--color-gray-50);
+  --bg-tertiary: var(--color-gray-100);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-game: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  
+  /* 文字顏色 */
+  --text-primary: var(--color-gray-900);
+  --text-secondary: var(--color-gray-600);
+  --text-tertiary: var(--color-gray-400);
+  --text-inverse: var(--color-white);
+  --text-muted: var(--color-gray-500);
+  
+  /* === 尺寸系統 === */
+  
+  /* 間距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  
+  /* 字體大小 */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  --font-size-5xl: 48px;
+  
+  /* 行高 */
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+  
+  /* 字重 */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  
+  /* 圓角 */
+  --border-radius-none: 0;
+  --border-radius-sm: 4px;
+  --border-radius-base: 6px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  --border-radius-2xl: 24px;
+  --border-radius-full: 9999px;
+  
+  /* 邊框 */
+  --border-width-thin: 1px;
+  --border-width-base: 2px;
+  --border-width-thick: 4px;
+  
+  /* 陰影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  
+  /* === 動畫系統 === */
+  
+  /* 動畫持續時間 */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  --duration-slowest: 700ms;
+  
+  /* 緩動函數 */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* 過渡效果 */
+  --transition-fast: all var(--duration-fast) var(--ease-out);
+  --transition-base: all var(--duration-base) var(--ease-out);
+  --transition-slow: all var(--duration-slow) var(--ease-out);
+  
+  /* === 遊戲特定變數 === */
+  
+  /* 卡牌尺寸 */
+  --card-width: 80px;
+  --card-height: 120px;
+  --card-width-sm: 60px;
+  --card-height-sm: 90px;
+  --card-width-lg: 100px;
+  --card-height-lg: 150px;
+  
+  /* 卡牌顏色 */
+  --card-bg: var(--color-white);
+  --card-bg-selected: var(--color-primary);
+  --card-bg-hover: var(--color-gray-50);
+  --card-border: var(--color-gray-200);
+  --card-border-selected: var(--color-primary);
+  --card-shadow: var(--shadow-md);
+  --card-shadow-hover: var(--shadow-lg);
+  --card-shadow-selected: 0 8px 25px rgba(59, 130, 246, 0.3);
+  
+  /* 玩家元素 */
+  --player-size: 80px;
+  --player-size-sm: 60px;
+  --player-avatar-size: 50px;
+  --player-avatar-size-sm: 40px;
+  
+  /* 角色顏色 */
+  --role-dev: #10b981;
+  --role-qa: #f59e0b;
+  --role-scrum-master: #8b5cf6;
+  --role-po: #06b6d4;
+  --role-other: #6b7280;
+  
+  /* 統計面板 */
+  --stats-panel-bg: rgba(30, 35, 42, 0.95);
+  --stats-panel-border: rgba(255, 255, 255, 0.1);
+  --stats-panel-width: 320px;
+  --stats-panel-width-sm: 280px;
+  
+  /* Z-index 層級 */
+  --z-base: 1;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+  --z-toast: 80;
+  --z-top: 90;
+  
+  /* === 響應式斷點（用於 JS） === */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  
+  /* === 高對比模式支援 === */
+  --hc-border: ButtonText;
+  --hc-background: ButtonFace;
+  --hc-text: ButtonText;
+}
+
+/* === 深色模式變數（未來擴展） === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 可在此定義深色模式變數 */
+    --bg-primary: var(--color-gray-900);
+    --bg-secondary: var(--color-gray-800);
+    --bg-tertiary: var(--color-gray-700);
+    
+    --text-primary: var(--color-gray-100);
+    --text-secondary: var(--color-gray-300);
+    --text-tertiary: var(--color-gray-400);
+    
+    --card-bg: var(--color-gray-800);
+    --card-bg-hover: var(--color-gray-700);
+    --card-border: var(--color-gray-600);
+  }
+}
+
+/* === 運動偏好設定 === */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+    --duration-slowest: 0ms;
+  }
+}
+
+/* === 高對比模式支援 === */
+@media (prefers-contrast: high) {
+  :root {
+    --color-primary: #0066cc;
+    --color-secondary: #008000;
+    --color-error: #cc0000;
+    --color-warning: #cc6600;
+    
+    --text-primary: #000000;
+    --text-secondary: #000000;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f0f0f0;
+    
+    --border-width-base: 2px;
+    --border-width-thick: 3px;
+  }
+}
+
+/* === 印刷媒體設定 === */
+@media print {
+  :root {
+    --shadow-sm: none;
+    --shadow-base: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-xl: none;
+    --shadow-2xl: none;
+    
+    --bg-primary: white;
+    --text-primary: black;
+    --color-primary: black;
+  }
+}

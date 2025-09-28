@@ -1,0 +1,777 @@
+/**
+ * 主樣式文件 - 全域樣式和佈局
+ * 包含重置樣式、全域佈局和響應式設計
+ */
+
+/* 導入 CSS 變數 */
+@import url('./variables.css');
+
+/* === 重置和基礎樣式 === */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  line-height: var(--line-height-normal);
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 
+               'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--text-primary);
+  background: var(--bg-game);
+  overflow: hidden;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* === 無障礙改善 === */
+
+/* 跳過連結 */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  padding: 8px;
+  text-decoration: none;
+  border-radius: var(--border-radius-base);
+  z-index: var(--z-top);
+  transition: var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+  border: 2px solid transparent;
+}
+
+.skip-link:focus {
+  top: 6px;
+  border-color: var(--text-inverse);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 螢幕閱讀器專用文字 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 聚焦樣式 */
+*:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* === 通用元素樣式 === */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  margin: 0;
+}
+
+h1 { font-size: var(--font-size-4xl); }
+h2 { font-size: var(--font-size-3xl); }
+h3 { font-size: var(--font-size-2xl); }
+h4 { font-size: var(--font-size-xl); }
+h5 { font-size: var(--font-size-lg); }
+h6 { font-size: var(--font-size-base); }
+
+p {
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: var(--transition-base);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  border: var(--border-width-base) solid var(--color-gray-300);
+  border-radius: var(--border-radius-base);
+  padding: var(--spacing-sm) var(--spacing-md);
+  transition: var(--transition-base);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+/* === 主要佈局容器 === */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+.game-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* === 遊戲區域佈局 === */
+
+.game-layout {
+  display: grid;
+  grid-template-areas: 
+    "header header header"
+    "players players players"
+    "stats game-area notifications"
+    "controls controls controls";
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: 300px 1fr 300px;
+  height: 100%;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+}
+
+.game-header {
+  grid-area: header;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.players-area {
+  grid-area: players;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  min-height: 120px;
+}
+
+.stats-panel {
+  grid-area: stats;
+  background: var(--stats-panel-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--stats-panel-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  overflow-y: auto;
+}
+
+.game-area {
+  grid-area: game-area;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.notifications-panel {
+  grid-area: notifications;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.game-controls {
+  grid-area: controls;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(15px);
+  border-radius: var(--border-radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* === 卡牌區域 === */
+
+.cards-area {
+  position: fixed;
+  bottom: var(--spacing-xl);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--spacing-sm);
+  z-index: var(--z-fixed);
+}
+
+/* === 通用組件樣式 === */
+
+/* 按鈕樣式 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--border-radius-base);
+  transition: var(--transition-base);
+  text-decoration: none;
+  min-height: 44px; /* 觸控友善的最小高度 */
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left var(--duration-slow) var(--ease-out);
+}
+
+.btn:hover:before {
+  left: 100%;
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+  background: var(--gradient-secondary);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-inverse);
+  border: var(--border-width-base) solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-inverse);
+  backdrop-filter: blur(10px);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-sm {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  min-height: 36px;
+}
+
+.btn-lg {
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: var(--font-size-lg);
+  min-height: 52px;
+}
+
+/* 輸入框樣式 */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.input-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.input-field {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: var(--border-width-base) solid var(--color-gray-300);
+  border-radius: var(--border-radius-base);
+  font-size: var(--font-size-base);
+  transition: var(--transition-base);
+  background: var(--bg-primary);
+}
+
+.input-field:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha);
+}
+
+.input-field:invalid {
+  border-color: var(--color-error);
+}
+
+/* 卡片樣式 */
+.card {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-base);
+  padding: var(--spacing-lg);
+  transition: var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* 模態框樣式 */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+}
+
+.modal {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-2xl);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: var(--z-modal);
+  animation: modalSlideIn var(--duration-slow) var(--ease-out);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Toast 通知樣式 */
+.toast {
+  position: fixed;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--border-radius-base);
+  color: var(--text-inverse);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-toast);
+  max-width: 400px;
+  transform: translateX(100%);
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+
+.toast.show {
+  transform: translateX(0);
+}
+
+.toast-success {
+  background: var(--gradient-secondary);
+}
+
+.toast-error {
+  background: linear-gradient(135deg, var(--color-error), #dc2626);
+}
+
+.toast-warning {
+  background: linear-gradient(135deg, var(--color-warning), #d97706);
+}
+
+.toast-info {
+  background: var(--gradient-primary);
+}
+
+/* === 響應式設計 === */
+
+/* 平板樣式 */
+@media (max-width: 1024px) {
+  .game-layout {
+    grid-template-areas: 
+      "header header"
+      "players players"
+      "game-area notifications"
+      "controls controls";
+    grid-template-columns: 1fr 280px;
+  }
+  
+  .stats-panel {
+    display: none; /* 在平板上隱藏統計面板 */
+  }
+  
+  .cards-area {
+    bottom: 140px; /* 為控制按鈕留出更多空間 */
+  }
+}
+
+/* 手機樣式 */
+@media (max-width: 768px) {
+  .game-layout {
+    grid-template-areas: 
+      "header"
+      "players"
+      "game-area"
+      "controls";
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+  }
+  
+  .notifications-panel {
+    display: none; /* 在手機上隱藏通知面板 */
+  }
+  
+  .players-area {
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    min-height: 100px;
+  }
+  
+  .game-controls {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+  
+  .cards-area {
+    bottom: 120px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - var(--spacing-lg));
+  }
+  
+  .modal {
+    margin: var(--spacing-sm);
+    max-width: calc(100vw - var(--spacing-lg));
+  }
+  
+  .toast {
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    left: var(--spacing-sm);
+    max-width: none;
+  }
+}
+
+/* 小螢幕手機樣式 */
+@media (max-width: 480px) {
+  .cards-area {
+    bottom: 100px;
+    gap: var(--spacing-xs);
+  }
+  
+  .game-controls {
+    padding: var(--spacing-sm);
+    gap: var(--spacing-xs);
+  }
+  
+  .btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-height: 40px;
+  }
+}
+
+/* === 動畫和過渡效果 === */
+
+/* 淡入動畫 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 縮放動畫 */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 脈動動畫 */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* 彈跳動畫 */
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+/* 動畫類別 */
+.animate-fade-in { animation: fadeIn var(--duration-slow) var(--ease-out); }
+.animate-fade-in-up { animation: fadeInUp var(--duration-slow) var(--ease-out); }
+.animate-fade-in-down { animation: fadeInDown var(--duration-slow) var(--ease-out); }
+.animate-scale-in { animation: scaleIn var(--duration-slow) var(--ease-bounce); }
+.animate-pulse { animation: pulse 2s infinite; }
+.animate-bounce { animation: bounce 1s; }
+
+/* === 工具類別 === */
+
+/* 間距 */
+.m-0 { margin: 0; }
+.m-1 { margin: var(--spacing-xs); }
+.m-2 { margin: var(--spacing-sm); }
+.m-3 { margin: var(--spacing-md); }
+.m-4 { margin: var(--spacing-lg); }
+
+.p-0 { padding: 0; }
+.p-1 { padding: var(--spacing-xs); }
+.p-2 { padding: var(--spacing-sm); }
+.p-3 { padding: var(--spacing-md); }
+.p-4 { padding: var(--spacing-lg); }
+
+/* 文字對齊 */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+/* 字重 */
+.font-light { font-weight: var(--font-weight-light); }
+.font-normal { font-weight: var(--font-weight-normal); }
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+
+/* 文字顏色 */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-inverse { color: var(--text-inverse); }
+
+/* 背景顏色 */
+.bg-primary { background-color: var(--bg-primary); }
+.bg-secondary { background-color: var(--bg-secondary); }
+.bg-transparent { background-color: transparent; }
+
+/* 顯示/隱藏 */
+.hidden { display: none !important; }
+.visible { visibility: visible; }
+.invisible { visibility: hidden; }
+
+/* Flexbox 工具 */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+
+/* 定位 */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+
+/* 圓角 */
+.rounded { border-radius: var(--border-radius-base); }
+.rounded-lg { border-radius: var(--border-radius-lg); }
+.rounded-full { border-radius: var(--border-radius-full); }
+
+/* 陰影 */
+.shadow { box-shadow: var(--shadow-base); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+
+/* === 高對比模式支援 === */
+@media (prefers-contrast: high) {
+  .btn {
+    border: 2px solid currentColor;
+  }
+  
+  .card {
+    border: 2px solid var(--text-primary);
+  }
+  
+  .modal {
+    border: 3px solid var(--text-primary);
+  }
+  
+  .input-field {
+    border: 2px solid var(--text-primary);
+  }
+  
+  .game-header,
+  .stats-panel,
+  .game-controls {
+    border: 2px solid rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* === 減少動畫模式支援 === */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .card,
+  .modal,
+  .toast,
+  input,
+  select,
+  textarea {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .animate-fade-in,
+  .animate-fade-in-up,
+  .animate-fade-in-down,
+  .animate-scale-in,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none !important;
+  }
+}
+
+/* === 印刷樣式 === */
+@media print {
+  .game-controls,
+  .notifications-panel,
+  .toast {
+    display: none !important;
+  }
+  
+  .game-layout {
+    grid-template-areas: 
+      "header"
+      "players"
+      "stats"
+      "game-area";
+    grid-template-columns: 1fr;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .btn {
+    border: 1px solid black !important;
+    background: white !important;
+    color: black !important;
+  }
+}
