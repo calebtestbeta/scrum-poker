@@ -269,6 +269,18 @@
             border: 2px solid #1d4ed8 !important;
         }
         
+        /* 遊戲會話提示動畫 */
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+        
         /* 記住我選項的樣式增強 */
         #rememberMe {
             accent-color: #3b82f6;
@@ -417,8 +429,8 @@
     <script>
         // 版本信息
         window.SCRUM_POKER_VERSION = {
-            hash: 'g2b3c4d5',
-            buildTime: '20250928_2300',
+            hash: 'h3c4d5e6', 
+            buildTime: '20250928_2315',
             toString: function() { return `v${this.hash}-${this.buildTime}`; }
         };
         
@@ -439,6 +451,9 @@
             
             // 自動載入使用者資訊
             setTimeout(loadUserInfoFromCookie, 500);
+            
+            // 檢查遊戲會話（新增）
+            setTimeout(checkGameSessionOnLoad, 600);
         });
         
         // 全局錯誤處理
@@ -593,6 +608,194 @@
             }
             
             return cookieManager.saveUserInfo({ name, role });
+        }
+        
+        // ========== 遊戲會話檢查功能（新增） ==========
+        
+        // 頁面載入時檢查遊戲會話
+        function checkGameSessionOnLoad() {
+            console.log('🎮 檢查是否有現有的遊戲會話...');
+            
+            // 等待 CookieManager 載入完成
+            if (typeof window.cookieManager === 'undefined') {
+                console.warn('⚠️ CookieManager 尚未載入，跳過會話檢查');
+                return;
+            }
+            
+            // 檢查 Cookie 支援
+            if (!cookieManager.isCookieEnabled()) {
+                console.warn('⚠️ 瀏覽器不支援 Cookie，無法檢查遊戲會話');
+                return;
+            }
+            
+            // 檢查是否有有效的遊戲會話
+            const gameSession = cookieManager.getGameSession();
+            if (gameSession) {
+                console.log('🎯 發現有效的遊戲會話:', gameSession);
+                
+                // 自動填入表單資訊
+                autoFillFromGameSession(gameSession);
+                
+                // 顯示會話恢復提示
+                showGameSessionPrompt(gameSession);
+            } else {
+                console.log('ℹ️ 未找到有效的遊戲會話');
+            }
+        }
+        
+        // 從遊戲會話自動填入表單
+        function autoFillFromGameSession(sessionData) {
+            try {
+                const playerNameInput = document.getElementById('playerName');
+                const playerRoleSelect = document.getElementById('playerRole');
+                const roomIdInput = document.getElementById('roomId');
+                
+                if (playerNameInput && sessionData.playerName) {
+                    playerNameInput.value = sessionData.playerName;
+                    playerNameInput.classList.add('auto-filled');
+                    playerNameInput.title = `從遊戲會話自動填入 (房間: ${sessionData.roomId})`;
+                }
+                
+                if (playerRoleSelect && sessionData.playerRole) {
+                    playerRoleSelect.value = sessionData.playerRole;
+                    playerRoleSelect.classList.add('auto-filled');
+                    playerRoleSelect.title = `從遊戲會話自動填入 (房間: ${sessionData.roomId})`;
+                }
+                
+                if (roomIdInput && sessionData.roomId) {
+                    roomIdInput.value = sessionData.roomId;
+                    roomIdInput.classList.add('auto-filled');
+                    roomIdInput.title = `從遊戲會話自動填入 (加入時間: ${new Date(sessionData.joinedAt).toLocaleString('zh-TW')})`;
+                }
+                
+                console.log('📝 表單已從遊戲會話自動填入');
+            } catch (error) {
+                console.error('自動填入表單失敗:', error);
+            }
+        }
+        
+        // 顯示遊戲會話恢復提示
+        function showGameSessionPrompt(sessionData) {
+            const loginPanel = document.getElementById('loginPanel');
+            if (!loginPanel) return;
+            
+            // 移除可能存在的舊提示
+            const existingPrompt = document.getElementById('gameSessionPrompt');
+            if (existingPrompt) {
+                existingPrompt.remove();
+            }
+            
+            // 建立會話提示元素
+            const promptDiv = document.createElement('div');
+            promptDiv.id = 'gameSessionPrompt';
+            promptDiv.style.cssText = `
+                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 12px;
+                margin-bottom: 20px;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                animation: slideDown 0.4s ease-out;
+                box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            `;
+            
+            const joinedTime = new Date(sessionData.joinedAt).toLocaleString('zh-TW');
+            const lastActiveTime = new Date(sessionData.lastActive).toLocaleString('zh-TW');
+            
+            promptDiv.innerHTML = `
+                <div style="flex: 1;">
+                    <div style="font-weight: bold; margin-bottom: 6px; display: flex; align-items: center;">
+                        🎮 檢測到未完成的遊戲會話
+                        <span style="
+                            background: rgba(255,255,255,0.2);
+                            padding: 2px 6px;
+                            border-radius: 4px;
+                            font-size: 10px;
+                            margin-left: 8px;
+                        ">進行中</span>
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.9; line-height: 1.4;">
+                        房間: <strong>${sessionData.roomId}</strong> | 
+                        角色: <strong>${getRoleDisplayName(sessionData.playerRole)}</strong>
+                        <br>加入時間: ${joinedTime}
+                        <br>最後活躍: ${lastActiveTime}
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-left: 15px;">
+                    <button onclick="quickRestoreGameSession()" style="
+                        background: rgba(255,255,255,0.9);
+                        border: none;
+                        color: #1d4ed8;
+                        border-radius: 6px;
+                        padding: 8px 16px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='white'" 
+                       onmouseout="this.style.background='rgba(255,255,255,0.9)'">
+                        🚀 快速恢復
+                    </button>
+                    <button onclick="dismissGameSessionPrompt()" style="
+                        background: rgba(0,0,0,0.2);
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: white;
+                        border-radius: 6px;
+                        padding: 6px 16px;
+                        font-size: 11px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='rgba(0,0,0,0.4)'" 
+                       onmouseout="this.style.background='rgba(0,0,0,0.2)'">
+                        稍後決定
+                    </button>
+                </div>
+            `;
+            
+            // 插入到登入面板頂部
+            const firstChild = loginPanel.firstChild;
+            loginPanel.insertBefore(promptDiv, firstChild);
+            
+            console.log('💬 遊戲會話恢復提示已顯示');
+        }
+        
+        // 快速恢復遊戲會話
+        function quickRestoreGameSession() {
+            console.log('🚀 使用者選擇快速恢復遊戲會話');
+            
+            // 隱藏提示
+            dismissGameSessionPrompt();
+            
+            // 直接啟動遊戲（表單已自動填入）
+            startGame();
+        }
+        
+        // 關閉遊戲會話提示
+        function dismissGameSessionPrompt() {
+            const promptElement = document.getElementById('gameSessionPrompt');
+            if (promptElement) {
+                promptElement.style.animation = 'fadeOut 0.3s ease-in';
+                setTimeout(() => {
+                    promptElement.remove();
+                    console.log('💫 遊戲會話提示已關閉');
+                }, 300);
+            }
+        }
+        
+        // 取得角色顯示名稱
+        function getRoleDisplayName(role) {
+            const roleNames = {
+                'dev': '開發者',
+                'qa': '測試者',
+                'scrum_master': 'Scrum Master',
+                'po': 'Product Owner',
+                'other': '其他'
+            };
+            return roleNames[role] || role;
         }
     </script>
     

@@ -332,6 +332,230 @@ class CookieManager {
             return null;
         }
     }
+    
+    // ========== 遊戲會話管理功能 ==========
+    
+    /**
+     * 儲存遊戲會話資訊到 Cookie
+     * @param {Object} sessionData 會話資料
+     * @param {string} sessionData.playerId 玩家ID
+     * @param {string} sessionData.roomId 房間ID
+     * @param {string} sessionData.playerName 玩家名稱
+     * @param {string} sessionData.playerRole 玩家角色
+     * @returns {boolean} 是否儲存成功
+     */
+    saveGameSession(sessionData) {
+        try {
+            // 驗證會話資料
+            if (!this.validateGameSession(sessionData)) {
+                console.error('❌ 無效的遊戲會話資料');
+                return false;
+            }
+            
+            // 建立會話物件
+            const gameSession = {
+                version: '1.0',
+                playerId: sessionData.playerId,
+                roomId: this.sanitizeString(sessionData.roomId),
+                playerName: this.sanitizeString(sessionData.playerName),
+                playerRole: sessionData.playerRole,
+                joinedAt: new Date().toISOString(),
+                lastActive: new Date().toISOString()
+            };
+            
+            // 儲存到 Cookie，設定較短的過期時間（2小時）
+            const sessionCookieName = 'scrum_poker_session';
+            const jsonData = JSON.stringify(gameSession);
+            const success = this.setCookie(sessionCookieName, jsonData, 0.083); // 2小時 = 0.083天
+            
+            if (success) {
+                console.log(`💾 遊戲會話已儲存: 房間 ${sessionData.roomId}, 玩家 ${sessionData.playerName}`);
+                return true;
+            } else {
+                throw new Error('Cookie 儲存失敗');
+            }
+        } catch (error) {
+            console.error('儲存遊戲會話失敗:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * 從 Cookie 讀取遊戲會話資訊
+     * @returns {Object|null} 會話資料或 null
+     */
+    getGameSession() {
+        try {
+            const sessionCookieName = 'scrum_poker_session';
+            const cookieValue = this.getCookie(sessionCookieName);
+            
+            if (!cookieValue) {
+                console.log('🔍 未找到遊戲會話');
+                return null;
+            }
+            
+            // 解析會話資料
+            const sessionData = JSON.parse(cookieValue);
+            
+            // 驗證會話資料結構
+            if (!this.validateStoredGameSession(sessionData)) {
+                console.warn('⚠️ 儲存的會話資料格式無效，清除會話');
+                this.clearGameSession();
+                return null;
+            }
+            
+            // 檢查會話是否過期（2小時內有效）
+            if (this.isGameSessionExpired(sessionData)) {
+                console.log('⏰ 遊戲會話已過期，清除會話');
+                this.clearGameSession();
+                return null;
+            }
+            
+            console.log(`🔓 已讀取遊戲會話: 房間 ${sessionData.roomId}, 玩家 ${sessionData.playerName}`);
+            return sessionData;
+        } catch (error) {
+            console.error('讀取遊戲會話失敗:', error);
+            this.clearGameSession(); // 清除損壞的會話
+            return null;
+        }
+    }
+    
+    /**
+     * 更新遊戲會話的最後活躍時間
+     * @returns {boolean} 是否更新成功
+     */
+    updateGameSessionActivity() {
+        try {
+            const currentSession = this.getGameSession();
+            if (!currentSession) {
+                return false;
+            }
+            
+            // 更新最後活躍時間
+            currentSession.lastActive = new Date().toISOString();
+            
+            // 重新儲存會話
+            const sessionCookieName = 'scrum_poker_session';
+            const jsonData = JSON.stringify(currentSession);
+            const success = this.setCookie(sessionCookieName, jsonData, 0.083); // 2小時
+            
+            if (success) {
+                console.log('🔄 遊戲會話活躍時間已更新');
+                return true;
+            }
+        } catch (error) {
+            console.error('更新會話活躍時間失敗:', error);
+        }
+        return false;
+    }
+    
+    /**
+     * 清除遊戲會話 Cookie
+     */
+    clearGameSession() {
+        const sessionCookieName = 'scrum_poker_session';
+        this.deleteCookie(sessionCookieName);
+        console.log('🧹 遊戲會話已清除');
+    }
+    
+    /**
+     * 檢查是否有有效的遊戲會話
+     * @returns {boolean} 是否有有效會話
+     */
+    hasActiveGameSession() {
+        return this.getGameSession() !== null;
+    }
+    
+    /**
+     * 驗證遊戲會話資料格式
+     * @param {Object} sessionData 會話資料
+     * @returns {boolean} 是否有效
+     */
+    validateGameSession(sessionData) {
+        if (!sessionData || typeof sessionData !== 'object') {
+            return false;
+        }
+        
+        // 檢查必要欄位
+        const requiredFields = ['playerId', 'roomId', 'playerName', 'playerRole'];
+        for (const field of requiredFields) {
+            if (!sessionData[field] || typeof sessionData[field] !== 'string') {
+                return false;
+            }
+        }
+        
+        // 檢查名稱和房間ID長度
+        if (sessionData.playerName.trim().length === 0 || sessionData.playerName.length > 50) {
+            return false;
+        }
+        
+        if (sessionData.roomId.trim().length === 0 || sessionData.roomId.length > 20) {
+            return false;
+        }
+        
+        // 檢查角色是否為有效值
+        const validRoles = ['dev', 'qa', 'scrum_master', 'po', 'other'];
+        if (!validRoles.includes(sessionData.playerRole)) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 驗證儲存的會話資料格式
+     * @param {Object} sessionData 儲存的會話資料
+     * @returns {boolean} 是否有效
+     */
+    validateStoredGameSession(sessionData) {
+        if (!sessionData || typeof sessionData !== 'object') {
+            return false;
+        }
+        
+        // 檢查必要欄位
+        const requiredFields = ['version', 'playerId', 'roomId', 'playerName', 'playerRole', 'joinedAt', 'lastActive'];
+        for (const field of requiredFields) {
+            if (!sessionData[field]) {
+                return false;
+            }
+        }
+        
+        // 檢查版本相容性
+        if (sessionData.version !== '1.0') {
+            console.log(`📦 會話版本不符: ${sessionData.version} != 1.0`);
+            return false;
+        }
+        
+        return this.validateGameSession({
+            playerId: sessionData.playerId,
+            roomId: sessionData.roomId,
+            playerName: sessionData.playerName,
+            playerRole: sessionData.playerRole
+        });
+    }
+    
+    /**
+     * 檢查遊戲會話是否過期
+     * @param {Object} sessionData 會話資料
+     * @returns {boolean} 是否過期
+     */
+    isGameSessionExpired(sessionData) {
+        if (!sessionData.lastActive) {
+            return true;
+        }
+        
+        try {
+            const lastActiveDate = new Date(sessionData.lastActive);
+            const now = new Date();
+            const hoursDiff = (now - lastActiveDate) / (1000 * 60 * 60);
+            
+            // 2小時內有效
+            return hoursDiff > 2;
+        } catch (error) {
+            console.error('檢查會話過期時間失敗:', error);
+            return true;
+        }
+    }
 }
 
 // 建立全域實例

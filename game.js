@@ -58,6 +58,22 @@ async function startGame() {
         const result = await firebaseManager.joinRoom(roomId, playerName, playerRole);
         
         if (result) {
+            // 儲存遊戲會話資訊到 Cookie
+            if (typeof cookieManager !== 'undefined' && cookieManager.saveGameSession) {
+                const sessionSaved = cookieManager.saveGameSession({
+                    playerId: result.playerId,
+                    roomId: result.roomId,
+                    playerName: playerName,
+                    playerRole: playerRole
+                });
+                
+                if (sessionSaved) {
+                    console.log('💾 遊戲會話已儲存到 Cookie');
+                } else {
+                    console.warn('⚠️ 遊戲會話儲存失敗，但遊戲將繼續進行');
+                }
+            }
+            
             // 建立當前玩家
             currentPlayer = {
                 id: result.playerId,
@@ -108,6 +124,11 @@ function clearVotes() {
         return;
     }
     
+    // 更新遊戲會話活躍時間（標記玩家仍在遊戲中）
+    if (typeof cookieManager !== 'undefined' && cookieManager.updateGameSessionActivity) {
+        cookieManager.updateGameSessionActivity();
+    }
+    
     // 執行清除
     gameTable.clearVotes();
     firebaseManager.clearVotes();
@@ -122,6 +143,12 @@ function clearVotes() {
 function leaveGame() {
     if (firebaseManager) {
         firebaseManager.leaveRoom();
+    }
+    
+    // 清除遊戲會話 Cookie（玩家主動離開）
+    if (typeof cookieManager !== 'undefined' && cookieManager.clearGameSession) {
+        cookieManager.clearGameSession();
+        console.log('🧹 玩家主動離開，遊戲會話已清除');
     }
     
     // 清除遊戲狀態
