@@ -1,6 +1,7 @@
 // Firebase 設定檔案
-// 請在 Firebase Console 建立專案後，將設定資訊填入下方
+// 支援本地開發環境和雲端部署的動態配置
 
+// 雲端 Firebase 設定
 const firebaseConfig = {
     // 請替換為你的 Firebase 專案設定
     apiKey: "your-api-key-here",
@@ -12,6 +13,41 @@ const firebaseConfig = {
     appId: "your-app-id"
 };
 
+// 本地開發環境設定
+const firebaseConfigLocal = {
+    apiKey: "demo-api-key",
+    authDomain: "demo-scrum-poker.firebaseapp.com",
+    databaseURL: "http://localhost:9000?ns=demo-scrum-poker",
+    projectId: "demo-scrum-poker",
+    storageBucket: "demo-scrum-poker.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:demo-app-id"
+};
+
+// 檢測本地環境
+function isLocalEnvironment() {
+    const hostname = window.location.hostname;
+    return hostname === 'localhost' || 
+           hostname === '127.0.0.1' || 
+           hostname.startsWith('192.168.') ||
+           hostname.startsWith('10.') ||
+           hostname.startsWith('172.');
+}
+
+// 獲取適當的 Firebase 設定
+function getFirebaseConfig() {
+    if (isLocalEnvironment()) {
+        console.log('🏠 本機開發環境檢測完成');
+        console.log('🔥 Firebase 模擬器設定已載入');
+        console.log('📍 Database URL:', firebaseConfigLocal.databaseURL);
+        return firebaseConfigLocal;
+    } else {
+        console.log('☁️ 雲端環境檢測完成');
+        console.log('🔥 Firebase 雲端設定已載入');
+        return firebaseConfig;
+    }
+}
+
 // 初始化 Firebase
 let app, database;
 
@@ -22,28 +58,55 @@ async function initializeFirebaseApp(customConfig = null) {
             throw new Error('Firebase SDK 未載入');
         }
 
-        // 使用提供的設定或預設設定
-        const config = customConfig || firebaseConfig;
+        // 自動選擇適當的設定
+        const config = customConfig || getFirebaseConfig();
         
-        // 檢查設定是否有效
+        // 本地環境特殊處理
+        if (isLocalEnvironment()) {
+            // 連接到 Firebase 模擬器
+            try {
+                app = firebase.initializeApp(config);
+                database = firebase.database();
+                
+                // 初始化 Authentication（模擬器模式）
+                const auth = firebase.auth();
+                
+                console.log('🔥 Firebase 模擬器連接成功');
+                console.log('📡 Database URL:', config.databaseURL);
+                return { app, database, auth };
+            } catch (error) {
+                console.warn('Firebase 模擬器連接失敗，回退到模擬模式:', error);
+                return {
+                    app: null,
+                    database: createMockDatabase(),
+                    auth: createMockAuth()
+                };
+            }
+        }
+        
+        // 雲端環境處理
         if (!config.apiKey || !config.projectId || config.apiKey === 'your-api-key-here') {
-            throw new Error('無效的 Firebase 設定');
+            throw new Error('無效的 Firebase 設定 - 請配置正確的雲端 Firebase 設定');
         }
 
-        // 初始化 Firebase
+        // 初始化雲端 Firebase
         app = firebase.initializeApp(config);
         database = firebase.database();
         
-        console.log('Firebase 初始化成功');
-        return { app, database };
+        // 初始化 Authentication
+        const auth = firebase.auth();
+        
+        console.log('☁️ Firebase 雲端服務初始化成功');
+        return { app, database, auth };
     } catch (error) {
         console.error('Firebase 初始化失敗:', error);
         
-        // 回退到本地模擬模式
-        console.log('使用本地模擬模式');
+        // 最後的回退：使用本地模擬模式
+        console.log('🔧 使用本地模擬模式');
         return {
             app: null,
-            database: createMockDatabase()
+            database: createMockDatabase(),
+            auth: createMockAuth()
         };
     }
 }
@@ -190,5 +253,49 @@ function triggerListeners(path, data) {
     });
 }
 
-// 匯出設定
+// 建立模擬 Authentication（用於開發和測試）
+function createMockAuth() {
+    return {
+        signInAnonymously: async () => {
+            console.log('模擬匿名登入');
+            return Promise.resolve({
+                user: {
+                    uid: 'mock-user-' + Math.random().toString(36).substr(2, 9),
+                    isAnonymous: true
+                }
+            });
+        },
+        
+        onAuthStateChanged: (callback) => {
+            console.log('模擬 Auth 狀態監聽');
+            // 模擬用戶已登入
+            setTimeout(() => {
+                callback({
+                    uid: 'mock-user-' + Math.random().toString(36).substr(2, 9),
+                    isAnonymous: true
+                });
+            }, 100);
+        },
+        
+        signOut: async () => {
+            console.log('模擬登出');
+            return Promise.resolve();
+        }
+    };
+}
+
+// 匯出設定和函數
 window.initializeFirebaseApp = initializeFirebaseApp;
+window.getFirebaseConfig = getFirebaseConfig;
+window.isLocalEnvironment = isLocalEnvironment;
+
+// 自動初始化（可選）
+if (typeof window.AUTO_INIT_FIREBASE !== 'undefined' && window.AUTO_INIT_FIREBASE) {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeFirebaseApp().then(({ app, database }) => {
+            window.firebaseApp = app;
+            window.firebaseDatabase = database;
+            console.log('✅ Firebase 自動初始化完成');
+        });
+    });
+}

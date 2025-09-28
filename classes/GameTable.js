@@ -185,6 +185,13 @@ class GameTable {
                 this.allVotesRevealed = true;
                 this.gamePhase = 'finished';
                 
+                console.log('🎊 開牌動畫完成，轉換到完成狀態');
+                
+                // 同步到 Firebase
+                if (firebaseManager) {
+                    firebaseManager.updateGamePhase('finished');
+                }
+                
                 // 更新所有玩家卡牌的遊戲階段
                 this.updatePlayerCardsPhase();
                 
@@ -193,6 +200,17 @@ class GameTable {
                     if (player.hasVoted) {
                         player.celebrate();
                     }
+                }
+                
+                // 顯示結果統計
+                if (uiManager) {
+                    const votes = this.players.filter(p => p.hasVoted).map(p => ({
+                        playerId: p.id,
+                        playerName: p.name,
+                        playerRole: p.role,
+                        value: p.vote
+                    }));
+                    uiManager.updateStatistics(votes);
                 }
             }
         }
@@ -273,7 +291,7 @@ class GameTable {
     }
     
     // 繪製按鈕
-    drawButton(text, x, y, w, h, bgColor, onClick) {
+    drawButton(buttonText, x, y, w, h, bgColor, onClick) {
         push();
         
         // 檢查滑鼠懸停
@@ -297,11 +315,11 @@ class GameTable {
         textAlign(CENTER, CENTER);
         textSize(16);
         textStyle(BOLD);
-        text(text, x, y);
+        text(buttonText, x, y);
         
         // 儲存點擊區域（用於後續點擊檢測）
         if (!this.buttons) this.buttons = [];
-        this.buttons.push({x, y, w, h, onClick, text});
+        this.buttons.push({x, y, w, h, onClick, text: buttonText});
         
         pop();
     }

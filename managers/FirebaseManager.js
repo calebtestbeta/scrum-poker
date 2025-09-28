@@ -411,6 +411,40 @@ class FirebaseManager {
         }
     }
     
+    // 更新遊戲階段
+    async updateGamePhase(phase) {
+        if (!this.currentRoom) {
+            console.error('未加入房間');
+            return false;
+        }
+        
+        try {
+            if (this.useFirebase) {
+                const roomRef = this.db.ref(`rooms/${this.currentRoom}`);
+                await roomRef.update({
+                    phase: phase,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+            } else {
+                // 模擬模式
+                if (this.mockData.rooms[this.currentRoom]) {
+                    this.mockData.rooms[this.currentRoom].phase = phase;
+                    
+                    if (this.onGameStateChanged) {
+                        this.onGameStateChanged(this.mockData.rooms[this.currentRoom]);
+                    }
+                }
+            }
+            
+            console.log(`✅ 遊戲階段更新為: ${phase}`);
+            return true;
+            
+        } catch (error) {
+            console.error('更新遊戲階段失敗:', error);
+            return false;
+        }
+    }
+    
     // 清除投票
     async clearVotes() {
         if (!this.currentRoom) {
