@@ -1,0 +1,41 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['gameState']) && newData.child('gameState').val().matches(/^(voting|revealed)$/)",
+        "members": {
+          "$userId": {
+            ".validate": "newData.hasChildren(['name', 'role', 'voted', 'connected'])"
+          }
+        },
+        "votes": {
+          "$userId": {
+            ".validate": "newData.hasChildren(['points', 'submittedAt'])"
+          }
+        }
+      }
+    },
+    "admin": {
+      "operations": {
+        "$operationId": {
+          ".read": "auth != null && root.child('admin/users/' + auth.uid + '/role').val() == 'admin'",
+          ".write": "auth != null && root.child('admin/users/' + auth.uid + '/role').val() == 'admin'",
+          ".validate": "newData.hasChildren(['timestamp', 'operation', 'adminUid'])"
+        }
+      },
+      "users": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid == $uid || root.child('admin/users/' + auth.uid + '/role').val() == 'admin')",
+          ".write": "auth != null && root.child('admin/users/' + auth.uid + '/role').val() == 'admin'",
+          ".validate": "newData.hasChildren(['role', 'email', 'lastLogin'])"
+        }
+      },
+      "config": {
+        ".read": "auth != null && root.child('admin/users/' + auth.uid + '/role').val() == 'admin'",
+        ".write": "auth != null && root.child('admin/users/' + auth.uid + '/role').val() == 'admin'"
+      }
+    }
+  }
+}
