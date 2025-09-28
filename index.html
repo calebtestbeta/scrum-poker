@@ -404,6 +404,29 @@
                 <input type="text" id="roomId" placeholder="留空自動建立新房間">
             </div>
             
+            <!-- 任務類型選擇（僅對 PO 顯示） -->
+            <div class="form-group" id="taskTypeGroup" style="display: none;">
+                <label for="taskType">任務類型（選填）</label>
+                <select id="taskType">
+                    <option value="">不指定類型</option>
+                    <option value="frontend">🖥️ 前端開発</option>
+                    <option value="backend">⚙️ 後端開発</option>
+                    <option value="fullstack">🔄 全端開発</option>
+                    <option value="mobile_app">📱 手機應用程式</option>
+                    <option value="api_integration">🔌 API 整合</option>
+                    <option value="database">🗄️ 資料庫相關</option>
+                    <option value="testing">🧪 測試相關</option>
+                    <option value="devops">🚀 DevOps/部署</option>
+                    <option value="ui_ux">🎨 UI/UX 設計</option>
+                    <option value="research">🔍 技術研究</option>
+                    <option value="maintenance">🔧 系統維護</option>
+                    <option value="security">🛡️ 資安相關</option>
+                </select>
+                <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+                    💡 選擇任務類型可獲得更精準的技術建議
+                </small>
+            </div>
+            
             <div class="form-group" style="margin-bottom: 20px;">
                 <label style="display: flex; align-items: center; cursor: pointer;">
                     <input type="checkbox" id="rememberMe" checked style="margin-right: 8px;">
@@ -454,9 +477,9 @@
     <script>
         // 版本信息
         window.SCRUM_POKER_VERSION = {
-            hash: 'h5e6f7g8', 
-            buildTime: '20250928_2345',
-            toString: function() { return `v${this.hash}-${this.buildTime}`; }
+            hash: 'v2.0.0', 
+            buildTime: '20250928_2400',
+            toString: function() { return `${this.hash}-${this.buildTime}`; }
         };
         
         console.log(`🏷️  部署版本: ${window.SCRUM_POKER_VERSION}`);
@@ -822,6 +845,30 @@
             };
             return roleNames[role] || role;
         }
+        
+        // 角色選擇變更事件處理
+        document.addEventListener('DOMContentLoaded', function() {
+            const playerRoleSelect = document.getElementById('playerRole');
+            const taskTypeGroup = document.getElementById('taskTypeGroup');
+            
+            if (playerRoleSelect && taskTypeGroup) {
+                // 初始檢查
+                toggleTaskTypeVisibility();
+                
+                // 監聽角色變更
+                playerRoleSelect.addEventListener('change', toggleTaskTypeVisibility);
+                
+                function toggleTaskTypeVisibility() {
+                    const selectedRole = playerRoleSelect.value;
+                    if (selectedRole === 'po' || selectedRole === 'scrum_master') {
+                        taskTypeGroup.style.display = 'block';
+                        taskTypeGroup.style.animation = 'fadeIn 0.3s ease-out';
+                    } else {
+                        taskTypeGroup.style.display = 'none';
+                    }
+                }
+            }
+        });
     </script>
     
     <!-- Firebase 設定 -->
