@@ -503,29 +503,72 @@ class ScrumMasterAdvice {
         push();
         
         // 響應式計算面板尺寸和位置
-        const panelWidth = Math.min(380, width * 0.4); // 最大380px或螢幕寬度40%
-        const maxHeight = height * 0.6; // 最多佔螢幕高度60%
+        const isMobile = width < 768;
+        const isTablet = width < 1024 && width >= 768;
         const margin = 20;
         
+        // 根據螢幕尺寸調整面板寬度和高度
+        let panelWidth, maxHeight, itemHeight;
+        if (isMobile) {
+            panelWidth = Math.min(280, width - margin * 2); // 行動裝置較小寬度
+            maxHeight = height * 0.5; // 行動裝置限制更小高度
+            itemHeight = 70; // 較小的項目高度
+        } else if (isTablet) {
+            panelWidth = Math.min(320, width * 0.35); // 平板中等寬度
+            maxHeight = height * 0.55;
+            itemHeight = 80;
+        } else {
+            panelWidth = Math.min(380, width * 0.4); // 桌面原始寬度
+            maxHeight = height * 0.6;
+            itemHeight = 85;
+        }
+        
         // 動態計算高度
-        const suggestionsHeight = this.suggestions.length * 85 + 20;
+        const suggestionsHeight = this.suggestions.length * itemHeight + 20;
         const panelHeight = Math.min(suggestionsHeight + 80, maxHeight);
         
-        // 計算位置，避免與統計面板重疊
-        const panelX = width - panelWidth - margin;
-        let panelY = height - panelHeight - 120; // 增加底部邊距
+        // 計算位置，避免與統計面板和控制按鈕重疊
+        let panelX;
+        if (isMobile && width < 600) {
+            // 極小螢幕時，面板顯示在左側以避免與右側按鈕重疊
+            panelX = margin;
+        } else {
+            // 其他情況顯示在右側
+            panelX = width - panelWidth - margin;
+        }
+        
+        // 根據螢幕尺寸調整控制按鈕預留空間
+        let controlButtonsSpace;
+        if (isMobile) {
+            controlButtonsSpace = 140; // 行動裝置按鈕橫向排列，需要較少垂直空間
+        } else if (isTablet) {
+            controlButtonsSpace = 180; // 平板需要中等空間
+        } else {
+            controlButtonsSpace = 200; // 桌面需要最多空間
+        }
+        
+        let panelY = height - panelHeight - controlButtonsSpace;
         
         // 如果有統計面板，調整位置避免重疊
         if (uiManager && uiManager.gamePhase === 'finished') {
             const statisticsHeight = height * 0.4;
             if (panelY < 20 + statisticsHeight + 10) {
-                panelY = Math.max(20 + statisticsHeight + 10, height - panelHeight - 120);
+                panelY = Math.max(20 + statisticsHeight + 10, height - panelHeight - controlButtonsSpace);
             }
         }
         
+        // 確保面板不會超出畫面頂部
+        panelY = Math.max(20, panelY);
+        
+        // 背景面板陰影效果
+        fill(0, 0, 0, 60); // 陰影
+        noStroke();
+        rectMode(CORNER);
+        rect(panelX + 3, panelY + 3, panelWidth, panelHeight, 12);
+        
         // 背景面板（與統計面板統一樣式）
-        fill(30, 35, 42, 200); // 深色半透明背景
-        stroke(255, 255, 255, 80); // 白色邊框
+        fill(30, 35, 42, 220); // 稍微增加不透明度以改善對比
+        stroke(255, 255, 255, 100); // 稍微增亮邊框
         strokeWeight(1);
         rectMode(CORNER);
         rect(panelX, panelY, panelWidth, panelHeight, 12);
@@ -534,15 +577,21 @@ class ScrumMasterAdvice {
         const contentX = panelX + 15;
         let currentY = panelY + 20;
         
-        // 標題區域（與統計面板統一樣式）
-        fill(255, 255, 255, 240);
+        // 標題區域（改善視覺層次）
+        fill(255, 255, 255, 250); // 稍微增加不透明度
         noStroke();
         rectMode(CORNER);
         rect(contentX - 5, currentY - 5, panelWidth - 20, 30, 6);
         
+        // 標題區域邊框強調
+        stroke(30, 35, 42, 60);
+        strokeWeight(1);
+        noFill();
+        rect(contentX - 5, currentY - 5, panelWidth - 20, 30, 6);
+        
         fill(30, 35, 42);
         textAlign(LEFT, CENTER);
-        textSize(16);
+        textSize(isMobile ? 14 : 16); // 響應式標題字體大小
         textStyle(BOLD);
         text('🎯 Scrum Master 建議', contentX + 5, currentY + 10);
         currentY += 40;
@@ -551,8 +600,8 @@ class ScrumMasterAdvice {
         for (let i = 0; i < this.suggestions.length; i++) {
             const suggestion = this.suggestions[i];
             
-            // 建議項目背景
-            const itemHeight = 75;
+            // 建議項目背景（使用響應式高度）
+            const suggestionItemHeight = itemHeight - 10; // 比間距稍小以留出空間
             const itemY = currentY - 5;
             
             // 根據建議類型設定背景色
@@ -568,30 +617,32 @@ class ScrumMasterAdvice {
             fill(bgColor);
             noStroke();
             rectMode(CORNER);
-            rect(contentX - 5, itemY, panelWidth - 20, itemHeight, 8);
+            rect(contentX - 5, itemY, panelWidth - 20, suggestionItemHeight, 8);
             
             // 圖示
             fill(255, 255, 255, 240);
             textAlign(LEFT, TOP);
-            textSize(18);
+            textSize(isMobile ? 16 : 18); // 響應式圖示大小
             text(suggestion.icon, contentX + 5, currentY + 5);
             
             // 標題
             fill(255);
-            textSize(13);
+            textSize(isMobile ? 12 : 13); // 響應式標題大小
             textStyle(BOLD);
             text(suggestion.title, contentX + 35, currentY + 5);
             
             // 訊息
             fill(255, 255, 255, 220);
-            textSize(11);
+            textSize(isMobile ? 10 : 11); // 響應式內容大小
             textStyle(NORMAL);
             const messageLines = this.wrapText(suggestion.message, panelWidth - 60);
-            for (let j = 0; j < Math.min(messageLines.length, 3); j++) { // 最多顯示3行
-                text(messageLines[j], contentX + 35, currentY + 25 + j * 14);
+            const maxLines = isMobile ? 2 : 3; // 行動裝置顯示較少行數
+            const lineHeight = isMobile ? 12 : 14; // 響應式行高
+            for (let j = 0; j < Math.min(messageLines.length, maxLines); j++) {
+                text(messageLines[j], contentX + 35, currentY + 25 + j * lineHeight);
             }
             
-            currentY += 85;
+            currentY += itemHeight;
         }
         
         pop();
