@@ -186,6 +186,21 @@
     <script src="game.js"></script>
     
     <script>
+        // 為了讓 game.js 正常工作，提供 GAME_CONFIG
+        window.GAME_CONFIG = {
+            canvas: {
+                width: 800,
+                height: 600
+            },
+            colors: {
+                background: [30, 41, 59],
+                primary: [59, 130, 246],
+                success: [16, 185, 129],
+                warning: [245, 158, 11],
+                danger: [239, 68, 68]
+            }
+        };
+
         // 調試變數
         let debugStats = {
             drawCalls: 0,
@@ -587,7 +602,8 @@
         function updateRealTimeStatus() {
             const info = [];
             
-            info.push(`幀率: ${frameRate.toFixed(1)} FPS`);
+            // 在 p5.js 中，frameRate() 是一個函數
+            info.push(`幀率: ${frameRate().toFixed(1)} FPS`);
             info.push(`繪製調用: ${debugStats.drawCalls}`);
             
             if (testGameTable) {
