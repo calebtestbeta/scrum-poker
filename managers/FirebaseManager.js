@@ -29,14 +29,40 @@ class FirebaseManager {
     // 初始化 Firebase
     async initialize(config) {
         try {
-            if (!config || !config.projectId || !config.apiKey) {
-                console.log('使用本地模式（無 Firebase 設定）');
-                this.useFirebase = false;
+            console.log('🚀 初始化 Firebase Manager...');
+            
+            // 檢查是否已經由 firebase-config.js 初始化過
+            if (firebase.apps.length > 0) {
+                console.log('🔍 Firebase 已由 firebase-config.js 初始化，重用現有實例');
+                this.db = firebase.database();
+                
+                // 檢查是否有 Auth 實例
+                try {
+                    this.auth = firebase.auth();
+                    console.log('✅ Firebase Auth 實例已獲取');
+                } catch (authError) {
+                    console.warn('⚠️ Firebase Auth 不可用，跳過身份驗證:', authError.message);
+                    this.auth = null;
+                }
+                
+                this.useFirebase = true;
                 this.isConnected = true;
+                
+                console.log('✅ Firebase Manager 初始化成功 (重用模式)');
                 return true;
             }
             
-            // Firebase 設定
+            // 如果沒有配置，直接進入本地模式
+            if (!config || !config.projectId || !config.apiKey) {
+                console.log('📍 無 Firebase 配置，使用本地模式');
+                this.useFirebase = false;
+                this.isConnected = true;
+                this.initializeMockData();
+                console.log('🏠 本地模式初始化完成');
+                return true;
+            }
+            
+            // 建立完整的 Firebase 配置（只有在沒有現有實例時）
             const firebaseConfig = {
                 apiKey: config.apiKey,
                 authDomain: `${config.projectId}.firebaseapp.com`,
@@ -48,15 +74,18 @@ class FirebaseManager {
             };
             
             // 初始化 Firebase
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
+            firebase.initializeApp(firebaseConfig);
             
             this.db = firebase.database();
-            this.auth = firebase.auth();
             
-            // 進行匿名身份驗證
-            await this.authenticateAnonymously();
+            // 嘗試初始化 Auth
+            try {
+                this.auth = firebase.auth();
+                console.log('✅ Firebase Auth 初始化成功');
+            } catch (authError) {
+                console.warn('⚠️ Firebase Auth 初始化失敗，跳過身份驗證:', authError.message);
+                this.auth = null;
+            }
             
             this.useFirebase = true;
             this.isConnected = true;
@@ -89,6 +118,12 @@ class FirebaseManager {
     // 匿名身份驗證
     async authenticateAnonymously() {
         try {
+            // 檢查是否有 Auth 實例
+            if (!this.auth) {
+                console.log('⚠️ Firebase Auth 未初始化，跳過身份驗證');
+                return null;
+            }
+            
             // 檢查是否已經登入
             if (this.auth.currentUser) {
                 console.log('🔑 用戶已驗證:', this.auth.currentUser.uid);
@@ -113,15 +148,35 @@ class FirebaseManager {
             return user;
             
         } catch (error) {
-            console.error('匿名身份驗證失敗:', error);
+            console.error('❌ 匿名身份驗證失敗:', error);
             
-            // 如果匿名驗證失敗，嘗試重新登入
-            if (error.code === 'auth/operation-not-allowed') {
-                throw new Error('Firebase 匿名驗證未啟用。請在 Firebase Console 中啟用匿名驗證。');
+            // 根據錯誤類型提供不同的處理
+            if (error.code === 'auth/network-request-failed') {
+                console.warn('網路連線失敗，繼續使用本地模式');
+            } else if (error.code === 'auth/operation-not-allowed') {
+                console.warn('匿名身份驗證未啟用，繼續使用本地模式');
+            } else if (error.code === 'auth/web-storage-unsupported') {
+                console.warn('瀏覽器不支援 Web Storage，繼續使用本地模式');
+            } else if (error.code === 'auth/configuration-not-found') {
+                console.warn('Firebase Auth 配置未找到，繼續使用本地模式');
+            } else {
+                console.warn('身份驗證失敗，繼續使用本地模式:', error.message);
             }
             
-            throw error;
+            // 不拋出錯誤，而是返回 null 繼續執行
+            return null;
         }
+    }
+    
+    // 初始化模擬資料
+    initializeMockData() {
+        if (!this.mockData) {
+            this.mockData = {
+                rooms: {},
+                currentUser: null
+            };
+        }
+        console.log('🏠 模擬資料已初始化');
     }
     
     // 加入房間
