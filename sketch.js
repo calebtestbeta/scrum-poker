@@ -75,8 +75,8 @@ let deviceInfo = {
 };
 
 // 版本信息
-const VERSION_HASH = '035381c8';
-const BUILD_TIME = '20250928_0940';
+const VERSION_HASH = 'bb7d18a2';
+const BUILD_TIME = '20250928_1000';
 const VERSION_STRING = `v${VERSION_HASH}-${BUILD_TIME}`;
 
 // p5.js 設定函數
@@ -238,19 +238,22 @@ function setupCanvas() {
     let canvasWidth = GAME_CONFIG.canvas.width;
     let canvasHeight = GAME_CONFIG.canvas.height;
     
-    // 響應式調整
-    if (windowWidth < canvasWidth || windowHeight < canvasHeight) {
-        const scaleX = windowWidth / canvasWidth;
-        const scaleY = windowHeight / canvasHeight;
-        const scale = Math.min(scaleX, scaleY) * 0.9;
+    // 更積極的響應式調整，考慮開發者工具佔用的空間
+    const availableWidth = Math.max(windowWidth * 0.95, GAME_CONFIG.canvas.minWidth);
+    const availableHeight = Math.max(windowHeight * 0.95, GAME_CONFIG.canvas.minHeight);
+    
+    if (availableWidth < canvasWidth || availableHeight < canvasHeight) {
+        const scaleX = availableWidth / canvasWidth;
+        const scaleY = availableHeight / canvasHeight;
+        const scale = Math.min(scaleX, scaleY);
         
-        canvasWidth *= scale;
-        canvasHeight *= scale;
+        canvasWidth = Math.floor(canvasWidth * scale);
+        canvasHeight = Math.floor(canvasHeight * scale);
     }
     
-    // 確保最小尺寸
-    canvasWidth = Math.max(canvasWidth, GAME_CONFIG.canvas.minWidth);
-    canvasHeight = Math.max(canvasHeight, GAME_CONFIG.canvas.minHeight);
+    // 確保最小尺寸，但允許更小的尺寸以適應開發者工具
+    canvasWidth = Math.max(canvasWidth, 800);
+    canvasHeight = Math.max(canvasHeight, 600);
     
     // 移除舊畫布（如果存在）
     if (canvas) {
@@ -264,6 +267,16 @@ function setupCanvas() {
     // 更新遊戲設定
     GAME_CONFIG.table.centerX = canvasWidth / 2;
     GAME_CONFIG.table.centerY = canvasHeight / 2;
+    
+    // 根據畫布大小調整桌子和卡牌尺寸
+    const sizeScale = Math.min(canvasWidth / 1200, canvasHeight / 800);
+    if (sizeScale < 1) {
+        GAME_CONFIG.table.radius = Math.max(200, 280 * sizeScale);
+        GAME_CONFIG.table.innerRadius = Math.max(100, 150 * sizeScale);
+        GAME_CONFIG.cards.width = Math.max(60, 80 * sizeScale);
+        GAME_CONFIG.cards.height = Math.max(90, 120 * sizeScale);
+        console.log(`📐 尺寸縮放: ${(sizeScale * 100).toFixed(1)}%`);
+    }
     
     console.log(`🖼️ 畫布建立完成: ${canvasWidth}x${canvasHeight}`);
     
@@ -731,9 +744,10 @@ function windowResized() {
     
     // 重新初始化遊戲桌面元素
     if (gameTable) {
-        // 重新計算卡牌位置以適應新的螢幕尺寸
+        // 重新初始化卡牌以適應新的尺寸
+        gameTable.initializeCards();
         gameTable.calculateCardPositions();
-        console.log('📱 視窗大小變更，重新計算卡牌位置');
+        console.log('📱 視窗大小變更，重新初始化遊戲元素');
     }
 }
 

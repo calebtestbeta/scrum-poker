@@ -60,10 +60,16 @@ class GameTable {
         // 改為水平排列，從左到右按順序顯示
         const cardWidth = GAME_CONFIG.cards.width;
         const cardHeight = GAME_CONFIG.cards.height;
-        const cardSpacing = cardWidth + 20; // 增加間距到 20px 避免重疊
-        const totalWidth = cardValues.length * cardSpacing - 20; // 總寬度
+        const cardSpacing = cardWidth + 15; // 調整間距為 15px
+        const totalWidth = cardValues.length * cardSpacing - 15; // 總寬度
         const startX = this.centerX - totalWidth / 2; // 起始 X 座標（置中）
-        const cardY = this.centerY + this.radius + cardHeight / 2 + 50; // Y 座標（桌面外圍下方，增加距離）
+        
+        // 響應式計算卡牌 Y 位置，確保不會超出螢幕
+        const screenHeight = height || window.innerHeight || 800;
+        const bottomMargin = 20;
+        const maxCardY = screenHeight - cardHeight / 2 - bottomMargin;
+        const idealCardY = this.centerY + this.radius + cardHeight / 2 + 30;
+        const cardY = Math.min(idealCardY, maxCardY);
         
         for (let i = 0; i < cardValues.length; i++) {
             const x = startX + i * cardSpacing;
@@ -90,14 +96,22 @@ class GameTable {
         // 重新計算卡牌位置，確保適應不同螢幕尺寸
         const cardWidth = GAME_CONFIG.cards.width;
         const cardHeight = GAME_CONFIG.cards.height;
-        const cardSpacing = cardWidth + 20; // 20px 間距避免重疊
-        const totalWidth = this.availableCards.length * cardSpacing - 20;
+        const cardSpacing = cardWidth + 15; // 調整間距為 15px
+        const totalWidth = this.availableCards.length * cardSpacing - 15;
         const startX = this.centerX - totalWidth / 2;
-        const cardY = this.centerY + this.radius + cardHeight / 2 + 50;
+        
+        // 響應式計算卡牌 Y 位置，確保不會超出螢幕
+        const screenWidth = width || window.innerWidth;
+        const screenHeight = height || window.innerHeight;
+        const margin = 30; // 邊距
+        const bottomMargin = 20; // 底部邊距
+        
+        // 計算最大可用 Y 位置
+        const maxCardY = screenHeight - cardHeight / 2 - bottomMargin;
+        const idealCardY = this.centerY + this.radius + cardHeight / 2 + 30;
+        const cardY = Math.min(idealCardY, maxCardY);
         
         // 檢查是否超出螢幕寬度，如果超出則調整間距
-        const screenWidth = width || window.innerWidth;
-        const margin = 40; // 左右邊距
         const availableWidth = screenWidth - margin * 2;
         
         let finalSpacing = cardSpacing;
@@ -105,9 +119,15 @@ class GameTable {
         
         if (totalWidth > availableWidth) {
             // 如果總寬度超出螢幕，調整間距
-            finalSpacing = availableWidth / this.availableCards.length;
+            finalSpacing = Math.max(cardWidth + 5, availableWidth / this.availableCards.length); // 最小間距為卡片寬度+5px
             finalStartX = margin + finalSpacing / 2;
             console.log(`📱 響應式調整：螢幕寬度 ${screenWidth}px，調整間距至 ${finalSpacing.toFixed(1)}px`);
+        }
+        
+        // 如果卡牌太多導致間距過小，考慮縮小卡牌
+        if (finalSpacing < cardWidth + 10) {
+            const scale = Math.min(1, (finalSpacing - 5) / cardWidth);
+            console.log(`📱 卡牌縮放：${(scale * 100).toFixed(1)}%`);
         }
         
         // 更新所有卡牌位置
