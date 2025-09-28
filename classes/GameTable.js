@@ -286,6 +286,9 @@ class GameTable {
     drawCenterControls() {
         push();
         
+        // 初始化按鈕陣列（每次重新繪製時清空）
+        this.buttons = [];
+        
         // 中央區域背景
         const centerY = height * 0.4;
         const buttonWidth = 150;
@@ -304,8 +307,12 @@ class GameTable {
             }
         } else if (this.gamePhase === 'finished') {
             // 重新開始按鈕
+            console.log('🔄 繪製重新開始按鈕 (finished 階段)');
             this.drawButton('🔄 重新開始', this.centerX, centerY, buttonWidth, buttonHeight,
-                           color(59, 130, 246), () => this.clearVotes());
+                           color(59, 130, 246), () => {
+                               console.log('🔄 重新開始按鈕回調被調用');
+                               this.clearVotes();
+                           });
         }
         
         pop();
@@ -339,7 +346,6 @@ class GameTable {
         text(buttonText, x, y);
         
         // 儲存點擊區域（用於後續點擊檢測）
-        if (!this.buttons) this.buttons = [];
         this.buttons.push({x, y, w, h, onClick, text: buttonText});
         
         pop();
@@ -668,9 +674,6 @@ class GameTable {
     
     // 滑鼠按下處理
     handleMousePressed(mx, my) {
-        // 清除之前的按鈕列表
-        this.buttons = [];
-        
         // 首先檢查是否有確認對話框需要處理
         if (uiManager && uiManager.confirmDialog.visible) {
             const handled = uiManager.handleConfirmDialogClick(mx, my);
@@ -680,12 +683,14 @@ class GameTable {
         console.log(`🖱️ 點擊檢測: (${mx}, ${my}) - 遊戲階段: ${this.gamePhase}`);
         
         // 檢查是否點擊了中央按鈕
-        if (this.buttons) {
+        if (this.buttons && this.buttons.length > 0) {
             for (const button of this.buttons) {
                 if (mx >= button.x - button.w/2 && mx <= button.x + button.w/2 && 
                     my >= button.y - button.h/2 && my <= button.y + button.h/2) {
                     console.log(`🔘 點擊了按鈕: ${button.text}`);
                     button.onClick();
+                    // 清除按鈕列表（在點擊處理完成後）
+                    this.buttons = [];
                     return;
                 }
             }
@@ -979,6 +984,53 @@ class GameTable {
             afterRearrangeCheck: afterRearrangeReport.alignmentCheck,
             overallResult: initialReport.alignmentCheck && afterRearrangeReport.alignmentCheck
         };
+    }
+    
+    // 測試重新開始按鈕功能
+    testRestartButton() {
+        console.log('🧪 開始測試重新開始按鈕功能...');
+        
+        const testResults = {
+            gamePhaseCheck: false,
+            buttonArrayCheck: false,
+            functionCallCheck: false,
+            overallResult: false
+        };
+        
+        // 測試 1：檢查遊戲狀態
+        console.log(`當前遊戲階段: ${this.gamePhase}`);
+        testResults.gamePhaseCheck = (this.gamePhase === 'finished');
+        console.log('測試 1 - 遊戲階段:', testResults.gamePhaseCheck ? '✅ 通過 (finished)' : '❌ 失敗 (不是 finished)');
+        
+        // 測試 2：檢查按鈕陣列
+        if (this.buttons && this.buttons.length > 0) {
+            console.log(`找到 ${this.buttons.length} 個按鈕:`, this.buttons.map(b => b.text));
+            const restartButton = this.buttons.find(b => b.text.includes('重新開始'));
+            testResults.buttonArrayCheck = !!restartButton;
+            console.log('測試 2 - 按鈕陣列:', testResults.buttonArrayCheck ? '✅ 通過 (找到重新開始按鈕)' : '❌ 失敗 (未找到重新開始按鈕)');
+        } else {
+            console.log('測試 2 - 按鈕陣列: ❌ 失敗 (按鈕陣列為空)');
+        }
+        
+        // 測試 3：測試函數調用
+        try {
+            console.log('測試 clearVotes 函數調用...');
+            const originalPhase = this.gamePhase;
+            this.clearVotes();
+            testResults.functionCallCheck = (this.gamePhase === 'voting'); // clearVotes 應該轉到 voting 階段
+            console.log('測試 3 - 函數調用:', testResults.functionCallCheck ? '✅ 通過 (狀態轉換正確)' : '❌ 失敗 (狀態未轉換)');
+            
+            // 還原狀態進行完整測試
+            this.gamePhase = originalPhase;
+        } catch (error) {
+            console.error('測試 3 - 函數調用: ❌ 失敗 (拋出異常)', error);
+        }
+        
+        testResults.overallResult = testResults.gamePhaseCheck && testResults.buttonArrayCheck && testResults.functionCallCheck;
+        console.log('🧪 重新開始按鈕測試完成');
+        console.log('整體結果:', testResults.overallResult ? '✅ 通過' : '❌ 失敗');
+        
+        return testResults;
     }
     
     // 取得遊戲狀態
