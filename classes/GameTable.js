@@ -264,9 +264,6 @@ class GameTable {
         
         // 繪製卡牌區域（下方）
         this.drawCardArea();
-        
-        // 繪製遊戲狀態資訊
-        this.drawGameStatus();
     }
     
     // 繪製簡單背景
@@ -299,12 +296,6 @@ class GameTable {
         if (this.gamePhase === 'voting') {
             const totalVoted = this.players.filter(p => p.hasVoted).length;
             const totalPlayers = this.players.length;
-            
-            // 顯示投票進度
-            fill(255, 255, 255, 200);
-            textAlign(CENTER, CENTER);
-            textSize(20);
-            text(`投票進度: ${totalVoted}/${totalPlayers}`, this.centerX, centerY - 60);
             
             // 開牌按鈕
             if (totalVoted > 0) {
@@ -443,36 +434,7 @@ class GameTable {
         pop();
     }
     
-    // 繪製遊戲狀態
-    drawGameStatus() {
-        // 在左上角顯示詳細狀態
-        push();
-        fill(255, 255, 255, 200);
-        textAlign(LEFT, TOP);
-        textSize(12);
-        
-        const statusY = 60;
-        text(`遊戲階段: ${this.getPhaseText()}`, 20, statusY);
-        text(`玩家數量: ${this.players.length}`, 20, statusY + 20);
-        
-        if (this.gamePhase === 'voting') {
-            const votedCount = this.players.filter(p => p.hasVoted).length;
-            text(`投票進度: ${votedCount}/${this.players.length}`, 20, statusY + 40);
-        }
-        
-        pop();
-    }
     
-    // 取得階段文字
-    getPhaseText() {
-        const phases = {
-            'waiting': '等待中',
-            'voting': '投票中',
-            'revealing': '開牌中',
-            'finished': '已完成'
-        };
-        return phases[this.gamePhase] || '未知';
-    }
     
     // 計算共識度
     calculateConsensus(votes) {
