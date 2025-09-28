@@ -257,6 +257,54 @@
             background: linear-gradient(135deg, #3b82f6, #1d4ed8);
         }
         
+        /* Cookie 相關動畫 */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        /* 自動填入的表單欄位動畫 */
+        .auto-filled {
+            animation: fadeIn 0.5s ease-in;
+            background: linear-gradient(135deg, #f0f9ff, #dbeafe) !important;
+            border: 2px solid #3b82f6 !important;
+            transition: all 0.3s ease;
+        }
+        
+        .auto-filled:focus {
+            background: white !important;
+            border: 2px solid #1d4ed8 !important;
+        }
+        
+        /* 記住我選項的樣式增強 */
+        #rememberMe {
+            accent-color: #3b82f6;
+            transform: scale(1.1);
+        }
+        
+        .privacy-note {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-top: 8px;
+        }
+        
         /* 響應式設計 */
         @media (max-width: 1024px) {
             #gameInfo {
@@ -364,6 +412,16 @@
                 <input type="text" id="roomId" placeholder="留空自動建立新房間">
             </div>
             
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="rememberMe" checked style="margin-right: 8px;">
+                    <span>記住我的資訊（儲存在本機）</span>
+                </label>
+                <small class="privacy-note" style="color: #059669; font-size: 12px; margin-top: 4px; display: block;">
+                    🔒 隱私保護：資訊僅儲存在您的瀏覽器中，不會上傳到伺服器
+                </small>
+            </div>
+            
             <button onclick="startGame()">🚀 開始遊戲</button>
             
             <!-- Firebase 設定區域 -->
@@ -409,8 +467,8 @@
     <script>
         // 版本信息
         window.SCRUM_POKER_VERSION = {
-            hash: 'b7f1e6d2',
-            buildTime: '20250928_1530',
+            hash: 'c9d4a7e1',
+            buildTime: '20250928_1630',
             toString: function() { return `v${this.hash}-${this.buildTime}`; }
         };
         
@@ -421,12 +479,16 @@
             console.log('📄 檢查文件載入狀態:');
             const files = [
                 'firebase-config.js', 'classes/Vector2D.js', 'classes/Card.js', 
-                'classes/Player.js', 'classes/GameTable.js', 'managers/FirebaseManager.js',
-                'managers/UIManager.js', 'managers/AnimationManager.js', 'sketch.js', 'game.js'
+                'classes/Player.js', 'classes/GameTable.js', 'managers/CookieManager.js',
+                'managers/FirebaseManager.js', 'managers/UIManager.js', 'managers/AnimationManager.js', 
+                'sketch.js', 'game.js'
             ];
             files.forEach(file => {
                 console.log(`✅ ${file} 已載入`);
             });
+            
+            // 自動載入使用者資訊
+            setTimeout(loadUserInfoFromCookie, 500);
         });
         
         // 全局錯誤處理
@@ -463,6 +525,125 @@
                 }, { passive: true });
             });
         }
+        
+        // 使用者資訊自動載入功能
+        function loadUserInfoFromCookie() {
+            console.log('🔍 檢查已儲存的使用者資訊...');
+            
+            // 等待 CookieManager 載入完成
+            if (typeof window.cookieManager === 'undefined') {
+                setTimeout(loadUserInfoFromCookie, 100);
+                return;
+            }
+            
+            // 檢查 Cookie 支援
+            if (!cookieManager.isCookieEnabled()) {
+                console.warn('⚠️ 瀏覽器不支援 Cookie 或 Cookie 已被停用');
+                return;
+            }
+            
+            // 讀取儲存的使用者資訊
+            const userInfo = cookieManager.getUserInfo();
+            if (userInfo) {
+                console.log('✅ 找到已儲存的使用者資訊，自動填入表單');
+                
+                // 自動填入表單
+                const playerNameInput = document.getElementById('playerName');
+                const playerRoleSelect = document.getElementById('playerRole');
+                
+                if (playerNameInput && userInfo.name) {
+                    playerNameInput.value = userInfo.name;
+                    playerNameInput.classList.add('auto-filled');
+                    playerNameInput.title = `已從本機儲存自動填入 (上次使用: ${new Date(userInfo.lastUsed).toLocaleString('zh-TW')})`;
+                }
+                
+                if (playerRoleSelect && userInfo.role) {
+                    playerRoleSelect.value = userInfo.role;
+                    playerRoleSelect.classList.add('auto-filled');
+                    playerRoleSelect.title = `已從本機儲存自動填入 (上次使用: ${new Date(userInfo.lastUsed).toLocaleString('zh-TW')})`;
+                }
+                
+                // 顯示歡迎訊息
+                showUserWelcomeMessage(userInfo);
+            } else {
+                console.log('ℹ️ 未找到已儲存的使用者資訊');
+            }
+        }
+        
+        // 顯示歡迎回來訊息
+        function showUserWelcomeMessage(userInfo) {
+            const loginPanel = document.getElementById('loginPanel');
+            if (!loginPanel) return;
+            
+            // 建立歡迎訊息元素
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.style.cssText = `
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                animation: slideDown 0.3s ease-out;
+            `;
+            
+            const roleNames = {
+                'dev': '開發者',
+                'qa': '測試者', 
+                'scrum_master': 'Scrum Master',
+                'po': 'Product Owner',
+                'other': '其他'
+            };
+            
+            welcomeDiv.innerHTML = `
+                <div>
+                    <div style="font-weight: bold;">👋 歡迎回來，${userInfo.name}！</div>
+                    <div style="font-size: 12px; opacity: 0.9;">角色：${roleNames[userInfo.role] || userInfo.role}</div>
+                </div>
+                <button onclick="clearUserInfo()" style="
+                    background: rgba(255,255,255,0.2);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    cursor: pointer;
+                ">清除</button>
+            `;
+            
+            // 插入到表單前面
+            const firstFormGroup = loginPanel.querySelector('.form-group');
+            if (firstFormGroup) {
+                loginPanel.insertBefore(welcomeDiv, firstFormGroup);
+            }
+        }
+        
+        // 清除使用者資訊功能
+        function clearUserInfo() {
+            if (typeof window.cookieManager !== 'undefined') {
+                cookieManager.clearUserInfo();
+                location.reload(); // 重新載入頁面
+            }
+        }
+        
+        // 儲存使用者資訊到 Cookie
+        function saveUserInfoToCookie(name, role) {
+            const rememberMe = document.getElementById('rememberMe');
+            if (!rememberMe || !rememberMe.checked) {
+                console.log('📝 使用者選擇不記住資訊');
+                return false;
+            }
+            
+            if (typeof window.cookieManager === 'undefined') {
+                console.warn('⚠️ CookieManager 尚未載入');
+                return false;
+            }
+            
+            return cookieManager.saveUserInfo({ name, role });
+        }
     </script>
     
     <!-- Firebase 設定 -->
@@ -473,6 +654,7 @@
     <script src="classes/Card.js"></script>
     <script src="classes/Player.js"></script>
     <script src="classes/GameTable.js"></script>
+    <script src="managers/CookieManager.js"></script>
     <script src="managers/FirebaseManager.js"></script>
     <script src="managers/UIManager.js"></script>
     <script src="managers/AnimationManager.js"></script>

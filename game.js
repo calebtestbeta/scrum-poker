@@ -34,6 +34,14 @@ async function startGame() {
     }
     
     try {
+        // 儲存使用者資訊到 Cookie（如果使用者選擇記住）
+        if (typeof saveUserInfoToCookie === 'function') {
+            const saved = saveUserInfoToCookie(playerName, playerRole);
+            if (saved) {
+                console.log('✅ 使用者資訊已儲存到 Cookie');
+            }
+        }
+        
         // 設定載入狀態
         gameState = 'loading';
         
