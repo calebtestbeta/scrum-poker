@@ -544,19 +544,19 @@ function setupTouchOptimizations() {
     // 防止觸控滾動 - 延遲設定直到畫布建立
     setTimeout(() => {
         if (deviceInfo.isTouch && canvas && canvas.canvas) {
+            // 只防止滾動和縮放，不完全阻止觸控事件
             canvas.canvas.addEventListener('touchmove', function(e) {
-                e.preventDefault();
+                // 只在多個觸點時防止滾動
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
             }, { passive: false });
             
-            canvas.canvas.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-            }, { passive: false });
+            // 不阻止 touchstart，讓 p5.js 的觸控事件正常處理
             
-            canvas.canvas.addEventListener('touchend', function(e) {
-                e.preventDefault();
-            }, { passive: false });
+            // 不阻止 touchend，讓 p5.js 的觸控事件正常處理
             
-            // 防止雙指縮放
+            // 防止雙指縮放手勢
             canvas.canvas.addEventListener('gesturestart', function(e) {
                 e.preventDefault();
             });
@@ -568,19 +568,35 @@ function setupTouchOptimizations() {
             canvas.canvas.addEventListener('gestureend', function(e) {
                 e.preventDefault();
             });
+            
+            console.log('📱 畫布觸控優化已設定 - 允許單點觸控，防止多點手勢');
         }
     }, 100);
 }
 
 // p5.js 觸控事件處理
 function touchStarted() {
-    // 在 Safari 中總是處理觸控事件
+    // 確保觸控事件正確處理
     const currentTime = millis();
     touchState.touchStartTime = currentTime;
-    touchState.touchStartX = touches.length > 0 ? touches[0].x : mouseX;
-    touchState.touchStartY = touches.length > 0 ? touches[0].y : mouseY;
+    
+    // 優先使用 touches 陣列，如果為空則使用 mouseX/mouseY
+    let touchX, touchY;
+    if (touches && touches.length > 0) {
+        touchX = touches[0].x;
+        touchY = touches[0].y;
+    } else {
+        // 使用滑鼠座標作為後備
+        touchX = mouseX;
+        touchY = mouseY;
+    }
+    
+    touchState.touchStartX = touchX;
+    touchState.touchStartY = touchY;
     touchState.isTouching = true;
     touchState.isLongPress = false;
+    
+    console.log(`📱 觸控開始: (${touchX}, ${touchY}) - touches數量: ${touches ? touches.length : 0}`);
     
     // 檢測雙擊
     const timeSinceLastTap = currentTime - touchState.lastTapTime;
@@ -591,6 +607,7 @@ function touchStarted() {
     
     if (timeSinceLastTap < GAME_CONFIG.touch.doubleTapTime && 
         distanceFromLastTap < GAME_CONFIG.touch.tapThreshold) {
+        console.log('👆 檢測到雙擊');
         handleDoubleTap(touchState.touchStartX, touchState.touchStartY);
         return false; // 防止預設行為
     }
@@ -599,36 +616,66 @@ function touchStarted() {
     touchState.lastTapX = touchState.touchStartX;
     touchState.lastTapY = touchState.touchStartY;
     
-    // 處理單次觸控開始
+    // 處理單次觸控開始 - 確保遊戲邏輯能夠接收觸控事件
     if (gameState === 'game' && gameTable) {
-        gameTable.handleMousePressed(touchState.touchStartX, touchState.touchStartY);
+        console.log(`🎮 傳遞觸控事件給 GameTable: (${touchX}, ${touchY})`);
+        gameTable.handleMousePressed(touchX, touchY);
     }
     
-    return false; // 防止預設行為
+    // 只在畫布區域防止預設行為，允許 DOM 按鈕正常工作
+    if (touches && touches.length > 0) {
+        return false; // 防止預設行為，但保持事件傳播
+    }
+    return true; // 允許 DOM 事件正常處理
 }
 
 function touchMoved() {
     if (!touchState.isTouching) return;
     
-    const currentX = touches.length > 0 ? touches[0].x : mouseX;
-    const currentY = touches.length > 0 ? touches[0].y : mouseY;
-    
-    // 處理拖拽
-    if (gameState === 'game' && gameTable) {
-        gameTable.handleMouseDragged(currentX, currentY);
+    // 優先使用 touches 陣列，如果為空則使用 mouseX/mouseY
+    let currentX, currentY;
+    if (touches && touches.length > 0) {
+        currentX = touches[0].x;
+        currentY = touches[0].y;
+    } else {
+        currentX = mouseX;
+        currentY = mouseY;
     }
     
-    return false; // 防止預設行為
+    // 處理拖拽和滑鼠移動
+    if (gameState === 'game' && gameTable) {
+        gameTable.handleMouseDragged(currentX, currentY);
+        gameTable.handleMouseMoved(currentX, currentY); // 確保懸停效果正常
+    }
+    
+    // 只在畫布區域防止預設行為
+    if (touches && touches.length > 0) {
+        return false; // 防止預設行為
+    }
+    return true;
 }
 
 function touchEnded() {
     const currentTime = millis();
     const touchDuration = currentTime - touchState.touchStartTime;
-    const currentX = touchState.lastTapX;
-    const currentY = touchState.lastTapY;
+    
+    // 使用觸控結束時的實際座標
+    let currentX, currentY;
+    if (touches && touches.length > 0) {
+        // 如果還有其他觸控點，使用第一個
+        currentX = touches[0].x;
+        currentY = touches[0].y;
+    } else {
+        // 使用最後記錄的觸控位置或滑鼠位置
+        currentX = touchState.lastTapX || mouseX;
+        currentY = touchState.lastTapY || mouseY;
+    }
+    
+    console.log(`📱 觸控結束: (${currentX}, ${currentY}) - 持續時間: ${touchDuration}ms`);
     
     // 檢測長按
     if (touchDuration >= GAME_CONFIG.touch.longPressTime) {
+        console.log('👆 檢測到長按');
         handleLongPress(currentX, currentY);
     } else {
         // 檢測滑動
@@ -642,9 +689,11 @@ function touchEnded() {
                 touchState.touchStartX, touchState.touchStartY,
                 currentX, currentY
             );
+            console.log(`👆 檢測到滑動: ${swipeDirection}`);
             handleSwipe(swipeDirection);
         } else {
-            // 普通點擊
+            // 普通點擊 - 確保觸控釋放事件傳遞給遊戲邏輯
+            console.log(`👆 普通觸控點擊: (${currentX}, ${currentY})`);
             if (gameState === 'game' && gameTable) {
                 gameTable.handleMouseReleased(currentX, currentY);
             }
@@ -654,7 +703,8 @@ function touchEnded() {
     touchState.isTouching = false;
     touchState.isLongPress = false;
     
-    return false; // 防止預設行為
+    // 只在畫布區域防止預設行為
+    return false; // 防止預設行為，避免模擬滑鼠事件
 }
 
 // 處理雙擊
@@ -663,7 +713,11 @@ function handleDoubleTap(x, y) {
     
     if (gameState === 'game') {
         // 雙擊開牌
-        revealCards();
+        if (typeof revealCards === 'function') {
+            revealCards();
+        } else {
+            console.warn('⚠️ revealCards 函數不存在');
+        }
     }
 }
 
@@ -773,4 +827,43 @@ if (deviceInfo.isTouch) {
     });
 }
 
+// 觸控診斷功能
+function runTouchDiagnostics() {
+    console.log('🔍 === 觸控診斷報告 ===');
+    console.log('📱 裝置資訊:', deviceInfo);
+    console.log('🎮 遊戲狀態:', gameState);
+    console.log('🖥️ 畫布尺寸:', width, 'x', height);
+    console.log('👆 觸控狀態:', touchState);
+    
+    // 檢查關鍵函數是否存在
+    const functions = ['gameTable', 'firebaseManager', 'uiManager', 'animationManager'];
+    functions.forEach(funcName => {
+        const exists = typeof window[funcName] !== 'undefined' && window[funcName] !== null;
+        console.log(`🔧 ${funcName}:`, exists ? '✅ 存在' : '❌ 不存在');
+    });
+    
+    // 檢查觸控事件綁定
+    if (canvas && canvas.canvas) {
+        console.log('🎨 畫布元素:', canvas.canvas);
+        console.log('📐 畫布位置:', canvas.canvas.getBoundingClientRect());
+    }
+    
+    return {
+        deviceInfo,
+        gameState,
+        canvasSize: { width, height },
+        touchState,
+        functionsAvailable: {
+            gameTable: typeof gameTable !== 'undefined' && gameTable !== null,
+            firebaseManager: typeof firebaseManager !== 'undefined' && firebaseManager !== null,
+            uiManager: typeof uiManager !== 'undefined' && uiManager !== null,
+            animationManager: typeof animationManager !== 'undefined' && animationManager !== null
+        }
+    };
+}
+
+// 在全域範圍內提供診斷功能
+window.runTouchDiagnostics = runTouchDiagnostics;
+
 console.log('📱 觸控和響應式設計功能已載入');
+console.log('💡 使用 runTouchDiagnostics() 進行觸控診斷');

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>觸控測試頁面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        
+        .test-area {
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 200px;
+        }
+        
+        .button-test {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
+        .test-button {
+            padding: 15px 25px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3);
+            min-height: 50px;
+            min-width: 120px;
+        }
+        
+        .test-button:active {
+            background: #1d4ed8;
+            transform: scale(0.98);
+        }
+        
+        .log-area {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .device-info {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .canvas-test {
+            border: 2px dashed #999;
+            background: #fafafa;
+            width: 100%;
+            height: 200px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .touch-indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 行動裝置觸控測試</h1>
+    
+    <div class="device-info" id="deviceInfo">
+        <h3>📱 裝置資訊</h3>
+        <div id="deviceDetails"></div>
+    </div>
+    
+    <div class="test-area">
+        <h3>🔘 按鈕觸控測試</h3>
+        <div class="button-test">
+            <button class="test-button" onclick="logEvent('按鈕1被點擊')">按鈕 1</button>
+            <button class="test-button" onclick="logEvent('按鈕2被點擊')">按鈕 2</button>
+            <button class="test-button" onclick="logEvent('按鈕3被點擊')">按鈕 3</button>
+            <button class="test-button" onclick="clearLog()">清除日誌</button>
+        </div>
+    </div>
+    
+    <div class="test-area">
+        <h3>🎨 Canvas 觸控測試</h3>
+        <div class="canvas-test" id="canvasTest">
+            點擊這個區域測試觸控事件
+        </div>
+    </div>
+    
+    <div class="test-area">
+        <h3>📝 事件日誌</h3>
+        <div class="log-area" id="logArea"></div>
+    </div>
+
+    <script>
+        // 日誌功能
+        function logEvent(message) {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        function clearLog() {
+            document.getElementById('logArea').innerHTML = '';
+        }
+        
+        // 裝置檢測
+        function detectDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const windowWidth = window.innerWidth;
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            
+            const isMobile = windowWidth <= 768 || userAgent.includes('mobile') || userAgent.includes('android') || userAgent.includes('iphone');
+            const isTablet = (windowWidth > 768 && windowWidth <= 1024) || userAgent.includes('tablet') || userAgent.includes('ipad');
+            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome');
+            
+            return {
+                userAgent: navigator.userAgent,
+                windowWidth,
+                windowHeight: window.innerHeight,
+                devicePixelRatio,
+                isMobile,
+                isTablet,
+                isTouch,
+                isSafari,
+                maxTouchPoints: navigator.maxTouchPoints || 0,
+                platform: navigator.platform
+            };
+        }
+        
+        // 顯示裝置資訊
+        function displayDeviceInfo() {
+            const info = detectDevice();
+            const detailsDiv = document.getElementById('deviceDetails');
+            
+            detailsDiv.innerHTML = `
+                <p><strong>用戶代理:</strong> ${info.userAgent}</p>
+                <p><strong>視窗尺寸:</strong> ${info.windowWidth} x ${info.windowHeight}</p>
+                <p><strong>裝置像素比:</strong> ${info.devicePixelRatio}</p>
+                <p><strong>是否為行動裝置:</strong> ${info.isMobile ? '✅ 是' : '❌ 否'}</p>
+                <p><strong>是否為平板:</strong> ${info.isTablet ? '✅ 是' : '❌ 否'}</p>
+                <p><strong>是否支援觸控:</strong> ${info.isTouch ? '✅ 是' : '❌ 否'}</p>
+                <p><strong>是否為 Safari:</strong> ${info.isSafari ? '✅ 是' : '❌ 否'}</p>
+                <p><strong>最大觸點數:</strong> ${info.maxTouchPoints}</p>
+                <p><strong>平台:</strong> ${info.platform}</p>
+            `;
+        }
+        
+        // Canvas 測試區域事件處理
+        function setupCanvasTest() {
+            const canvasTest = document.getElementById('canvasTest');
+            let touchIndicators = [];
+            
+            // 創建觸控指示器
+            function createTouchIndicator(x, y, type = 'touch') {
+                const indicator = document.createElement('div');
+                indicator.className = 'touch-indicator';
+                indicator.style.left = x + 'px';
+                indicator.style.top = y + 'px';
+                indicator.style.background = type === 'touch' ? 'red' : 'blue';
+                canvasTest.appendChild(indicator);
+                touchIndicators.push(indicator);
+                
+                // 2秒後移除指示器
+                setTimeout(() => {
+                    if (indicator.parentNode) {
+                        indicator.parentNode.removeChild(indicator);
+                    }
+                    const index = touchIndicators.indexOf(indicator);
+                    if (index > -1) {
+                        touchIndicators.splice(index, 1);
+                    }
+                }, 2000);
+            }
+            
+            // 滑鼠事件
+            canvasTest.addEventListener('mousedown', (e) => {
+                const rect = canvasTest.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                logEvent(`滑鼠按下: (${Math.round(x)}, ${Math.round(y)})`);
+                createTouchIndicator(x, y, 'mouse');
+            });
+            
+            canvasTest.addEventListener('click', (e) => {
+                const rect = canvasTest.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                logEvent(`滑鼠點擊: (${Math.round(x)}, ${Math.round(y)})`);
+            });
+            
+            // 觸控事件
+            canvasTest.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // 防止滾動
+                logEvent(`觸控開始: ${e.touches.length} 個觸點`);
+                
+                for (let i = 0; i < e.touches.length; i++) {
+                    const touch = e.touches[i];
+                    const rect = canvasTest.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    logEvent(`  觸點 ${i + 1}: (${Math.round(x)}, ${Math.round(y)})`);
+                    createTouchIndicator(x, y, 'touch');
+                }
+            }, { passive: false });
+            
+            canvasTest.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                logEvent(`觸控移動: ${e.touches.length} 個觸點`);
+            }, { passive: false });
+            
+            canvasTest.addEventListener('touchend', (e) => {
+                logEvent(`觸控結束: 剩餘 ${e.touches.length} 個觸點`);
+            });
+            
+            canvasTest.addEventListener('touchcancel', (e) => {
+                logEvent(`觸控取消: 剩餘 ${e.touches.length} 個觸點`);
+            });
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            displayDeviceInfo();
+            setupCanvasTest();
+            logEvent('觸控測試頁面已載入');
+            
+            // 添加全域觸控事件監聽器以偵測所有觸控
+            document.addEventListener('touchstart', (e) => {
+                logEvent(`全域觸控開始: ${e.touches.length} 個觸點`);
+            });
+            
+            document.addEventListener('touchend', (e) => {
+                logEvent(`全域觸控結束: 剩餘 ${e.touches.length} 個觸點`);
+            });
+        });
+        
+        // 視窗大小改變時更新資訊
+        window.addEventListener('resize', () => {
+            displayDeviceInfo();
+            logEvent('視窗大小已改變');
+        });
+        
+        // 方向改變時更新資訊
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                displayDeviceInfo();
+                logEvent('裝置方向已改變');
+            }, 100);
+        });
+    </script>
+</body>
+</html>
