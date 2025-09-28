@@ -200,17 +200,17 @@
         let originalDraw = null;
         let originalUpdate = null;
         
-        // 全域變數
-        let gameTable = null;
-        let uiManager = null;
-        let firebaseManager = null;
-        let animationManager = null;
-        let scrumMasterAdvice = null;
-        let currentPlayer = null;
-        let gameState = 'login';
+        // 全域變數宣告（避免與 game.js 中的衝突）
+        let testGameTable = null;
+        let testUIManager = null;
+        let testFirebaseManager = null;
+        let testAnimationManager = null;
+        let testScrumMasterAdvice = null;
+        let testCurrentPlayer = null;
+        let testGameState = 'login';
         
-        // 遊戲設定
-        const GAME_CONFIG = {
+        // 遊戲設定（避免與 game.js 衝突）
+        const TEST_GAME_CONFIG = {
             canvas: {
                 width: 800,
                 height: 600
@@ -226,7 +226,7 @@
         
         // p5.js 設定
         function setup() {
-            const canvas = createCanvas(GAME_CONFIG.canvas.width, GAME_CONFIG.canvas.height);
+            const canvas = createCanvas(TEST_GAME_CONFIG.canvas.width, TEST_GAME_CONFIG.canvas.height);
             canvas.parent('gameContainer');
             
             console.log('🎮 調試畫布已建立');
@@ -237,16 +237,16 @@
             debugStats.drawCalls++;
             debugStats.frameCount++;
             
-            background(GAME_CONFIG.colors.background);
+            background(TEST_GAME_CONFIG.colors.background);
             
             // 繪製遊戲桌面
-            if (gameTable) {
-                gameTable.draw();
+            if (testGameTable) {
+                testGameTable.draw();
             }
             
             // 繪製 UI 元素
-            if (uiManager) {
-                uiManager.draw();
+            if (testUIManager) {
+                testUIManager.draw();
             }
             
             // 更新實時狀態顯示
@@ -261,16 +261,16 @@
                 console.log('🚀 初始化調試遊戲...');
                 
                 // 初始化管理器
-                firebaseManager = new FirebaseManager();
-                uiManager = new UIManager();
-                animationManager = new AnimationManager();
+                testFirebaseManager = new FirebaseManager();
+                testUIManager = new UIManager();
+                testAnimationManager = new AnimationManager();
                 
                 // 初始化遊戲桌面
-                gameTable = new GameTable();
+                testGameTable = new GameTable();
                 
                 // 初始化 Scrum Master 建議系統
                 if (typeof ScrumMasterAdvice !== 'undefined') {
-                    scrumMasterAdvice = new ScrumMasterAdvice();
+                    testScrumMasterAdvice = new ScrumMasterAdvice();
                 }
                 
                 updateGameStateInfo();
@@ -284,14 +284,14 @@
         
         // 添加測試玩家
         function addTestPlayers() {
-            if (!gameTable) {
+            if (!testGameTable) {
                 updateGameStateInfo('請先初始化遊戲');
                 return;
             }
             
             try {
                 // 清除現有玩家
-                gameTable.players = [];
+                testGameTable.players = [];
                 
                 // 添加測試玩家
                 const testPlayers = [
@@ -302,11 +302,11 @@
                 ];
                 
                 testPlayers.forEach(playerData => {
-                    gameTable.addPlayer(playerData.id, playerData.name, playerData.role);
+                    testGameTable.addPlayer(playerData.id, playerData.name, playerData.role);
                 });
                 
                 // 設定當前玩家
-                currentPlayer = {
+                testCurrentPlayer = {
                     id: 'player1',
                     name: '開發者小明',
                     role: 'dev'
@@ -323,18 +323,18 @@
         
         // 模擬投票
         function simulateVoting() {
-            if (!gameTable || gameTable.players.length === 0) {
+            if (!testGameTable || testGameTable.players.length === 0) {
                 updateGameStateInfo('請先添加測試玩家');
                 return;
             }
             
             try {
                 // 開始投票
-                gameTable.startVoting();
+                testGameTable.startVoting();
                 
                 // 模擬玩家投票
                 const votes = [8, 5, 13, 5]; // 不同的投票值
-                gameTable.players.forEach((player, index) => {
+                testGameTable.players.forEach((player, index) => {
                     if (index < votes.length) {
                         player.setVote(votes[index]);
                         player.hasVoted = true;
@@ -352,18 +352,19 @@
         
         // 強制進入 Finished 階段
         function forceFinished() {
-            if (!gameTable) {
+            if (!testGameTable) {
                 updateGameStateInfo('請先初始化遊戲');
                 return;
             }
             
             try {
                 // 強制設定為 finished 階段
-                gameTable.gamePhase = 'finished';
-                gameTable.allVotesRevealed = true;
+                testGameTable.gamePhase = 'finished';
+                testGameTable.allVotesRevealed = true;
                 
-                if (uiManager) {
-                    uiManager.gamePhase = 'finished';
+                if (testUIManager) {
+                    testUIManager.gamePhase = 'finished';
+                    testUIManager.isGameStarted = true;
                     
                     // 生成測試統計資料
                     const testVotes = [
@@ -373,12 +374,12 @@
                         { value: 5, playerRole: 'po', playerName: 'Product Owner' }
                     ];
                     
-                    uiManager.updateStatistics(testVotes);
+                    testUIManager.updateStatistics(testVotes);
                     
                     // 生成 Scrum Master 建議
-                    if (scrumMasterAdvice) {
-                        scrumMasterAdvice.analyzeVotes(testVotes);
-                        scrumMasterAdvice.show();
+                    if (testScrumMasterAdvice) {
+                        testScrumMasterAdvice.analyzeVotes(testVotes);
+                        testScrumMasterAdvice.show();
                     }
                 }
                 
@@ -396,19 +397,19 @@
             try {
                 const info = [];
                 
-                if (!uiManager) {
+                if (!testUIManager) {
                     info.push('❌ UIManager 未初始化');
                 } else {
                     info.push(`✅ UIManager 已初始化`);
-                    info.push(`遊戲階段: ${uiManager.gamePhase}`);
-                    info.push(`統計資料: ${JSON.stringify(uiManager.statistics, null, 2)}`);
+                    info.push(`遊戲階段: ${testUIManager.gamePhase}`);
+                    info.push(`統計資料: ${JSON.stringify(testUIManager.statistics, null, 2)}`);
                     
                     // 檢查 drawStatistics 方法
-                    if (typeof uiManager.drawStatistics === 'function') {
+                    if (typeof testUIManager.drawStatistics === 'function') {
                         info.push('✅ drawStatistics 方法存在');
                         
                         // 檢查是否會被調用
-                        if (uiManager.gamePhase === 'finished') {
+                        if (testUIManager.gamePhase === 'finished') {
                             info.push('✅ 在 finished 階段，統計面板應該顯示');
                         } else {
                             info.push('⚠️ 不在 finished 階段，統計面板不會顯示');
@@ -432,17 +433,17 @@
             try {
                 const info = [];
                 
-                if (!scrumMasterAdvice) {
+                if (!testScrumMasterAdvice) {
                     info.push('❌ ScrumMasterAdvice 未初始化');
                 } else {
                     info.push('✅ ScrumMasterAdvice 已初始化');
-                    info.push(`建議數量: ${scrumMasterAdvice.suggestions.length}`);
-                    info.push(`顯示狀態: ${scrumMasterAdvice.isVisible ? '顯示' : '隱藏'}`);
+                    info.push(`建議數量: ${testScrumMasterAdvice.suggestions.length}`);
+                    info.push(`顯示狀態: ${testScrumMasterAdvice.isVisible ? '顯示' : '隱藏'}`);
                     
                     // 檢查建議內容
-                    if (scrumMasterAdvice.suggestions.length > 0) {
+                    if (testScrumMasterAdvice.suggestions.length > 0) {
                         info.push('\n建議內容:');
-                        scrumMasterAdvice.suggestions.forEach((suggestion, index) => {
+                        testScrumMasterAdvice.suggestions.forEach((suggestion, index) => {
                             info.push(`${index + 1}. ${suggestion.title}`);
                         });
                     } else {
@@ -544,18 +545,18 @@
         function updateGameStateInfo(extraInfo = '') {
             const info = [];
             
-            if (gameTable) {
-                info.push(`遊戲階段: ${gameTable.gamePhase}`);
-                info.push(`玩家數量: ${gameTable.players.length}`);
-                info.push(`已投票玩家: ${gameTable.players.filter(p => p.hasVoted).length}`);
-                info.push(`所有投票已揭示: ${gameTable.allVotesRevealed}`);
+            if (testGameTable) {
+                info.push(`遊戲階段: ${testGameTable.gamePhase}`);
+                info.push(`玩家數量: ${testGameTable.players.length}`);
+                info.push(`已投票玩家: ${testGameTable.players.filter(p => p.hasVoted).length}`);
+                info.push(`所有投票已揭示: ${testGameTable.allVotesRevealed}`);
             } else {
                 info.push('❌ GameTable 未初始化');
             }
             
-            if (uiManager) {
-                info.push(`UI 遊戲階段: ${uiManager.gamePhase}`);
-                info.push(`遊戲已開始: ${uiManager.isGameStarted}`);
+            if (testUIManager) {
+                info.push(`UI 遊戲階段: ${testUIManager.gamePhase}`);
+                info.push(`遊戲已開始: ${testUIManager.isGameStarted}`);
             } else {
                 info.push('❌ UIManager 未初始化');
             }
@@ -589,15 +590,15 @@
             info.push(`幀率: ${frameRate.toFixed(1)} FPS`);
             info.push(`繪製調用: ${debugStats.drawCalls}`);
             
-            if (gameTable) {
-                info.push(`遊戲階段: ${gameTable.gamePhase}`);
+            if (testGameTable) {
+                info.push(`遊戲階段: ${testGameTable.gamePhase}`);
             }
             
-            if (uiManager && uiManager.gamePhase === 'finished') {
+            if (testUIManager && testUIManager.gamePhase === 'finished') {
                 info.push('📊 統計面板應該顯示');
             }
             
-            if (scrumMasterAdvice && scrumMasterAdvice.isVisible) {
+            if (testScrumMasterAdvice && testScrumMasterAdvice.isVisible) {
                 info.push('🎯 建議面板正在顯示');
             }
             
@@ -610,13 +611,13 @@
         
         // 切換統計顯示
         function toggleStatistics() {
-            if (uiManager) {
+            if (testUIManager) {
                 // 強制切換統計顯示狀態
-                if (uiManager.gamePhase === 'finished') {
-                    uiManager.gamePhase = 'voting';
+                if (testUIManager.gamePhase === 'finished') {
+                    testUIManager.gamePhase = 'voting';
                     updateStatisticsInfo('統計面板已隱藏 (切換到 voting 階段)');
                 } else {
-                    uiManager.gamePhase = 'finished';
+                    testUIManager.gamePhase = 'finished';
                     updateStatisticsInfo('統計面板已顯示 (切換到 finished 階段)');
                 }
                 updateGameStateInfo();
@@ -625,15 +626,15 @@
         
         // 切換建議顯示
         function toggleAdvice() {
-            if (scrumMasterAdvice) {
-                scrumMasterAdvice.toggle();
-                updateAdviceInfo(`建議面板 ${scrumMasterAdvice.isVisible ? '已顯示' : '已隱藏'}`);
+            if (testScrumMasterAdvice) {
+                testScrumMasterAdvice.toggle();
+                updateAdviceInfo(`建議面板 ${testScrumMasterAdvice.isVisible ? '已顯示' : '已隱藏'}`);
             }
         }
         
         // 測試統計更新
         function testStatisticsUpdate() {
-            if (uiManager) {
+            if (testUIManager) {
                 const testVotes = [
                     { value: 8, playerRole: 'dev', playerName: '開發者A' },
                     { value: 5, playerRole: 'qa', playerName: '測試者B' },
@@ -641,14 +642,14 @@
                     { value: 3, playerRole: 'qa', playerName: '測試者D' }
                 ];
                 
-                uiManager.updateStatistics(testVotes);
+                testUIManager.updateStatistics(testVotes);
                 updateStatisticsInfo('統計資料已更新');
             }
         }
         
         // 測試建議生成
         function testAdviceGeneration() {
-            if (scrumMasterAdvice) {
+            if (testScrumMasterAdvice) {
                 const testVotes = [
                     { value: 8, playerRole: 'dev', playerName: '開發者A' },
                     { value: 5, playerRole: 'qa', playerName: '測試者B' },
@@ -656,10 +657,36 @@
                     { value: 3, playerRole: 'qa', playerName: '測試者D' }
                 ];
                 
-                scrumMasterAdvice.analyzeVotes(testVotes);
-                scrumMasterAdvice.show();
-                updateAdviceInfo(`已生成 ${scrumMasterAdvice.suggestions.length} 項建議`);
+                testScrumMasterAdvice.analyzeVotes(testVotes);
+                testScrumMasterAdvice.show();
+                updateAdviceInfo(`已生成 ${testScrumMasterAdvice.suggestions.length} 項建議`);
             }
+        }
+        
+        // 開始效能監控
+        function startPerformanceMonitor() {
+            debugStats.isMonitoring = true;
+            debugStats.drawCalls = 0;
+            debugStats.updateCalls = 0;
+            debugStats.performanceLog = [];
+            debugStats.lastFrameTime = performance.now();
+            
+            console.log('📊 效能監控已開始');
+            updatePerformanceInfo('效能監控已開始...');
+        }
+        
+        // 停止效能監控
+        function stopPerformanceMonitor() {
+            debugStats.isMonitoring = false;
+            
+            const info = [
+                `總繪製調用: ${debugStats.drawCalls}`,
+                `平均幀率: ${(debugStats.frameCount / (performance.now() / 1000)).toFixed(2)} FPS`,
+                `總幀數: ${debugStats.frameCount}`
+            ];
+            
+            updatePerformanceInfo(info.join('\n'));
+            console.log('📊 效能監控已停止');
         }
         
         // 分析繪製調用
@@ -669,25 +696,63 @@
             info.push('🔍 分析繪製調用中...');
             
             // 檢查各個組件的 draw 方法
-            if (gameTable && typeof gameTable.draw === 'function') {
+            if (testGameTable && typeof testGameTable.draw === 'function') {
                 info.push('✅ GameTable.draw() 存在');
             }
             
-            if (uiManager && typeof uiManager.draw === 'function') {
+            if (testUIManager && typeof testUIManager.draw === 'function') {
                 info.push('✅ UIManager.draw() 存在');
                 
-                if (typeof uiManager.drawStatistics === 'function') {
+                if (typeof testUIManager.drawStatistics === 'function') {
                     info.push('✅ UIManager.drawStatistics() 存在');
                 } else {
                     info.push('❌ UIManager.drawStatistics() 不存在');
                 }
             }
             
-            if (scrumMasterAdvice && typeof scrumMasterAdvice.draw === 'function') {
+            if (testScrumMasterAdvice && typeof testScrumMasterAdvice.draw === 'function') {
                 info.push('✅ ScrumMasterAdvice.draw() 存在');
             }
             
             updatePerformanceInfo(info.join('\n'));
+        }
+        
+        // 檢測循環
+        function detectLoops() {
+            try {
+                const info = [];
+                
+                // 檢查 gameTable 的 update 方法
+                if (testGameTable && typeof testGameTable.update === 'function') {
+                    info.push('🔍 檢查 GameTable.update()...');
+                    
+                    // 檢查是否有無限循環的跡象
+                    const startTime = performance.now();
+                    let callCount = 0;
+                    
+                    try {
+                        // 調用一次 update 方法並監控
+                        testGameTable.update();
+                        callCount++;
+                        
+                        const duration = performance.now() - startTime;
+                        info.push(`✅ GameTable.update() 執行時間: ${duration.toFixed(2)}ms`);
+                        info.push(`調用次數: ${callCount}`);
+                        
+                    } catch (updateError) {
+                        info.push(`❌ GameTable.update() 執行失敗: ${updateError.message}`);
+                    }
+                } else {
+                    info.push('❌ GameTable.update() 方法不存在');
+                }
+                
+                updateLoopInfo(info.join('\n'));
+                console.log('🔍 循環檢測完成');
+                
+            } catch (error) {
+                console.error('❌ 循環檢測失敗:', error);
+                updateLoopInfo(`檢測失敗: ${error.message}`);
+            }
         }
         
         // 監控動畫幀
