@@ -3,14 +3,10 @@ class UIManager {
     constructor() {
         // DOM 元素引用
         this.loginPanel = document.getElementById('loginPanel');
-        this.gameInfo = document.getElementById('gameInfo');
         this.gameControls = document.getElementById('gameControls');
         this.toast = document.getElementById('toast');
         
-        // 遊戲資訊元素
-        this.currentRoomSpan = document.getElementById('currentRoom');
-        this.playerCountSpan = document.getElementById('playerCount');
-        this.gameStatusSpan = document.getElementById('gameStatus');
+        // gameInfo 相關元素已移除，改由畫布顯示
         
         // 控制按鈕
         this.revealBtn = document.getElementById('revealBtn');
@@ -127,22 +123,14 @@ class UIManager {
         const isMobile = window.innerWidth <= 768;
         
         if (isMobile) {
-            // 行動版佈局調整
-            if (this.gameInfo) {
-                this.gameInfo.style.position = 'relative';
-                this.gameInfo.style.textAlign = 'center';
-            }
+            // 行動版佈局調整（gameInfo 已移除）
             
             if (this.gameControls) {
                 this.gameControls.style.position = 'relative';
                 this.gameControls.style.textAlign = 'center';
             }
         } else {
-            // 桌面版佈局
-            if (this.gameInfo) {
-                this.gameInfo.style.position = 'absolute';
-                this.gameInfo.style.textAlign = 'left';
-            }
+            // 桌面版佈局（gameInfo 已移除）
             
             if (this.gameControls) {
                 this.gameControls.style.position = 'absolute';
@@ -161,10 +149,7 @@ class UIManager {
             this.loginPanel.style.display = 'none';
         }
         
-        // 顯示遊戲介面
-        if (this.gameInfo) {
-            this.gameInfo.style.display = 'block';
-        }
+        // 遊戲介面顯示（gameInfo 已移除）
         
         if (this.gameControls) {
             this.gameControls.style.display = 'block';
@@ -195,10 +180,7 @@ class UIManager {
             this.loginPanel.style.display = 'block';
         }
         
-        // 隱藏遊戲介面
-        if (this.gameInfo) {
-            this.gameInfo.style.display = 'none';
-        }
+        // 隱藏遊戲介面（gameInfo 已移除）
         
         if (this.gameControls) {
             this.gameControls.style.display = 'none';
@@ -210,22 +192,19 @@ class UIManager {
         console.log('🚪 遊戲結束');
     }
     
-    // 更新房間資訊
+    // 更新房間資訊（現由畫布顯示）
     updateRoomInfo(roomId) {
-        if (this.currentRoomSpan) {
-            this.currentRoomSpan.textContent = roomId || '-';
-        }
+        // gameInfo DOM 元素已移除，資訊由畫布顯示
+        console.log(`🏠 房間資訊更新: ${roomId}`);
     }
     
-    // 更新玩家數量
+    // 更新玩家數量（現由畫布顯示）
     updatePlayerCount(count) {
         this.playerCount = count;
-        if (this.playerCountSpan) {
-            this.playerCountSpan.textContent = count.toString();
-        }
+        console.log(`👥 玩家數量更新: ${count}`);
     }
     
-    // 更新遊戲狀態
+    // 更新遊戲狀態（現由畫布顯示）
     updateGameStatus(phase, extra = '') {
         this.gamePhase = phase;
         
@@ -241,9 +220,7 @@ class UIManager {
             displayText += ` ${extra}`;
         }
         
-        if (this.gameStatusSpan) {
-            this.gameStatusSpan.textContent = displayText;
-        }
+        console.log(`🎮 遊戲狀態更新: ${displayText}`);
         
         // 更新控制按鈕狀態
         this.updateControlButtons(phase);

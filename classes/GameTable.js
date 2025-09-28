@@ -532,27 +532,50 @@ class GameTable {
         }
     }
     
-    // 重新安排座位（橫向排列）
+    // 重新安排座位（橫向排列，置中對齊）
     rearrangeSeats() {
-        const screenWidth = width || window.innerWidth || 1200;
-        const playerWidth = 120;
-        const playerSpacing = Math.min(playerWidth, screenWidth / Math.max(1, this.players.length));
-        const totalWidth = Math.min(screenWidth - 40, playerSpacing * this.players.length);
-        const startX = (screenWidth - totalWidth) / 2 + playerSpacing / 2;
+        if (this.players.length === 0) return;
         
-        for (let i = 0; i < this.players.length; i++) {
-            this.players[i].seatIndex = i;
-            this.players[i].position.set(
-                startX + i * playerSpacing,
-                80
-            );
-            
-            // 更新卡牌位置
-            this.players[i].cardPosition.set(
-                this.players[i].position.x,
-                this.players[i].position.y + 80
-            );
+        const screenWidth = width || window.innerWidth || 1200;
+        const playerWidth = 100; // 玩家顯示區域寬度
+        const fixedSpacing = 130; // 固定間距
+        const margin = 40; // 左右邊距
+        
+        // 計算所需總寬度
+        const totalWidth = this.players.length * fixedSpacing - (fixedSpacing - playerWidth);
+        const availableWidth = screenWidth - margin * 2;
+        
+        let finalSpacing = fixedSpacing;
+        let startX = (screenWidth - totalWidth) / 2;
+        
+        // 只有在超出畫面範圍時才調整間距
+        if (totalWidth > availableWidth) {
+            finalSpacing = Math.max(playerWidth + 10, availableWidth / this.players.length);
+            startX = margin + finalSpacing / 2;
+            console.log(`📱 玩家間距調整: ${finalSpacing.toFixed(1)}px (螢幕寬度: ${screenWidth}px)`);
         }
+        
+        // 重新排列所有玩家位置
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
+            player.seatIndex = i;
+            
+            const newX = startX + i * finalSpacing;
+            const newY = 80;
+            
+            // 更新玩家位置
+            player.position.set(newX, newY);
+            
+            // 同步更新刪除按鈕位置
+            if (player.deleteButton) {
+                player.deleteButton.x = newX + 35;
+                player.deleteButton.y = newY - 35;
+            }
+            
+            console.log(`🔄 玩家 ${player.name} 重新定位: (${newX.toFixed(1)}, ${newY})`);
+        }
+        
+        console.log(`📐 座位重新排列完成: ${this.players.length} 位玩家，間距: ${finalSpacing.toFixed(1)}px`);
     }
     
     // 開始投票
@@ -765,21 +788,17 @@ class GameTable {
         // 目前不需要特殊處理
     }
     
-    // 切換玩家刪除按鈕顯示
+    // 切換玩家刪除按鈕顯示（修改為只顯示被點擊玩家的按鈕）
     togglePlayerDeleteButtons(clickedPlayer) {
-        // 如果點擊的是當前玩家，則顯示/隱藏其他玩家的刪除按鈕
-        if (clickedPlayer.isCurrentPlayer) {
-            const anyButtonVisible = this.players.some(p => p.deleteButton.visible);
-            
-            for (const player of this.players) {
-                if (!player.isCurrentPlayer) {
-                    if (anyButtonVisible) {
-                        player.hideDeleteButton();
-                    } else {
-                        player.showDeleteButton();
-                    }
-                }
-            }
+        // 先隱藏所有刪除按鈕
+        this.hideAllDeleteButtons();
+        
+        // 如果點擊的不是當前玩家，則顯示該玩家的刪除按鈕
+        if (!clickedPlayer.isCurrentPlayer) {
+            clickedPlayer.showDeleteButton();
+            console.log(`🎯 顯示 ${clickedPlayer.name} 的刪除按鈕`);
+        } else {
+            console.log(`⚠️ 無法刪除自己 (當前玩家: ${clickedPlayer.name})`);
         }
     }
     

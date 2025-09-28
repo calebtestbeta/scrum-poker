@@ -163,34 +163,7 @@
             background: linear-gradient(135deg, #10b981, #059669);
         }
         
-        #gameInfo {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-size: 14px;
-            z-index: 10; /* 降低層級，讓其他元素可以覆蓋 */
-            background: rgba(0, 0, 0, 0.7);
-            padding: 12px 16px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            min-width: 200px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            /* 確保在重疊時會被其他元素覆蓋 */
-            pointer-events: none;
-        }
-        
-        #gameInfo div {
-            margin-bottom: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        #gameInfo div:last-child {
-            margin-bottom: 0;
-        }
+        /* gameInfo 相關樣式已移除，改由畫布顯示 */
         
         #gameControls {
             position: absolute;
@@ -309,14 +282,6 @@
         
         /* 響應式設計 */
         @media (max-width: 1024px) {
-            #gameInfo {
-                top: 15px;
-                left: 15px;
-                font-size: 12px;
-                min-width: 180px;
-                padding: 10px 12px;
-            }
-            
             #gameControls {
                 bottom: 140px; /* 平板尺寸的控制按鈕位置 */
                 right: 15px;
@@ -335,16 +300,7 @@
                 padding: 30px 20px;
             }
             
-            #gameInfo {
-                position: fixed;
-                top: 10px;
-                left: 10px;
-                right: auto;
-                font-size: 11px;
-                min-width: 160px;
-                padding: 8px 10px;
-                max-width: calc(100vw - 20px);
-            }
+            /* gameInfo 樣式已移除 */
             
             #gameControls {
                 position: fixed;
@@ -367,12 +323,6 @@
         }
         
         @media (max-width: 480px) {
-            #gameInfo {
-                font-size: 10px;
-                min-width: 140px;
-                padding: 6px 8px;
-            }
-            
             #gameControls {
                 bottom: 100px; /* 小螢幕尺寸最終調整 */
                 gap: 4px;
@@ -447,12 +397,7 @@
             </div>
         </div>
         
-        <!-- 遊戲資訊 -->
-        <div id="gameInfo" style="display: none;">
-            <div>房間: <span id="currentRoom">-</span></div>
-            <div>玩家: <span id="playerCount">0</span></div>
-            <div>狀態: <span id="gameStatus">等待中</span></div>
-        </div>
+        <!-- 遊戲資訊區塊已移除，改由畫布顯示 -->
         
         <!-- 遊戲控制 -->
         <div id="gameControls" style="display: none;">
