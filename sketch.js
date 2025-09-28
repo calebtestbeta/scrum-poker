@@ -75,8 +75,8 @@ let deviceInfo = {
 };
 
 // 版本信息
-const VERSION_HASH = '93a9f17d';
-const BUILD_TIME = '20250927_2355';
+const VERSION_HASH = '035381c8';
+const BUILD_TIME = '20250928_0940';
 const VERSION_STRING = `v${VERSION_HASH}-${BUILD_TIME}`;
 
 // p5.js 設定函數
