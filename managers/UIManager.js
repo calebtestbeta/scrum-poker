@@ -22,6 +22,17 @@ class UIManager {
         this.playerCount = 0;
         this.gamePhase = 'waiting';
         
+        // 確認對話框狀態
+        this.confirmDialog = {
+            visible: false,
+            title: '',
+            message: '',
+            playerName: '',
+            playerId: '',
+            onConfirm: null,
+            onCancel: null
+        };
+        
         // 統計資料
         this.statistics = {
             totalVotes: 0,
@@ -362,58 +373,81 @@ class UIManager {
         fill(0, 0, 0, 150);
         noStroke();
         rectMode(CORNER);
-        rect(width - 250, 20, 220, 160, 10);
+        rect(width - 280, 20, 250, 220, 10);
         
         // 標題
         fill(255);
         textAlign(LEFT, TOP);
         textSize(16);
         textStyle(BOLD);
-        text('📊 投票統計', width - 240, 35);
+        text('📊 分組估點結果', width - 270, 35);
         
         // 統計資料
         textSize(12);
         textStyle(NORMAL);
         let y = 55;
         
-        text(`總投票數: ${this.statistics.totalVotes}`, width - 240, y);
-        y += 18;
+        text(`總投票數: ${this.statistics.totalVotes}`, width - 270, y);
+        y += 20;
         
-        if (this.statistics.averagePoints > 0) {
-            text(`平均點數: ${this.statistics.averagePoints}`, width - 240, y);
-            y += 18;
-            
-            text(`共識度: ${this.statistics.consensus}%`, width - 240, y);
-            y += 18;
-            
-            if (this.statistics.devAverage > 0) {
-                text(`開發平均: ${this.statistics.devAverage}`, width - 240, y);
-                y += 18;
-            }
-            
-            if (this.statistics.qaAverage > 0) {
-                text(`測試平均: ${this.statistics.qaAverage}`, width - 240, y);
-                y += 18;
-            }
-            
-            // 共識度顏色條
-            const barWidth = 180;
-            const barHeight = 8;
-            const barX = width - 240;
-            const barY = y + 5;
-            
-            // 背景條
-            fill(100);
-            rect(barX, barY, barWidth, barHeight, 4);
-            
-            // 進度條
-            const consensusColor = this.getConsensusColor(this.statistics.consensus);
-            fill(consensusColor);
-            const progressWidth = (this.statistics.consensus / 100) * barWidth;
-            rect(barX, barY, progressWidth, barHeight, 4);
+        // Dev 組結果
+        if (this.statistics.devAverage > 0) {
+            fill(color(52, 211, 153)); // 青綠色
+            textStyle(BOLD);
+            text(`👨‍💻 開發組 (Dev)`, width - 270, y);
+            y += 16;
+            textStyle(NORMAL);
+            fill(255);
+            text(`  平均點數: ${this.statistics.devAverage}`, width - 270, y);
+            y += 16;
+            text(`  複雜度評估: ${this.getComplexityLabel(this.statistics.devAverage)}`, width - 270, y);
+            y += 20;
+        }
+        
+        // QA 組結果
+        if (this.statistics.qaAverage > 0) {
+            fill(color(251, 146, 60)); // 橘色
+            textStyle(BOLD);
+            text(`🐛 測試組 (QA)`, width - 270, y);
+            y += 16;
+            textStyle(NORMAL);
+            fill(255);
+            text(`  平均點數: ${this.statistics.qaAverage}`, width - 270, y);
+            y += 16;
+            text(`  測試複雜度: ${this.getComplexityLabel(this.statistics.qaAverage)}`, width - 270, y);
+            y += 20;
+        }
+        
+        // 差異分析
+        if (this.statistics.devAverage > 0 && this.statistics.qaAverage > 0) {
+            const diff = Math.abs(this.statistics.devAverage - this.statistics.qaAverage);
+            const diffColor = diff > 3 ? color(239, 68, 68) : color(34, 197, 94);
+            fill(diffColor);
+            textStyle(BOLD);
+            text(`⚖️ 差異分析: ${diff.toFixed(1)} 點`, width - 270, y);
+            y += 16;
+            textStyle(NORMAL);
+            fill(255);
+            text(`  ${this.getDifferenceAnalysis(diff)}`, width - 270, y);
         }
         
         pop();
+    }
+    
+    // 取得複雜度標籤
+    getComplexityLabel(average) {
+        if (average <= 2) return '簡單';
+        if (average <= 5) return '中等';
+        if (average <= 13) return '複雜';
+        return '極複雜';
+    }
+    
+    // 取得差異分析
+    getDifferenceAnalysis(diff) {
+        if (diff <= 1) return '認知一致，可直接進行';
+        if (diff <= 3) return '些微差異，建議討論';
+        if (diff <= 5) return '顯著差異，需要澄清';
+        return '重大分歧，須深入討論';
     }
     
     // 取得共識度顏色
@@ -422,6 +456,151 @@ class UIManager {
         if (consensus >= 60) return color(251, 191, 36);  // 黃色
         if (consensus >= 40) return color(249, 115, 22);  // 橘色
         return color(239, 68, 68);                        // 紅色
+    }
+    
+    // 顯示刪除確認對話框
+    showDeleteConfirmation(playerName, playerId, onConfirm, onCancel) {
+        this.confirmDialog = {
+            visible: true,
+            title: '⚠️ 確認移除玩家',
+            message: `確定要移除玩家 "${playerName}" 嗎？\n\n移除後該玩家將無法繼續參與本局遊戲。\n這個操作無法復原。`,
+            playerName: playerName,
+            playerId: playerId,
+            onConfirm: onConfirm,
+            onCancel: onCancel
+        };
+    }
+    
+    // 隱藏確認對話框
+    hideConfirmDialog() {
+        this.confirmDialog.visible = false;
+        this.confirmDialog.onConfirm = null;
+        this.confirmDialog.onCancel = null;
+    }
+    
+    // 處理確認對話框按鈕點擊
+    handleConfirmDialogClick(mx, my) {
+        if (!this.confirmDialog.visible) return false;
+        
+        const dialogWidth = 400;
+        const dialogHeight = 200;
+        const dialogX = width / 2 - dialogWidth / 2;
+        const dialogY = height / 2 - dialogHeight / 2;
+        
+        // 確認按鈕區域
+        const confirmBtnX = dialogX + dialogWidth / 2 - 120;
+        const confirmBtnY = dialogY + dialogHeight - 50;
+        const confirmBtnW = 100;
+        const confirmBtnH = 35;
+        
+        // 取消按鈕區域
+        const cancelBtnX = dialogX + dialogWidth / 2 + 20;
+        const cancelBtnY = dialogY + dialogHeight - 50;
+        const cancelBtnW = 100;
+        const cancelBtnH = 35;
+        
+        // 檢查是否點擊確認按鈕
+        if (mx >= confirmBtnX && mx <= confirmBtnX + confirmBtnW &&
+            my >= confirmBtnY && my <= confirmBtnY + confirmBtnH) {
+            if (this.confirmDialog.onConfirm) {
+                this.confirmDialog.onConfirm();
+            }
+            this.hideConfirmDialog();
+            return true;
+        }
+        
+        // 檢查是否點擊取消按鈕
+        if (mx >= cancelBtnX && mx <= cancelBtnX + cancelBtnW &&
+            my >= cancelBtnY && my <= cancelBtnY + cancelBtnH) {
+            if (this.confirmDialog.onCancel) {
+                this.confirmDialog.onCancel();
+            }
+            this.hideConfirmDialog();
+            return true;
+        }
+        
+        // 檢查是否點擊對話框外部（關閉對話框）
+        if (mx < dialogX || mx > dialogX + dialogWidth ||
+            my < dialogY || my > dialogY + dialogHeight) {
+            if (this.confirmDialog.onCancel) {
+                this.confirmDialog.onCancel();
+            }
+            this.hideConfirmDialog();
+            return true;
+        }
+        
+        return true; // 阻止事件穿透
+    }
+    
+    // 繪製確認對話框
+    drawConfirmDialog() {
+        if (!this.confirmDialog.visible) return;
+        
+        push();
+        
+        // 背景遮罩
+        fill(0, 0, 0, 150);
+        noStroke();
+        rect(0, 0, width, height);
+        
+        // 對話框背景
+        const dialogWidth = 400;
+        const dialogHeight = 200;
+        const dialogX = width / 2 - dialogWidth / 2;
+        const dialogY = height / 2 - dialogHeight / 2;
+        
+        fill(45, 45, 45);
+        stroke(255, 255, 255, 100);
+        strokeWeight(2);
+        rectMode(CORNER);
+        rect(dialogX, dialogY, dialogWidth, dialogHeight, 15);
+        
+        // 標題
+        fill(255, 200, 200);
+        textAlign(CENTER, TOP);
+        textSize(18);
+        textStyle(BOLD);
+        text(this.confirmDialog.title, dialogX + dialogWidth / 2, dialogY + 20);
+        
+        // 訊息
+        fill(255);
+        textAlign(CENTER, TOP);
+        textSize(14);
+        textStyle(NORMAL);
+        const messageLines = this.confirmDialog.message.split('\n');
+        let messageY = dialogY + 50;
+        for (const line of messageLines) {
+            text(line, dialogX + dialogWidth / 2, messageY);
+            messageY += 18;
+        }
+        
+        // 按鈕
+        const buttonY = dialogY + dialogHeight - 50;
+        const buttonHeight = 35;
+        
+        // 確認按鈕
+        fill(220, 38, 38);
+        stroke(255, 255, 255, 150);
+        strokeWeight(1);
+        rectMode(CORNER);
+        rect(dialogX + dialogWidth / 2 - 120, buttonY, 100, buttonHeight, 8);
+        
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(14);
+        textStyle(BOLD);
+        text('確認移除', dialogX + dialogWidth / 2 - 70, buttonY + buttonHeight / 2);
+        
+        // 取消按鈕
+        fill(100, 100, 100);
+        stroke(255, 255, 255, 100);
+        strokeWeight(1);
+        rect(dialogX + dialogWidth / 2 + 20, buttonY, 100, buttonHeight, 8);
+        
+        fill(255);
+        text('取消', dialogX + dialogWidth / 2 + 70, buttonY + buttonHeight / 2);
+        
+        pop();
     }
     
     // 繪製 UI 元素（在 p5.js 畫布上）
@@ -436,18 +615,34 @@ class UIManager {
         
         // 繪製連線狀態
         this.drawConnectionStatus();
+        
+        // 繪製確認對話框（最後繪製，確保在最上層）
+        this.drawConfirmDialog();
     }
     
     // 繪製快捷鍵提示
     drawShortcutHints() {
-        if (this.gamePhase !== 'voting') return;
-        
         push();
-        fill(255, 255, 255, 100);
+        fill(255, 255, 255, 120);
         textAlign(RIGHT, BOTTOM);
         textSize(10);
-        text('快捷鍵: 數字鍵投票, Ctrl+R 開牌, Ctrl+C 重設', width - 20, height - 40);
-        text('ESC 離開房間', width - 20, height - 25);
+        
+        if (this.gamePhase === 'voting') {
+            text('💡 點擊下方卡牌選擇點數', width - 20, height - 85);
+            text('快捷鍵: 數字鍵投票, R 鍵開牌, C 鍵重設', width - 20, height - 70);
+        } else if (this.gamePhase === 'finished') {
+            text('💡 估點完成！按 H 鍵查看 Scrum Master 建議', width - 20, height - 70);
+        }
+        
+        // 刪除功能提示
+        fill(255, 200, 200, 120);
+        text('🗑️ 刪除玩家: 按 D 鍵或點擊玩家頭像顯示刪除按鈕', width - 20, height - 55);
+        
+        // 通用快捷鍵
+        fill(255, 255, 255, 100);
+        text('ESC 離開房間, H 鍵查看建議, D 鍵切換刪除按鈕', width - 20, height - 40);
+        text('點擊紅色 X 按鈕移除對應玩家（不可移除自己）', width - 20, height - 25);
+        
         pop();
     }
     
@@ -470,8 +665,14 @@ class UIManager {
         fill(255, 200);
         textAlign(RIGHT, CENTER);
         textSize(10);
-        const statusText = status.isConnected ? 
-            (status.useFirebase ? 'Firebase' : '本地模式') : '已斷線';
+        let statusText = '已斷線';
+        if (status.isConnected) {
+            if (status.useFirebase) {
+                statusText = status.isAuthenticated ? 'Firebase ✓' : 'Firebase (未驗證)';
+            } else {
+                statusText = '本地模式';
+            }
+        }
         text(statusText, width - 45, 30);
         
         pop();

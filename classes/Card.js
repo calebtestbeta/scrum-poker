@@ -136,20 +136,27 @@ class Card {
     draw() {
         push();
         
+        // 確保重置所有繪製狀態
+        noTint();
+        fill(255);
+        stroke(0);
+        strokeWeight(1);
+        
         // 套用變換
         translate(this.position.x, this.position.y);
         rotate(this.rotation);
         scale(this.scale);
         
-        // 透明度
-        tint(255, this.opacity);
+        // 透明度 - 確保不影響顏色
+        if (this.opacity < 255) {
+            tint(255, this.opacity);
+        } else {
+            noTint(); // 清除任何色調效果
+        }
         
         // 繪製卡牌主體
-        if (this.isRevealed || this.flipProgress > 0.5) {
-            this.drawCardFront();
-        } else {
-            this.drawCardBack();
-        }
+        // 手牌總是顯示正面，讓玩家清楚看到點數
+        this.drawCardFront();
         
         // 繪製選中效果
         if (this.isSelected) {
@@ -166,9 +173,12 @@ class Card {
     
     // 繪製卡牌正面
     drawCardFront() {
-        // 卡牌背景
-        fill(GAME_CONFIG.colors.cardFront);
-        stroke(200);
+        // 強制重置所有繪製狀態
+        push();
+        
+        // 確保使用白色背景
+        fill(255, 255, 255); // 強制白色背景
+        stroke(100, 100, 100); // 灰色邊框
         strokeWeight(2);
         rectMode(CENTER);
         rect(0, 0, this.size.x, this.size.y, GAME_CONFIG.cards.cornerRadius);
@@ -193,6 +203,8 @@ class Card {
             text(this.value, 0, 0);
             pop();
         }
+        
+        pop(); // 結束強制重置
     }
     
     // 繪製卡牌背面
@@ -371,3 +383,61 @@ class Card {
         this.flipAnimation.active = false;
     }
 }
+
+// 玩家卡牌類別 - 繼承自 Card，但顯示邏輯不同
+class PlayerCard extends Card {
+    constructor(value, x, y) {
+        super(value, x, y);
+        this.gamePhase = 'voting'; // 追蹤遊戲階段
+    }
+    
+    // 設定遊戲階段
+    setGamePhase(phase) {
+        this.gamePhase = phase;
+    }
+    
+    // 覆寫繪製方法
+    draw() {
+        push();
+        
+        // 確保重置所有繪製狀態
+        noTint();
+        fill(255);
+        stroke(0);
+        strokeWeight(1);
+        
+        // 套用變換
+        translate(this.position.x, this.position.y);
+        rotate(this.rotation);
+        scale(this.scale);
+        
+        // 透明度 - 確保不影響顏色
+        if (this.opacity < 255) {
+            tint(255, this.opacity);
+        } else {
+            noTint(); // 清除任何色調效果
+        }
+        
+        // 繪製卡牌主體
+        // 玩家卡牌在投票階段顯示背面，開牌後顯示正面
+        if (this.gamePhase === 'revealing' || this.gamePhase === 'finished' || this.isRevealed || this.flipProgress > 0.5) {
+            this.drawCardFront();
+        } else {
+            this.drawCardBack();
+        }
+        
+        // 繪製選中效果
+        if (this.isSelected) {
+            this.drawSelectionEffect();
+        }
+        
+        // 繪製懸停效果
+        if (this.isHovered && !this.isSelected) {
+            this.drawHoverEffect();
+        }
+        
+        pop();
+    }
+}
+
+console.log('🃏 Card 和 PlayerCard 類別已載入');

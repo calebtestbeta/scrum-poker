@@ -224,13 +224,26 @@ function setupFirebaseCallbacks() {
             // 從遊戲桌面移除玩家
             if (gameTable) {
                 gameTable.removePlayer(playerData.id);
+                
+                // 如果有顯示刪除按鈕，則隱藏所有刪除按鈕
+                gameTable.hideAllDeleteButtons();
             }
             
             // 更新玩家數量
             const totalPlayers = gameTable ? gameTable.players.length : 0;
             uiManager.updatePlayerCount(totalPlayers);
             
-            uiManager.showToast(`${playerData.name} 離開了遊戲`, 'info');
+            // 根據是否為被刪除的玩家顯示不同訊息
+            const isCurrentPlayer = currentPlayer && currentPlayer.id === playerData.id;
+            if (isCurrentPlayer) {
+                uiManager.showToast('你已被移除出遊戲', 'error');
+                // 自動返回登入畫面
+                setTimeout(() => {
+                    leaveGame();
+                }, 2000);
+            } else {
+                uiManager.showToast(`${playerData.name} 離開了遊戲`, 'info');
+            }
         },
         
         onVoteUpdated: (playerData) => {
@@ -338,27 +351,64 @@ class ScrumMasterAdvice {
         const variance = numericVotes.reduce((sum, v) => sum + Math.pow(v.value - allAverage, 2), 0) / numericVotes.length;
         const isHighVariance = variance > 4;
         
-        // 產生建議
+        // 產生分組建議
         if (devVotes.length > 0 && qaVotes.length > 0) {
             const devQaDiff = Math.abs(devAverage - qaAverage);
             
-            if (devQaDiff > 3) {
+            if (devQaDiff > 5) {
                 if (devAverage > qaAverage) {
                     this.suggestions.push({
-                        type: 'role_gap',
-                        title: '開發與測試估點差異較大',
-                        message: '開發團隊的估點明顯高於測試團隊，可能需要討論技術複雜度與測試策略的認知差異。',
+                        type: 'major_dev_gap',
+                        title: '🚨 開發複雜度遠高於測試評估',
+                        message: `開發組評估為 ${devAverage} 點，測試組為 ${qaAverage} 點。建議檢討技術架構複雜度，或考慮技術重構以降低開發成本。`,
                         icon: '⚠️'
                     });
                 } else {
                     this.suggestions.push({
-                        type: 'role_gap',
-                        title: '測試估點高於開發估點',
-                        message: '測試團隊認為此功能測試複雜度較高，建議討論測試範圍與自動化測試的可能性。',
+                        type: 'major_qa_gap',
+                        title: '🚨 測試複雜度遠高於開發評估',
+                        message: `測試組評估為 ${qaAverage} 點，開發組為 ${devAverage} 點。建議深入討論測試策略，考慮自動化測試工具或簡化測試流程。`,
                         icon: '🔍'
                     });
                 }
+            } else if (devQaDiff > 3) {
+                if (devAverage > qaAverage) {
+                    this.suggestions.push({
+                        type: 'moderate_dev_gap',
+                        title: '⚖️ 開發複雜度高於測試評估',
+                        message: `開發組認為技術實作較複雜，建議與測試組討論開發階段的潛在風險點。`,
+                        icon: '💭'
+                    });
+                } else {
+                    this.suggestions.push({
+                        type: 'moderate_qa_gap',
+                        title: '⚖️ 測試複雜度高於開發評估',
+                        message: `測試組預期測試工作較複雜，建議討論測試範圍與驗收標準。`,
+                        icon: '🎯'
+                    });
+                }
+            } else if (devQaDiff <= 1) {
+                this.suggestions.push({
+                    type: 'perfect_alignment',
+                    title: '✨ 開發與測試評估一致',
+                    message: `兩組評估差異僅 ${devQaDiff.toFixed(1)} 點，顯示對功能複雜度認知一致，可放心進行開發。`,
+                    icon: '🎉'
+                });
             }
+        } else if (devVotes.length > 0 && qaVotes.length === 0) {
+            this.suggestions.push({
+                type: 'missing_qa',
+                title: '❓ 缺少測試組評估',
+                message: '建議邀請 QA 成員參與估點，以獲得完整的複雜度評估。',
+                icon: '👥'
+            });
+        } else if (devVotes.length === 0 && qaVotes.length > 0) {
+            this.suggestions.push({
+                type: 'missing_dev',
+                title: '❓ 缺少開發組評估',
+                message: '建議邀請開發成員參與估點，以獲得技術複雜度評估。',
+                icon: '👨‍💻'
+            });
         }
         
         if (isHighVariance) {
@@ -552,6 +602,38 @@ document.addEventListener('keydown', (event) => {
         if (event.code === 'Space') {
             event.preventDefault();
             revealCards();
+        }
+        
+        // D 鍵切換刪除按鈕顯示
+        if (event.code === 'KeyD' && gameTable) {
+            const anyButtonVisible = gameTable.players.some(p => p.deleteButton.visible);
+            const currentPlayer = gameTable.players.find(p => p.isCurrentPlayer);
+            
+            if (currentPlayer) {
+                gameTable.togglePlayerDeleteButtons(currentPlayer);
+                
+                if (uiManager) {
+                    if (anyButtonVisible) {
+                        uiManager.showToast('隱藏刪除按鈕', 'info');
+                    } else {
+                        uiManager.showToast('顯示刪除按鈕 - 點擊紅色 X 移除玩家', 'info');
+                    }
+                }
+            }
+        }
+        
+        // V 鍵驗證刪除功能 (調試用)
+        if (event.code === 'KeyV' && gameTable && event.ctrlKey) {
+            event.preventDefault();
+            const report = gameTable.validateDeleteFeature();
+            
+            if (uiManager) {
+                if (report.errors.length === 0) {
+                    uiManager.showToast(`✅ 刪除功能正常 (${report.deleteButtonsVisible}/${report.otherPlayers.length} 按鈕顯示)`, 'success');
+                } else {
+                    uiManager.showToast(`⚠️ 發現 ${report.errors.length} 個問題`, 'error');
+                }
+            }
         }
     }
 });

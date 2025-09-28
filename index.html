@@ -18,6 +18,13 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            /* 啟用 Safari 觸控 */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
         
         body {
@@ -35,6 +42,23 @@
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             overflow: hidden;
+            /* 確保觸控事件正常 */
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Canvas 專用觸控樣式 */
+        canvas {
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            -webkit-text-size-adjust: none;
+            outline: none;
+            /* Safari 特殊處理 */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
         }
         
         #loginPanel {
@@ -337,6 +361,22 @@
                 version: window.SCRUM_POKER_VERSION.toString()
             });
         });
+        
+        // Safari 觸控事件監控
+        if (navigator.userAgent.toLowerCase().includes('safari')) {
+            console.log('🍎 Safari 瀏覽器檢測，啟用觸控事件監控');
+            
+            // 監控觸控事件
+            ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(eventType => {
+                document.addEventListener(eventType, function(e) {
+                    console.log(`📱 Safari 觸控事件: ${eventType}`, {
+                        touches: e.touches.length,
+                        target: e.target.tagName,
+                        timestamp: Date.now()
+                    });
+                }, { passive: true });
+            });
+        }
     </script>
     
     <!-- Firebase 設定 -->

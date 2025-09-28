@@ -2,6 +2,7 @@
 class FirebaseManager {
     constructor() {
         this.db = null;
+        this.auth = null;
         this.currentRoom = null;
         this.currentPlayer = null;
         this.isConnected = false;
@@ -52,6 +53,11 @@ class FirebaseManager {
             }
             
             this.db = firebase.database();
+            this.auth = firebase.auth();
+            
+            // 進行匿名身份驗證
+            await this.authenticateAnonymously();
+            
             this.useFirebase = true;
             this.isConnected = true;
             
@@ -63,11 +69,58 @@ class FirebaseManager {
             this.useFirebase = false;
             this.isConnected = false;
             
+            let errorMessage = 'Firebase 初始化失敗: ' + error.message;
+            
+            // 特定錯誤處理
+            if (error.message.includes('匿名驗證未啟用')) {
+                errorMessage = '⚠️ Firebase 匿名驗證未啟用。請在 Firebase Console 中啟用匿名身份驗證。';
+            } else if (error.code === 'auth/operation-not-allowed') {
+                errorMessage = '⚠️ Firebase 身份驗證未正確配置。請檢查 Firebase Console 中的身份驗證設定。';
+            }
+            
             if (this.onError) {
-                this.onError('Firebase 初始化失敗: ' + error.message);
+                this.onError(errorMessage);
             }
             
             return false;
+        }
+    }
+    
+    // 匿名身份驗證
+    async authenticateAnonymously() {
+        try {
+            // 檢查是否已經登入
+            if (this.auth.currentUser) {
+                console.log('🔑 用戶已驗證:', this.auth.currentUser.uid);
+                return this.auth.currentUser;
+            }
+            
+            // 進行匿名登入
+            const userCredential = await this.auth.signInAnonymously();
+            const user = userCredential.user;
+            
+            console.log('🔑 匿名身份驗證成功:', user.uid);
+            
+            // 監聽身份驗證狀態變化
+            this.auth.onAuthStateChanged((user) => {
+                if (user) {
+                    console.log('👤 用戶已登入:', user.uid);
+                } else {
+                    console.log('👤 用戶已登出');
+                }
+            });
+            
+            return user;
+            
+        } catch (error) {
+            console.error('匿名身份驗證失敗:', error);
+            
+            // 如果匿名驗證失敗，嘗試重新登入
+            if (error.code === 'auth/operation-not-allowed') {
+                throw new Error('Firebase 匿名驗證未啟用。請在 Firebase Console 中啟用匿名驗證。');
+            }
+            
+            throw error;
         }
     }
     
@@ -90,17 +143,24 @@ class FirebaseManager {
     
     // 加入 Firebase 房間
     async joinFirebaseRoom(roomId, playerName, playerRole) {
+        // 確保用戶已驗證
+        if (!this.auth.currentUser) {
+            await this.authenticateAnonymously();
+        }
+        
         if (!roomId) {
             roomId = this.generateRoomId();
         }
         
         const playerId = this.generatePlayerId();
+        const currentUser = this.auth.currentUser;
         
         // 建立玩家資料
         const playerData = {
             id: playerId,
             name: playerName,
             role: playerRole,
+            uid: currentUser.uid, // 添加 Firebase UID
             joined: firebase.database.ServerValue.TIMESTAMP,
             connected: true,
             hasVoted: false,
@@ -114,9 +174,11 @@ class FirebaseManager {
         // 檢查房間是否存在，如果不存在則創建
         const roomSnapshot = await roomRef.once('value');
         if (!roomSnapshot.exists()) {
+            console.log(`🏠 創建新房間: ${roomId}`);
             await roomRef.set({
                 id: roomId,
                 created: firebase.database.ServerValue.TIMESTAMP,
+                createdBy: currentUser.uid, // 添加創建者 UID
                 phase: 'waiting',
                 players: {},
                 votes: {},
@@ -125,10 +187,15 @@ class FirebaseManager {
                     autoReveal: false
                 }
             });
+            console.log(`✅ 房間 ${roomId} 創建成功`);
+        } else {
+            console.log(`🏠 加入existing房間: ${roomId}`);
         }
         
         // 加入玩家
+        console.log(`👤 添加玩家到房間: ${playerName} -> ${roomId}`);
         await playerRef.set(playerData);
+        console.log(`✅ 玩家 ${playerName} 成功加入房間 ${roomId}`);
         
         this.currentRoom = roomId;
         this.currentPlayer = playerData;
@@ -138,7 +205,7 @@ class FirebaseManager {
         this.setupPlayersListener(roomId);
         this.setupVotesListener(roomId);
         
-        console.log(`✅ 成功加入 Firebase 房間 ${roomId} (玩家: ${playerName})`);
+        console.log(`✅ Firebase 房間 ${roomId} 連接完成 (玩家: ${playerName}, UID: ${currentUser.uid})`);
         return { roomId, playerId };
     }
     
@@ -255,6 +322,12 @@ class FirebaseManager {
         
         try {
             if (this.useFirebase) {
+                // 確保用戶已驗證
+                if (!this.auth.currentUser) {
+                    console.error('用戶未驗證，無法投票');
+                    return false;
+                }
+                
                 const playerRef = this.db.ref(`rooms/${this.currentRoom}/players/${this.currentPlayer.id}`);
                 await playerRef.update({
                     hasVoted: true,
@@ -304,6 +377,12 @@ class FirebaseManager {
         
         try {
             if (this.useFirebase) {
+                // 確保用戶已驗證
+                if (!this.auth.currentUser) {
+                    console.error('用戶未驗證，無法開牌');
+                    return false;
+                }
+                
                 const roomRef = this.db.ref(`rooms/${this.currentRoom}`);
                 await roomRef.update({
                     phase: 'revealing',
@@ -388,6 +467,53 @@ class FirebaseManager {
         }
     }
     
+    // 移除玩家 (由其他玩家觸發)
+    async removePlayer(playerId) {
+        if (!this.currentRoom) {
+            console.error('未加入房間');
+            return false;
+        }
+        
+        try {
+            if (this.useFirebase) {
+                const playerRef = this.db.ref(`rooms/${this.currentRoom}/players/${playerId}`);
+                const voteRef = this.db.ref(`rooms/${this.currentRoom}/votes/${playerId}`);
+                
+                // 移除玩家和投票記錄
+                await playerRef.remove();
+                await voteRef.remove();
+                
+                console.log(`✅ 成功移除玩家: ${playerId}`);
+            } else {
+                // 模擬模式
+                if (this.mockData.rooms[this.currentRoom]) {
+                    const playerData = this.mockData.rooms[this.currentRoom].players[playerId];
+                    
+                    if (playerData) {
+                        delete this.mockData.rooms[this.currentRoom].players[playerId];
+                        delete this.mockData.rooms[this.currentRoom].votes[playerId];
+                        
+                        // 觸發玩家離開事件
+                        if (this.onPlayerLeft) {
+                            this.onPlayerLeft(playerData);
+                        }
+                        
+                        console.log(`✅ 成功移除玩家: ${playerId} (${playerData.name})`);
+                    }
+                }
+            }
+            
+            return true;
+            
+        } catch (error) {
+            console.error('移除玩家失敗:', error);
+            if (this.onError) {
+                this.onError('移除玩家失敗: ' + error.message);
+            }
+            return false;
+        }
+    }
+    
     // 離開房間
     async leaveRoom() {
         if (!this.currentRoom || !this.currentPlayer) {
@@ -457,8 +583,10 @@ class FirebaseManager {
         return {
             isConnected: this.isConnected,
             useFirebase: this.useFirebase,
+            isAuthenticated: this.auth && this.auth.currentUser != null,
             currentRoom: this.currentRoom,
-            currentPlayer: this.currentPlayer
+            currentPlayer: this.currentPlayer,
+            userUid: this.auth && this.auth.currentUser ? this.auth.currentUser.uid : null
         };
     }
     

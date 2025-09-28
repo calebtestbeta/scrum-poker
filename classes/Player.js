@@ -54,6 +54,17 @@ class Player {
             active: false,
             particles: []
         };
+        
+        // 刪除按鈕
+        this.deleteButton = {
+            visible: false,
+            hovered: false,
+            size: 24,
+            position: new Vector2D(
+                this.position.x + this.seatSize / 2 - 12,
+                this.position.y - this.seatSize / 2 + 12
+            )
+        };
     }
     
     // 更新玩家
@@ -190,6 +201,9 @@ class Player {
         // 繪製慶祝動畫（在變換外）
         this.drawCelebrationAnimation();
         
+        // 繪製刪除按鈕（在變換外，使用世界座標）
+        this.drawDeleteButton();
+        
         // 繪製卡牌
         if (this.card) {
             this.card.draw();
@@ -323,6 +337,65 @@ class Player {
         }
     }
     
+    // 繪製刪除按鈕
+    drawDeleteButton() {
+        if (!this.deleteButton.visible || this.isCurrentPlayer) return;
+        
+        push();
+        
+        // 按鈕背景
+        if (this.deleteButton.hovered) {
+            fill(220, 38, 38, 200); // 懸停時更鮮明的紅色
+            stroke(255, 255, 255, 150);
+            strokeWeight(2);
+        } else {
+            fill(185, 28, 28, 150); // 半透明紅色
+            stroke(255, 255, 255, 100);
+            strokeWeight(1);
+        }
+        
+        // 繪製圓形按鈕
+        circle(this.deleteButton.position.x, this.deleteButton.position.y, this.deleteButton.size);
+        
+        // 繪製 X 符號
+        stroke(255);
+        strokeWeight(2);
+        const halfSize = this.deleteButton.size / 4;
+        const centerX = this.deleteButton.position.x;
+        const centerY = this.deleteButton.position.y;
+        
+        line(centerX - halfSize, centerY - halfSize, centerX + halfSize, centerY + halfSize);
+        line(centerX + halfSize, centerY - halfSize, centerX - halfSize, centerY + halfSize);
+        
+        pop();
+    }
+    
+    // 顯示刪除按鈕
+    showDeleteButton() {
+        if (!this.isCurrentPlayer) {
+            this.deleteButton.visible = true;
+        }
+    }
+    
+    // 隱藏刪除按鈕
+    hideDeleteButton() {
+        this.deleteButton.visible = false;
+        this.deleteButton.hovered = false;
+    }
+    
+    // 檢查滑鼠是否在刪除按鈕上
+    isDeleteButtonHovered(mx, my) {
+        if (!this.deleteButton.visible || this.isCurrentPlayer) return false;
+        
+        const distance = dist(mx, my, this.deleteButton.position.x, this.deleteButton.position.y);
+        return distance < this.deleteButton.size / 2;
+    }
+    
+    // 更新刪除按鈕懸停狀態
+    updateDeleteButtonHover(mx, my) {
+        this.deleteButton.hovered = this.isDeleteButtonHovered(mx, my);
+    }
+    
     // 取得座位顏色
     getSeatColor() {
         if (!this.isConnected) {
@@ -377,13 +450,15 @@ class Player {
         // 停止思考動畫
         this.thinkingAnimation.active = false;
         
-        // 建立卡牌
+        // 建立玩家卡牌（預設顯示背面）
         if (!this.card) {
-            this.card = new Card(value, this.cardPosition.x, this.cardPosition.y);
+            this.card = new PlayerCard(value, this.cardPosition.x, this.cardPosition.y);
         } else {
             this.card.value = value;
             this.card.reset();
         }
+        
+        console.log(`👤 ${this.name} 選擇了卡牌: ${value}`);
     }
     
     // 清除投票

@@ -310,11 +310,44 @@ function keyPressed() {
         leaveGame();
     }
     
-    // 數字鍵快速投票
-    if (gameState === 'game' && key >= '0' && key <= '9') {
-        const number = parseInt(key);
-        if (GAME_CONFIG.fibonacci.includes(number)) {
-            gameTable.selectCard(number);
+    // 只在遊戲狀態下處理遊戲相關按鍵
+    if (gameState === 'game' && gameTable) {
+        // 數字鍵快速投票
+        if (key >= '0' && key <= '9') {
+            const number = parseInt(key);
+            if (GAME_CONFIG.fibonacci.includes(number)) {
+                gameTable.selectCard(number);
+            }
+        }
+        
+        // D 鍵切換刪除按鈕顯示
+        if (key === 'D' || key === 'd') {
+            const currentPlayer = gameTable.players.find(p => p.isCurrentPlayer);
+            if (currentPlayer) {
+                gameTable.togglePlayerDeleteButtons(currentPlayer);
+            }
+        }
+        
+        // H 鍵顯示 Scrum Master 建議
+        if (key === 'H' || key === 'h') {
+            if (gameTable.gamePhase === 'finished') {
+                // 顯示 Scrum Master 建議對話框
+                showScrumMasterAdvice();
+            } else if (uiManager) {
+                uiManager.showToast('完成估點後按 H 鍵查看 Scrum Master 建議', 'info');
+            }
+        }
+        
+        // R 鍵開牌（單獨按 R 鍵即可）
+        if (key === 'R' || key === 'r') {
+            if (gameTable.gamePhase === 'voting') {
+                gameTable.revealCards();
+            }
+        }
+        
+        // C 鍵清除投票（單獨按 C 鍵即可）
+        if (key === 'C' || key === 'c') {
+            gameTable.clearVotes();
         }
     }
 }
@@ -398,6 +431,53 @@ function bezierPoint(t, p0, p1, p2, p3) {
     return uuu * p0 + 3 * uu * t * p1 + 3 * u * tt * p2 + ttt * p3;
 }
 
+// 顯示 Scrum Master 建議
+function showScrumMasterAdvice() {
+    if (!gameTable || !uiManager) return;
+    
+    const gameState = gameTable.getGameState();
+    const devPlayers = gameState.players.filter(p => p.role === 'dev' && p.hasVoted);
+    const qaPlayers = gameState.players.filter(p => p.role === 'qa' && p.hasVoted);
+    
+    if (devPlayers.length === 0 && qaPlayers.length === 0) {
+        uiManager.showToast('還沒有人投票，無法提供建議', 'info');
+        return;
+    }
+    
+    let adviceMessage = '📋 Scrum Master 建議\n\n';
+    
+    if (devPlayers.length > 0) {
+        const devAvg = devPlayers.reduce((sum, p) => sum + (typeof p.vote === 'number' ? p.vote : 0), 0) / devPlayers.length;
+        adviceMessage += `👨‍💻 開發組平均: ${devAvg.toFixed(1)} 點\n`;
+    }
+    
+    if (qaPlayers.length > 0) {
+        const qaAvg = qaPlayers.reduce((sum, p) => sum + (typeof p.vote === 'number' ? p.vote : 0), 0) / qaPlayers.length;
+        adviceMessage += `🐛 測試組平均: ${qaAvg.toFixed(1)} 點\n`;
+    }
+    
+    if (devPlayers.length > 0 && qaPlayers.length > 0) {
+        const devAvg = devPlayers.reduce((sum, p) => sum + (typeof p.vote === 'number' ? p.vote : 0), 0) / devPlayers.length;
+        const qaAvg = qaPlayers.reduce((sum, p) => sum + (typeof p.vote === 'number' ? p.vote : 0), 0) / qaPlayers.length;
+        const diff = Math.abs(devAvg - qaAvg);
+        
+        adviceMessage += `\n⚖️ 差異分析: ${diff.toFixed(1)} 點\n`;
+        
+        if (diff <= 1) {
+            adviceMessage += '✅ 建議: 認知一致，可直接進行開發';
+        } else if (diff <= 3) {
+            adviceMessage += '💬 建議: 存在些微差異，建議簡短討論澄清需求';
+        } else if (diff <= 5) {
+            adviceMessage += '🔍 建議: 顯著差異，需要仔細檢視需求和實作細節';
+        } else {
+            adviceMessage += '⚠️ 建議: 重大分歧，須召開會議深入討論需求和技術方案';
+        }
+    }
+    
+    // 使用瀏覽器原生對話框顯示建議
+    alert(adviceMessage);
+}
+
 // ===== 觸控和響應式設計功能 =====
 
 // 檢測裝置類型
@@ -405,17 +485,30 @@ function detectDevice() {
     deviceInfo.isMobile = windowWidth <= GAME_CONFIG.responsive.mobileBreakpoint;
     deviceInfo.isTablet = windowWidth > GAME_CONFIG.responsive.mobileBreakpoint && 
                          windowWidth <= GAME_CONFIG.responsive.tabletBreakpoint;
-    deviceInfo.isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    // 更強健的觸控檢測，特別針對 Safari
+    deviceInfo.isTouch = 'ontouchstart' in window || 
+                        'ontouchstart' in document.documentElement ||
+                        navigator.maxTouchPoints > 0 ||
+                        navigator.msMaxTouchPoints > 0;
+    
     deviceInfo.pixelRatio = window.devicePixelRatio || 1;
     
     // 檢測用戶代理字串
     const userAgent = navigator.userAgent.toLowerCase();
     if (userAgent.includes('mobile') || userAgent.includes('android') || userAgent.includes('iphone')) {
         deviceInfo.isMobile = true;
+        deviceInfo.isTouch = true; // 強制開啟觸控
     }
     if (userAgent.includes('tablet') || userAgent.includes('ipad')) {
         deviceInfo.isTablet = true;
+        deviceInfo.isTouch = true; // 強制開啟觸控
     }
+    if (userAgent.includes('safari') && (userAgent.includes('iphone') || userAgent.includes('ipad'))) {
+        deviceInfo.isTouch = true; // Safari iOS 特別處理
+    }
+    
+    console.log('🔍 裝置檢測結果:', deviceInfo);
 }
 
 // 設定觸控優化
@@ -441,33 +534,41 @@ function setupTouchOptimizations() {
         }
     }
     
-    // 防止觸控滾動
-    if (deviceInfo.isTouch) {
-        document.addEventListener('touchmove', function(e) {
-            if (e.target === canvas.canvas) {
+    // 防止觸控滾動 - 延遲設定直到畫布建立
+    setTimeout(() => {
+        if (deviceInfo.isTouch && canvas && canvas.canvas) {
+            canvas.canvas.addEventListener('touchmove', function(e) {
                 e.preventDefault();
-            }
-        }, { passive: false });
-        
-        // 防止雙指縮放
-        document.addEventListener('gesturestart', function(e) {
-            e.preventDefault();
-        });
-        
-        document.addEventListener('gesturechange', function(e) {
-            e.preventDefault();
-        });
-        
-        document.addEventListener('gestureend', function(e) {
-            e.preventDefault();
-        });
-    }
+            }, { passive: false });
+            
+            canvas.canvas.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+            }, { passive: false });
+            
+            canvas.canvas.addEventListener('touchend', function(e) {
+                e.preventDefault();
+            }, { passive: false });
+            
+            // 防止雙指縮放
+            canvas.canvas.addEventListener('gesturestart', function(e) {
+                e.preventDefault();
+            });
+            
+            canvas.canvas.addEventListener('gesturechange', function(e) {
+                e.preventDefault();
+            });
+            
+            canvas.canvas.addEventListener('gestureend', function(e) {
+                e.preventDefault();
+            });
+        }
+    }, 100);
+}
 }
 
 // p5.js 觸控事件處理
 function touchStarted() {
-    if (!deviceInfo.isTouch) return;
-    
+    // 在 Safari 中總是處理觸控事件
     const currentTime = millis();
     touchState.touchStartTime = currentTime;
     touchState.touchStartX = touches.length > 0 ? touches[0].x : mouseX;
@@ -501,7 +602,7 @@ function touchStarted() {
 }
 
 function touchMoved() {
-    if (!deviceInfo.isTouch || !touchState.isTouching) return;
+    if (!touchState.isTouching) return;
     
     const currentX = touches.length > 0 ? touches[0].x : mouseX;
     const currentY = touches.length > 0 ? touches[0].y : mouseY;
@@ -515,8 +616,6 @@ function touchMoved() {
 }
 
 function touchEnded() {
-    if (!deviceInfo.isTouch) return;
-    
     const currentTime = millis();
     const touchDuration = currentTime - touchState.touchStartTime;
     const currentX = touchState.lastTapX;
@@ -633,7 +732,9 @@ function windowResized() {
     
     // 重新初始化遊戲桌面元素
     if (gameTable) {
+        // 重新計算卡牌位置以適應新的螢幕尺寸
         gameTable.calculateCardPositions();
+        console.log('📱 視窗大小變更，重新計算卡牌位置');
     }
 }
 
