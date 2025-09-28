@@ -166,6 +166,11 @@ class GameTable {
     
     // 更新視覺效果
     updateVisualEffects() {
+        // 在 finished 階段停止不必要的視覺效果計算
+        if (this.gamePhase === 'finished') {
+            return; // 停止所有視覺效果更新以節省資源
+        }
+        
         // 桌面旋轉
         this.tableRotation += 0.001;
         
@@ -373,6 +378,11 @@ class GameTable {
     // 繪製選中卡牌特效
     drawSelectedCardEffect() {
         if (!this.selectedCard) return;
+        
+        // 在 finished 階段停止卡牌特效動畫以節省資源
+        if (this.gamePhase === 'finished') {
+            return;
+        }
         
         push();
         translate(this.selectedCard.position.x, this.selectedCard.position.y);
