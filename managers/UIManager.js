@@ -337,9 +337,9 @@ class UIManager {
         this.showToast('已離開房間', 'info');
     }
     
-    // 繪製畫布上的遊戲資訊（避免被其他元素遮蔽）
-    draw() {
-        if (!this.isGameStarted) return;
+    // 繪製房間資訊（僅在非 finished 階段顯示，避免與統計面板重疊）
+    drawGameInfo() {
+        if (!this.isGameStarted || this.gamePhase === 'finished') return;
         
         push();
         
@@ -737,10 +737,13 @@ class UIManager {
     draw() {
         if (!this.isGameStarted) return;
         
-        // 首先繪製連線狀態（背景層，較低優先級）
+        // 繪製房間資訊（非 finished 階段）
+        this.drawGameInfo();
+        
+        // 繪製連線狀態（背景層，較低優先級）
         this.drawConnectionStatus();
         
-        // 繪製統計資訊（主要內容層）
+        // 繪製統計資訊（finished 階段的主要內容層）
         this.drawStatistics();
         
         // 繪製快捷鍵提示

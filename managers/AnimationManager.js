@@ -115,6 +115,18 @@ class AnimationManager {
             return;
         }
         
+        // 在 finished 階段減少動畫更新頻率以優化效能
+        if (typeof uiManager !== 'undefined' && uiManager.gamePhase === 'finished') {
+            // 每 3 幀更新一次背景動畫（從 60fps 降到 20fps）
+            if (frameCount % 3 !== 0) {
+                // 但仍要更新重要的螢幕效果和粒子
+                this.updateScreenEffects();
+                this.updateParticles();
+                this.draw();
+                return;
+            }
+        }
+        
         // 更新粒子
         this.updateParticles();
         

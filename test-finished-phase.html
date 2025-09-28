@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finished 階段測試與調試</title>
+    
+    <!-- p5.js 函式庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            min-height: 100vh;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .debug-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 3px;
+            font-size: 12px;
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .debug-info {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-green { background: #10b981; }
+        .status-yellow { background: #f59e0b; }
+        .status-red { background: #ef4444; }
+        
+        h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-container">
+            <div id="gameContainer"></div>
+        </div>
+        
+        <div class="debug-panel">
+            <h2>🔍 Finished 階段調試面板</h2>
+            
+            <div class="test-section">
+                <h3>🎮 遊戲狀態控制</h3>
+                <button onclick="initializeGame()">初始化遊戲</button>
+                <button onclick="addTestPlayers()">添加測試玩家</button>
+                <button onclick="simulateVoting()">模擬投票</button>
+                <button onclick="forceFinished()">強制進入 Finished</button>
+                <div id="gameStateInfo" class="debug-info"></div>
+            </div>
+            
+            <div class="test-section">
+                <h3>📊 統計面板測試</h3>
+                <button onclick="checkStatisticsPanel()">檢查統計面板</button>
+                <button onclick="toggleStatistics()">切換統計顯示</button>
+                <button onclick="testStatisticsUpdate()">測試統計更新</button>
+                <div id="statisticsInfo" class="debug-info"></div>
+            </div>
+            
+            <div class="test-section">
+                <h3>🎯 Scrum Master 建議測試</h3>
+                <button onclick="checkAdvicePanel()">檢查建議面板</button>
+                <button onclick="toggleAdvice()">切換建議顯示</button>
+                <button onclick="testAdviceGeneration()">測試建議生成</button>
+                <div id="adviceInfo" class="debug-info"></div>
+            </div>
+            
+            <div class="test-section">
+                <h3>⚡ 效能監控</h3>
+                <button onclick="startPerformanceMonitor()">開始監控</button>
+                <button onclick="stopPerformanceMonitor()">停止監控</button>
+                <button class="btn-warning" onclick="analyzeDrawCalls()">分析繪製調用</button>
+                <div id="performanceInfo" class="debug-info"></div>
+            </div>
+            
+            <div class="test-section">
+                <h3>🔄 循環檢測</h3>
+                <button onclick="detectLoops()">檢測無限循環</button>
+                <button onclick="monitorAnimationFrames()">監控動畫幀</button>
+                <button class="btn-danger" onclick="emergencyStop()">緊急停止</button>
+                <div id="loopInfo" class="debug-info"></div>
+            </div>
+            
+            <div class="test-section">
+                <h3>📱 實時狀態</h3>
+                <div id="realTimeStatus" class="debug-info"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase 設定 -->
+    <script src="firebase-config.js"></script>
+    
+    <!-- 遊戲類別 -->
+    <script src="classes/Vector2D.js"></script>
+    <script src="classes/Card.js"></script>
+    <script src="classes/Player.js"></script>
+    <script src="classes/GameTable.js"></script>
+    <script src="managers/CookieManager.js"></script>
+    <script src="managers/FirebaseManager.js"></script>
+    <script src="managers/UIManager.js"></script>
+    <script src="managers/AnimationManager.js"></script>
+    <script src="game.js"></script>
+    
+    <script>
+        // 調試變數
+        let debugStats = {
+            drawCalls: 0,
+            updateCalls: 0,
+            lastFrameTime: 0,
+            frameCount: 0,
+            performanceLog: [],
+            isMonitoring: false,
+            animationFrameId: null
+        };
+        
+        let originalDraw = null;
+        let originalUpdate = null;
+        
+        // 全域變數
+        let gameTable = null;
+        let uiManager = null;
+        let firebaseManager = null;
+        let animationManager = null;
+        let scrumMasterAdvice = null;
+        let currentPlayer = null;
+        let gameState = 'login';
+        
+        // 遊戲設定
+        const GAME_CONFIG = {
+            canvas: {
+                width: 800,
+                height: 600
+            },
+            colors: {
+                background: [30, 41, 59],
+                primary: [59, 130, 246],
+                success: [16, 185, 129],
+                warning: [245, 158, 11],
+                danger: [239, 68, 68]
+            }
+        };
+        
+        // p5.js 設定
+        function setup() {
+            const canvas = createCanvas(GAME_CONFIG.canvas.width, GAME_CONFIG.canvas.height);
+            canvas.parent('gameContainer');
+            
+            console.log('🎮 調試畫布已建立');
+            updateDebugInfo();
+        }
+        
+        function draw() {
+            debugStats.drawCalls++;
+            debugStats.frameCount++;
+            
+            background(GAME_CONFIG.colors.background);
+            
+            // 繪製遊戲桌面
+            if (gameTable) {
+                gameTable.draw();
+            }
+            
+            // 繪製 UI 元素
+            if (uiManager) {
+                uiManager.draw();
+            }
+            
+            // 更新實時狀態顯示
+            if (frameCount % 30 === 0) { // 每秒更新一次
+                updateRealTimeStatus();
+            }
+        }
+        
+        // 初始化遊戲
+        function initializeGame() {
+            try {
+                console.log('🚀 初始化調試遊戲...');
+                
+                // 初始化管理器
+                firebaseManager = new FirebaseManager();
+                uiManager = new UIManager();
+                animationManager = new AnimationManager();
+                
+                // 初始化遊戲桌面
+                gameTable = new GameTable();
+                
+                // 初始化 Scrum Master 建議系統
+                if (typeof ScrumMasterAdvice !== 'undefined') {
+                    scrumMasterAdvice = new ScrumMasterAdvice();
+                }
+                
+                updateGameStateInfo();
+                console.log('✅ 遊戲初始化完成');
+                
+            } catch (error) {
+                console.error('❌ 遊戲初始化失敗:', error);
+                updateDebugInfo(`初始化失敗: ${error.message}`);
+            }
+        }
+        
+        // 添加測試玩家
+        function addTestPlayers() {
+            if (!gameTable) {
+                updateGameStateInfo('請先初始化遊戲');
+                return;
+            }
+            
+            try {
+                // 清除現有玩家
+                gameTable.players = [];
+                
+                // 添加測試玩家
+                const testPlayers = [
+                    { id: 'player1', name: '開發者小明', role: 'dev' },
+                    { id: 'player2', name: '測試者小華', role: 'qa' },
+                    { id: 'player3', name: 'Scrum Master', role: 'scrum_master' },
+                    { id: 'player4', name: 'Product Owner', role: 'po' }
+                ];
+                
+                testPlayers.forEach(playerData => {
+                    gameTable.addPlayer(playerData.id, playerData.name, playerData.role);
+                });
+                
+                // 設定當前玩家
+                currentPlayer = {
+                    id: 'player1',
+                    name: '開發者小明',
+                    role: 'dev'
+                };
+                
+                updateGameStateInfo();
+                console.log('✅ 測試玩家添加完成');
+                
+            } catch (error) {
+                console.error('❌ 添加測試玩家失敗:', error);
+                updateGameStateInfo(`添加玩家失敗: ${error.message}`);
+            }
+        }
+        
+        // 模擬投票
+        function simulateVoting() {
+            if (!gameTable || gameTable.players.length === 0) {
+                updateGameStateInfo('請先添加測試玩家');
+                return;
+            }
+            
+            try {
+                // 開始投票
+                gameTable.startVoting();
+                
+                // 模擬玩家投票
+                const votes = [8, 5, 13, 5]; // 不同的投票值
+                gameTable.players.forEach((player, index) => {
+                    if (index < votes.length) {
+                        player.setVote(votes[index]);
+                        player.hasVoted = true;
+                    }
+                });
+                
+                updateGameStateInfo();
+                console.log('✅ 投票模擬完成');
+                
+            } catch (error) {
+                console.error('❌ 投票模擬失敗:', error);
+                updateGameStateInfo(`投票模擬失敗: ${error.message}`);
+            }
+        }
+        
+        // 強制進入 Finished 階段
+        function forceFinished() {
+            if (!gameTable) {
+                updateGameStateInfo('請先初始化遊戲');
+                return;
+            }
+            
+            try {
+                // 強制設定為 finished 階段
+                gameTable.gamePhase = 'finished';
+                gameTable.allVotesRevealed = true;
+                
+                if (uiManager) {
+                    uiManager.gamePhase = 'finished';
+                    
+                    // 生成測試統計資料
+                    const testVotes = [
+                        { value: 8, playerRole: 'dev', playerName: '開發者小明' },
+                        { value: 5, playerRole: 'qa', playerName: '測試者小華' },
+                        { value: 13, playerRole: 'scrum_master', playerName: 'Scrum Master' },
+                        { value: 5, playerRole: 'po', playerName: 'Product Owner' }
+                    ];
+                    
+                    uiManager.updateStatistics(testVotes);
+                    
+                    // 生成 Scrum Master 建議
+                    if (scrumMasterAdvice) {
+                        scrumMasterAdvice.analyzeVotes(testVotes);
+                        scrumMasterAdvice.show();
+                    }
+                }
+                
+                updateGameStateInfo();
+                console.log('✅ 強制進入 Finished 階段完成');
+                
+            } catch (error) {
+                console.error('❌ 強制進入 Finished 失敗:', error);
+                updateGameStateInfo(`強制進入 Finished 失敗: ${error.message}`);
+            }
+        }
+        
+        // 檢查統計面板
+        function checkStatisticsPanel() {
+            try {
+                const info = [];
+                
+                if (!uiManager) {
+                    info.push('❌ UIManager 未初始化');
+                } else {
+                    info.push(`✅ UIManager 已初始化`);
+                    info.push(`遊戲階段: ${uiManager.gamePhase}`);
+                    info.push(`統計資料: ${JSON.stringify(uiManager.statistics, null, 2)}`);
+                    
+                    // 檢查 drawStatistics 方法
+                    if (typeof uiManager.drawStatistics === 'function') {
+                        info.push('✅ drawStatistics 方法存在');
+                        
+                        // 檢查是否會被調用
+                        if (uiManager.gamePhase === 'finished') {
+                            info.push('✅ 在 finished 階段，統計面板應該顯示');
+                        } else {
+                            info.push('⚠️ 不在 finished 階段，統計面板不會顯示');
+                        }
+                    } else {
+                        info.push('❌ drawStatistics 方法不存在');
+                    }
+                }
+                
+                updateStatisticsInfo(info.join('\n'));
+                console.log('🔍 統計面板檢查完成');
+                
+            } catch (error) {
+                console.error('❌ 統計面板檢查失敗:', error);
+                updateStatisticsInfo(`檢查失敗: ${error.message}`);
+            }
+        }
+        
+        // 檢查建議面板
+        function checkAdvicePanel() {
+            try {
+                const info = [];
+                
+                if (!scrumMasterAdvice) {
+                    info.push('❌ ScrumMasterAdvice 未初始化');
+                } else {
+                    info.push('✅ ScrumMasterAdvice 已初始化');
+                    info.push(`建議數量: ${scrumMasterAdvice.suggestions.length}`);
+                    info.push(`顯示狀態: ${scrumMasterAdvice.isVisible ? '顯示' : '隱藏'}`);
+                    
+                    // 檢查建議內容
+                    if (scrumMasterAdvice.suggestions.length > 0) {
+                        info.push('\n建議內容:');
+                        scrumMasterAdvice.suggestions.forEach((suggestion, index) => {
+                            info.push(`${index + 1}. ${suggestion.title}`);
+                        });
+                    } else {
+                        info.push('⚠️ 沒有建議內容');
+                    }
+                }
+                
+                updateAdviceInfo(info.join('\n'));
+                console.log('🔍 建議面板檢查完成');
+                
+            } catch (error) {
+                console.error('❌ 建議面板檢查失敗:', error);
+                updateAdviceInfo(`檢查失敗: ${error.message}`);
+            }
+        }
+        
+        // 開始效能監控
+        function startPerformanceMonitor() {
+            debugStats.isMonitoring = true;
+            debugStats.drawCalls = 0;
+            debugStats.updateCalls = 0;
+            debugStats.performanceLog = [];
+            debugStats.lastFrameTime = performance.now();
+            
+            console.log('📊 效能監控已開始');
+            updatePerformanceInfo('效能監控已開始...');
+        }
+        
+        // 停止效能監控
+        function stopPerformanceMonitor() {
+            debugStats.isMonitoring = false;
+            
+            const info = [
+                `總繪製調用: ${debugStats.drawCalls}`,
+                `平均幀率: ${(debugStats.frameCount / (performance.now() / 1000)).toFixed(2)} FPS`,
+                `總幀數: ${debugStats.frameCount}`
+            ];
+            
+            updatePerformanceInfo(info.join('\n'));
+            console.log('📊 效能監控已停止');
+        }
+        
+        // 檢測循環
+        function detectLoops() {
+            try {
+                const info = [];
+                
+                // 檢查 gameTable 的 update 方法
+                if (gameTable && typeof gameTable.update === 'function') {
+                    info.push('🔍 檢查 GameTable.update()...');
+                    
+                    // 檢查是否有無限循環的跡象
+                    const startTime = performance.now();
+                    let callCount = 0;
+                    
+                    const originalConsoleLog = console.log;
+                    const logMessages = [];
+                    console.log = (message) => {
+                        logMessages.push(message);
+                        if (logMessages.length > 100) {
+                            logMessages.shift();
+                        }
+                    };
+                    
+                    try {
+                        // 調用一次 update 方法並監控
+                        gameTable.update();
+                        callCount++;
+                        
+                        const duration = performance.now() - startTime;
+                        info.push(`✅ GameTable.update() 執行時間: ${duration.toFixed(2)}ms`);
+                        info.push(`調用次數: ${callCount}`);
+                        
+                        if (logMessages.length > 0) {
+                            info.push(`日誌訊息數量: ${logMessages.length}`);
+                            info.push('最近的日誌:');
+                            logMessages.slice(-5).forEach(msg => {
+                                info.push(`  ${msg}`);
+                            });
+                        }
+                        
+                    } finally {
+                        console.log = originalConsoleLog;
+                    }
+                } else {
+                    info.push('❌ GameTable.update() 方法不存在');
+                }
+                
+                updateLoopInfo(info.join('\n'));
+                console.log('🔍 循環檢測完成');
+                
+            } catch (error) {
+                console.error('❌ 循環檢測失敗:', error);
+                updateLoopInfo(`檢測失敗: ${error.message}`);
+            }
+        }
+        
+        // 更新調試資訊
+        function updateGameStateInfo(extraInfo = '') {
+            const info = [];
+            
+            if (gameTable) {
+                info.push(`遊戲階段: ${gameTable.gamePhase}`);
+                info.push(`玩家數量: ${gameTable.players.length}`);
+                info.push(`已投票玩家: ${gameTable.players.filter(p => p.hasVoted).length}`);
+                info.push(`所有投票已揭示: ${gameTable.allVotesRevealed}`);
+            } else {
+                info.push('❌ GameTable 未初始化');
+            }
+            
+            if (uiManager) {
+                info.push(`UI 遊戲階段: ${uiManager.gamePhase}`);
+                info.push(`遊戲已開始: ${uiManager.isGameStarted}`);
+            } else {
+                info.push('❌ UIManager 未初始化');
+            }
+            
+            if (extraInfo) {
+                info.push(`\n額外資訊: ${extraInfo}`);
+            }
+            
+            document.getElementById('gameStateInfo').textContent = info.join('\n');
+        }
+        
+        function updateStatisticsInfo(info) {
+            document.getElementById('statisticsInfo').textContent = info;
+        }
+        
+        function updateAdviceInfo(info) {
+            document.getElementById('adviceInfo').textContent = info;
+        }
+        
+        function updatePerformanceInfo(info) {
+            document.getElementById('performanceInfo').textContent = info;
+        }
+        
+        function updateLoopInfo(info) {
+            document.getElementById('loopInfo').textContent = info;
+        }
+        
+        function updateRealTimeStatus() {
+            const info = [];
+            
+            info.push(`幀率: ${frameRate.toFixed(1)} FPS`);
+            info.push(`繪製調用: ${debugStats.drawCalls}`);
+            
+            if (gameTable) {
+                info.push(`遊戲階段: ${gameTable.gamePhase}`);
+            }
+            
+            if (uiManager && uiManager.gamePhase === 'finished') {
+                info.push('📊 統計面板應該顯示');
+            }
+            
+            if (scrumMasterAdvice && scrumMasterAdvice.isVisible) {
+                info.push('🎯 建議面板正在顯示');
+            }
+            
+            document.getElementById('realTimeStatus').textContent = info.join('\n');
+        }
+        
+        function updateDebugInfo(info = '') {
+            console.log('🔍 調試資訊更新:', info);
+        }
+        
+        // 切換統計顯示
+        function toggleStatistics() {
+            if (uiManager) {
+                // 強制切換統計顯示狀態
+                if (uiManager.gamePhase === 'finished') {
+                    uiManager.gamePhase = 'voting';
+                    updateStatisticsInfo('統計面板已隱藏 (切換到 voting 階段)');
+                } else {
+                    uiManager.gamePhase = 'finished';
+                    updateStatisticsInfo('統計面板已顯示 (切換到 finished 階段)');
+                }
+                updateGameStateInfo();
+            }
+        }
+        
+        // 切換建議顯示
+        function toggleAdvice() {
+            if (scrumMasterAdvice) {
+                scrumMasterAdvice.toggle();
+                updateAdviceInfo(`建議面板 ${scrumMasterAdvice.isVisible ? '已顯示' : '已隱藏'}`);
+            }
+        }
+        
+        // 測試統計更新
+        function testStatisticsUpdate() {
+            if (uiManager) {
+                const testVotes = [
+                    { value: 8, playerRole: 'dev', playerName: '開發者A' },
+                    { value: 5, playerRole: 'qa', playerName: '測試者B' },
+                    { value: 13, playerRole: 'dev', playerName: '開發者C' },
+                    { value: 3, playerRole: 'qa', playerName: '測試者D' }
+                ];
+                
+                uiManager.updateStatistics(testVotes);
+                updateStatisticsInfo('統計資料已更新');
+            }
+        }
+        
+        // 測試建議生成
+        function testAdviceGeneration() {
+            if (scrumMasterAdvice) {
+                const testVotes = [
+                    { value: 8, playerRole: 'dev', playerName: '開發者A' },
+                    { value: 5, playerRole: 'qa', playerName: '測試者B' },
+                    { value: 13, playerRole: 'dev', playerName: '開發者C' },
+                    { value: 3, playerRole: 'qa', playerName: '測試者D' }
+                ];
+                
+                scrumMasterAdvice.analyzeVotes(testVotes);
+                scrumMasterAdvice.show();
+                updateAdviceInfo(`已生成 ${scrumMasterAdvice.suggestions.length} 項建議`);
+            }
+        }
+        
+        // 分析繪製調用
+        function analyzeDrawCalls() {
+            const info = [];
+            
+            info.push('🔍 分析繪製調用中...');
+            
+            // 檢查各個組件的 draw 方法
+            if (gameTable && typeof gameTable.draw === 'function') {
+                info.push('✅ GameTable.draw() 存在');
+            }
+            
+            if (uiManager && typeof uiManager.draw === 'function') {
+                info.push('✅ UIManager.draw() 存在');
+                
+                if (typeof uiManager.drawStatistics === 'function') {
+                    info.push('✅ UIManager.drawStatistics() 存在');
+                } else {
+                    info.push('❌ UIManager.drawStatistics() 不存在');
+                }
+            }
+            
+            if (scrumMasterAdvice && typeof scrumMasterAdvice.draw === 'function') {
+                info.push('✅ ScrumMasterAdvice.draw() 存在');
+            }
+            
+            updatePerformanceInfo(info.join('\n'));
+        }
+        
+        // 監控動畫幀
+        function monitorAnimationFrames() {
+            let frameCount = 0;
+            let startTime = performance.now();
+            
+            function monitor() {
+                frameCount++;
+                
+                if (frameCount >= 60) { // 監控 60 幀
+                    const duration = performance.now() - startTime;
+                    const avgFrameTime = duration / frameCount;
+                    const fps = 1000 / avgFrameTime;
+                    
+                    updateLoopInfo(`監控結果:\n幀數: ${frameCount}\n總時間: ${duration.toFixed(2)}ms\n平均幀時間: ${avgFrameTime.toFixed(2)}ms\n估計 FPS: ${fps.toFixed(1)}`);
+                    return;
+                }
+                
+                requestAnimationFrame(monitor);
+            }
+            
+            monitor();
+        }
+        
+        // 緊急停止
+        function emergencyStop() {
+            if (debugStats.animationFrameId) {
+                cancelAnimationFrame(debugStats.animationFrameId);
+            }
+            
+            // 暫停 p5.js 循環
+            noLoop();
+            
+            updateLoopInfo('🚨 緊急停止已執行\np5.js 循環已暫停');
+            console.log('🚨 緊急停止已執行');
+        }
+        
+        // 初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 Finished 階段調試工具已載入');
+            updateDebugInfo('調試工具已就緒');
+        });
+    </script>
+</body>
+</html>
