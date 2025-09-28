@@ -139,100 +139,185 @@ class FirebaseManager {
     
     // 加入 Firebase 房間
     async joinFirebaseRoom(roomId, playerName, playerRole) {
+        let isNewRoom = false;
+        
+        // 生成房間 ID（如果未提供）
         if (!roomId) {
-            roomId = this.generateRoomId();
+            roomId = await this.generateUniqueRoomId();
+            isNewRoom = true;
+            console.log(`🎲 自動生成唯一房間 ID: ${roomId}`);
         }
         
         const playerId = this.generatePlayerId();
+        console.log(`👤 生成玩家 ID: ${playerId} (${playerName})`);
         
-        // 建立玩家資料（無需身份驗證）
-        const playerData = {
-            id: playerId,
-            name: playerName,
-            role: playerRole,
-            joined: firebase.database.ServerValue.TIMESTAMP,
-            connected: true,
-            hasVoted: false,
-            vote: null
-        };
-        
-        // 加入房間
-        const roomRef = this.db.ref(`rooms/${roomId}`);
-        const playerRef = roomRef.child(`players/${playerId}`);
-        
-        // 檢查房間是否存在，如果不存在則創建
-        const roomSnapshot = await roomRef.once('value');
-        if (!roomSnapshot.exists()) {
-            console.log(`🏠 創建新房間: ${roomId}`);
-            await roomRef.set({
-                id: roomId,
-                created: firebase.database.ServerValue.TIMESTAMP,
-                phase: 'waiting',
-                players: {},
-                votes: {},
-                settings: {
-                    maxPlayers: 12,
-                    autoReveal: false
+        try {
+            // 加入房間
+            const roomRef = this.db.ref(`rooms/${roomId}`);
+            
+            // 檢查房間是否存在，如果不存在則創建
+            const roomSnapshot = await roomRef.once('value');
+            if (!roomSnapshot.exists()) {
+                console.log(`🏠 房間不存在，開始創建新房間: ${roomId}`);
+                isNewRoom = true;
+                
+                // 創建符合 Firebase 規則的房間資料結構
+                const newRoomData = {
+                    id: roomId,
+                    created: firebase.database.ServerValue.TIMESTAMP,
+                    lastUpdated: firebase.database.ServerValue.TIMESTAMP,
+                    // 符合資料庫規則：必須包含 gameState 且值為 'voting' 或 'revealed'
+                    gameState: 'voting', // 使用 'voting' 而不是 'waiting'
+                    phase: 'waiting', // 保留內部使用的 phase 欄位
+                    members: {}, // 符合資料庫規則：使用 members 而不是 players
+                    players: {}, // 保留相容性 
+                    votes: {},
+                    settings: {
+                        maxPlayers: 12,
+                        autoReveal: false
+                    }
+                };
+                
+                console.log(`📋 準備創建房間資料:`, newRoomData);
+                await roomRef.set(newRoomData);
+                console.log(`✅ 房間 ${roomId} 創建成功`);
+            } else {
+                console.log(`🏠 加入現有房間: ${roomId}`);
+                const existingData = roomSnapshot.val();
+                console.log(`📊 現有房間資料結構:`, Object.keys(existingData));
+            }
+            
+            // 建立玩家資料（符合 Firebase 規則）
+            const playerData = {
+                id: playerId,
+                name: playerName,
+                role: playerRole,
+                joined: firebase.database.ServerValue.TIMESTAMP,
+                connected: true,
+                voted: false, // 符合資料庫規則：使用 'voted' 欄位
+                hasVoted: false, // 保留相容性
+                vote: null
+            };
+            
+            // 同時添加到 players 和 members 節點以確保相容性
+            const playerRef = roomRef.child(`players/${playerId}`);
+            const memberRef = roomRef.child(`members/${playerId}`);
+            
+            console.log(`👤 準備添加玩家到房間: ${playerName} -> ${roomId}`);
+            console.log(`👤 玩家資料:`, playerData);
+            
+            // 並行寫入玩家資料到兩個節點
+            await Promise.all([
+                playerRef.set(playerData),
+                memberRef.set(playerData)
+            ]);
+            
+            console.log(`✅ 玩家 ${playerName} 成功加入房間 ${roomId}`);
+            
+            // 更新本地狀態
+            this.currentRoom = roomId;
+            this.currentPlayer = playerData;
+            
+            // 設定監聽器
+            this.setupRoomListener(roomId);
+            this.setupPlayersListener(roomId);
+            this.setupVotesListener(roomId);
+            
+            console.log(`✅ Firebase 房間 ${roomId} 連接完成 (玩家: ${playerName})`);
+            
+            return { 
+                roomId, 
+                playerId,
+                isNewRoom,
+                roomData: {
+                    id: roomId,
+                    gameState: 'voting',
+                    phase: 'waiting'
                 }
+            };
+            
+        } catch (error) {
+            console.error(`❌ 加入 Firebase 房間失敗:`, error);
+            console.error(`🔍 錯誤詳情:`, {
+                roomId,
+                playerName,
+                playerRole,
+                errorCode: error.code,
+                errorMessage: error.message,
+                isNewRoom
             });
-            console.log(`✅ 房間 ${roomId} 創建成功`);
-        } else {
-            console.log(`🏠 加入existing房間: ${roomId}`);
+            
+            // 如果是權限錯誤，提供更詳細的診斷資訊
+            if (error.code === 'PERMISSION_DENIED') {
+                console.error(`🚫 權限被拒絕 - 可能的原因:`);
+                console.error(`   1. Firebase 資料庫規則不允許此操作`);
+                console.error(`   2. 資料格式不符合 .validate 規則要求`);
+                console.error(`   3. 房間 ID 格式問題: ${roomId}`);
+                console.error(`   4. 缺少必要的欄位: gameState, members 等`);
+            }
+            
+            throw error;
         }
-        
-        // 加入玩家
-        console.log(`👤 添加玩家到房間: ${playerName} -> ${roomId}`);
-        await playerRef.set(playerData);
-        console.log(`✅ 玩家 ${playerName} 成功加入房間 ${roomId}`);
-        
-        this.currentRoom = roomId;
-        this.currentPlayer = playerData;
-        
-        // 設定監聽器
-        this.setupRoomListener(roomId);
-        this.setupPlayersListener(roomId);
-        this.setupVotesListener(roomId);
-        
-        console.log(`✅ Firebase 房間 ${roomId} 連接完成 (玩家: ${playerName})`);
-        return { roomId, playerId };
     }
     
     // 加入模擬房間
     async joinMockRoom(roomId, playerName, playerRole) {
+        let isNewRoom = false;
+        
+        // 生成房間 ID（如果未提供）
         if (!roomId) {
-            roomId = this.generateRoomId();
+            roomId = await this.generateUniqueRoomId();
+            isNewRoom = true;
+            console.log(`🎲 模擬模式：自動生成唯一房間 ID: ${roomId}`);
         }
         
         const playerId = this.generatePlayerId();
+        console.log(`👤 模擬模式：生成玩家 ID: ${playerId} (${playerName})`);
         
-        // 初始化房間
+        // 初始化房間（符合 Firebase 規則格式）
         if (!this.mockData.rooms[roomId]) {
+            console.log(`🏠 模擬模式：創建新房間: ${roomId}`);
+            isNewRoom = true;
+            
             this.mockData.rooms[roomId] = {
                 id: roomId,
                 created: Date.now(),
-                phase: 'waiting',
-                players: {},
+                lastUpdated: Date.now(),
+                gameState: 'voting', // 符合資料庫規則
+                phase: 'waiting', // 內部使用
+                members: {}, // 符合資料庫規則
+                players: {}, // 保留相容性
                 votes: {},
                 settings: {
                     maxPlayers: 12,
                     autoReveal: false
                 }
             };
+            console.log(`✅ 模擬模式：房間 ${roomId} 創建成功`);
+        } else {
+            console.log(`🏠 模擬模式：加入現有房間: ${roomId}`);
         }
         
-        // 加入玩家
+        // 建立玩家資料（符合 Firebase 規則）
         const playerData = {
             id: playerId,
             name: playerName,
             role: playerRole,
             joined: Date.now(),
             connected: true,
-            hasVoted: false,
+            voted: false, // 符合資料庫規則
+            hasVoted: false, // 保留相容性
             vote: null
         };
         
-        this.mockData.rooms[roomId].players[playerId] = playerData;
+        console.log(`👤 模擬模式：準備添加玩家: ${playerName} -> ${roomId}`);
+        console.log(`👤 模擬模式：玩家資料:`, playerData);
         
+        // 同時添加到 players 和 members 節點以確保相容性
+        this.mockData.rooms[roomId].players[playerId] = playerData;
+        this.mockData.rooms[roomId].members[playerId] = playerData;
+        
+        // 更新本地狀態
         this.currentRoom = roomId;
         this.currentPlayer = playerData;
         
@@ -241,8 +326,17 @@ class FirebaseManager {
             this.onPlayerJoined(playerData);
         }
         
-        console.log(`✅ 成功加入模擬房間 ${roomId} (玩家: ${playerName})`);
-        return { roomId, playerId };
+        console.log(`✅ 模擬模式：玩家 ${playerName} 成功加入房間 ${roomId}`);
+        return { 
+            roomId, 
+            playerId,
+            isNewRoom,
+            roomData: {
+                id: roomId,
+                gameState: 'voting',
+                phase: 'waiting'
+            }
+        };
     }
     
     // 設定房間監聽器
@@ -597,7 +691,52 @@ class FirebaseManager {
     
     // 生成房間 ID
     generateRoomId() {
-        return Math.random().toString(36).substring(2, 8).toUpperCase();
+        // 生成更可靠的房間 ID
+        const timestamp = Date.now().toString(36).substring(-4); // 時間戳後4位
+        const random = Math.random().toString(36).substring(2, 6); // 隨機4位
+        const roomId = (timestamp + random).toUpperCase();
+        
+        console.log(`🎲 生成房間 ID: ${roomId} (時間戳: ${timestamp}, 隨機: ${random})`);
+        return roomId;
+    }
+    
+    // 生成唯一房間 ID（檢查是否衝突）
+    async generateUniqueRoomId(maxAttempts = 5) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const roomId = this.generateRoomId();
+            
+            try {
+                if (this.useFirebase) {
+                    // 檢查 Firebase 中是否已存在此房間 ID
+                    const roomRef = this.db.ref(`rooms/${roomId}`);
+                    const snapshot = await roomRef.once('value');
+                    
+                    if (!snapshot.exists()) {
+                        console.log(`✅ 房間 ID ${roomId} 可用 (嘗試 ${attempt}/${maxAttempts})`);
+                        return roomId;
+                    } else {
+                        console.log(`⚠️ 房間 ID ${roomId} 已存在，重新生成 (嘗試 ${attempt}/${maxAttempts})`);
+                    }
+                } else {
+                    // 檢查模擬模式中是否已存在此房間 ID
+                    if (!this.mockData.rooms[roomId]) {
+                        console.log(`✅ 房間 ID ${roomId} 可用 (本地模式, 嘗試 ${attempt}/${maxAttempts})`);
+                        return roomId;
+                    } else {
+                        console.log(`⚠️ 房間 ID ${roomId} 已存在，重新生成 (本地模式, 嘗試 ${attempt}/${maxAttempts})`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`⚠️ 檢查房間 ID ${roomId} 時發生錯誤:`, error);
+                // 如果檢查失敗，仍然使用這個 ID
+                return roomId;
+            }
+        }
+        
+        // 如果所有嘗試都失敗，使用最後生成的 ID
+        const fallbackId = this.generateRoomId();
+        console.warn(`⚠️ 無法生成唯一房間 ID，使用後備 ID: ${fallbackId}`);
+        return fallbackId;
     }
     
     // 生成玩家 ID
@@ -624,6 +763,157 @@ class FirebaseManager {
         this.onVoteUpdated = callbacks.onVoteUpdated || null;
         this.onGameStateChanged = callbacks.onGameStateChanged || null;
         this.onError = callbacks.onError || null;
+    }
+    
+    // 診斷房間創建功能
+    async diagnoseRoomCreation(testPlayerName = 'TestPlayer', testPlayerRole = 'dev') {
+        console.log('🔍 === 房間創建診斷開始 ===');
+        
+        const diagnosticResult = {
+            timestamp: new Date().toISOString(),
+            useFirebase: this.useFirebase,
+            isConnected: this.isConnected,
+            tests: {},
+            errors: [],
+            recommendations: []
+        };
+        
+        try {
+            // 測試 1: 房間 ID 生成
+            console.log('🧪 測試 1: 房間 ID 生成');
+            const roomId1 = this.generateRoomId();
+            const roomId2 = this.generateRoomId();
+            
+            diagnosticResult.tests.roomIdGeneration = {
+                success: true,
+                roomId1,
+                roomId2,
+                areUnique: roomId1 !== roomId2,
+                format: /^[A-Z0-9]{8}$/.test(roomId1)
+            };
+            
+            if (roomId1 === roomId2) {
+                diagnosticResult.errors.push('房間 ID 生成器產生重複 ID');
+            }
+            
+            // 測試 2: 唯一房間 ID 生成
+            console.log('🧪 測試 2: 唯一房間 ID 生成');
+            const uniqueRoomId = await this.generateUniqueRoomId();
+            
+            diagnosticResult.tests.uniqueRoomIdGeneration = {
+                success: true,
+                uniqueRoomId,
+                format: /^[A-Z0-9]{8}$/.test(uniqueRoomId)
+            };
+            
+            // 測試 3: 房間創建資料格式
+            console.log('🧪 測試 3: 房間創建資料格式驗證');
+            const mockRoomData = {
+                id: uniqueRoomId,
+                created: this.useFirebase ? firebase.database.ServerValue.TIMESTAMP : Date.now(),
+                lastUpdated: this.useFirebase ? firebase.database.ServerValue.TIMESTAMP : Date.now(),
+                gameState: 'voting',
+                phase: 'waiting',
+                members: {},
+                players: {},
+                votes: {},
+                settings: {
+                    maxPlayers: 12,
+                    autoReveal: false
+                }
+            };
+            
+            diagnosticResult.tests.roomDataFormat = {
+                success: true,
+                hasGameState: 'gameState' in mockRoomData,
+                hasMembers: 'members' in mockRoomData,
+                gameStateValue: mockRoomData.gameState,
+                isValidGameState: ['voting', 'revealed'].includes(mockRoomData.gameState)
+            };
+            
+            if (!['voting', 'revealed'].includes(mockRoomData.gameState)) {
+                diagnosticResult.errors.push(`gameState 值 '${mockRoomData.gameState}' 不符合 Firebase 規則要求`);
+            }
+            
+            // 測試 4: 玩家資料格式
+            console.log('🧪 測試 4: 玩家資料格式驗證');
+            const mockPlayerData = {
+                id: this.generatePlayerId(),
+                name: testPlayerName,
+                role: testPlayerRole,
+                joined: this.useFirebase ? firebase.database.ServerValue.TIMESTAMP : Date.now(),
+                connected: true,
+                voted: false,
+                hasVoted: false,
+                vote: null
+            };
+            
+            diagnosticResult.tests.playerDataFormat = {
+                success: true,
+                hasRequiredFields: ['name', 'role', 'voted', 'connected'].every(field => field in mockPlayerData),
+                playerData: mockPlayerData
+            };
+            
+            // 測試 5: 實際房間創建測試（僅在模擬模式下）
+            if (!this.useFirebase) {
+                console.log('🧪 測試 5: 實際房間創建測試 (模擬模式)');
+                
+                try {
+                    const result = await this.joinMockRoom('', `診斷-${testPlayerName}`, testPlayerRole);
+                    
+                    diagnosticResult.tests.actualRoomCreation = {
+                        success: true,
+                        result,
+                        roomCreated: result.isNewRoom,
+                        roomId: result.roomId,
+                        playerId: result.playerId
+                    };
+                    
+                    // 清除測試房間
+                    if (this.mockData.rooms[result.roomId]) {
+                        delete this.mockData.rooms[result.roomId];
+                        console.log(`🧹 清除測試房間: ${result.roomId}`);
+                    }
+                    
+                } catch (error) {
+                    diagnosticResult.tests.actualRoomCreation = {
+                        success: false,
+                        error: error.message,
+                        errorCode: error.code
+                    };
+                    diagnosticResult.errors.push(`實際房間創建失敗: ${error.message}`);
+                }
+            } else {
+                diagnosticResult.tests.actualRoomCreation = {
+                    success: null,
+                    reason: 'Firebase 模式下跳過實際創建測試以避免產生測試資料'
+                };
+            }
+            
+        } catch (error) {
+            console.error('🚨 診斷過程中發生錯誤:', error);
+            diagnosticResult.errors.push(`診斷錯誤: ${error.message}`);
+        }
+        
+        // 生成建議
+        if (diagnosticResult.errors.length === 0) {
+            diagnosticResult.recommendations.push('✅ 所有測試通過，房間創建功能正常');
+        } else {
+            diagnosticResult.recommendations.push('⚠️ 發現問題，需要修正');
+            
+            if (diagnosticResult.errors.some(e => e.includes('gameState'))) {
+                diagnosticResult.recommendations.push('🔧 確保房間資料包含正確的 gameState 欄位');
+            }
+            
+            if (diagnosticResult.errors.some(e => e.includes('重複'))) {
+                diagnosticResult.recommendations.push('🔧 檢查房間 ID 生成器的隨機性');
+            }
+        }
+        
+        console.log('🔍 === 房間創建診斷完成 ===');
+        console.log('📊 診斷結果:', diagnosticResult);
+        
+        return diagnosticResult;
     }
 }
 

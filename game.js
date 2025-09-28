@@ -720,4 +720,89 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// 全域房間創建診斷功能
+window.diagnoseRoomCreation = async function() {
+    console.log('🔍 開始全域房間創建診斷...');
+    
+    if (!firebaseManager) {
+        console.error('❌ FirebaseManager 未初始化');
+        return { error: 'FirebaseManager 未初始化' };
+    }
+    
+    try {
+        const result = await firebaseManager.diagnoseRoomCreation();
+        
+        // 在控制台中以表格形式顯示結果
+        console.table({
+            '使用 Firebase': result.useFirebase ? '是' : '否',
+            '連線狀態': result.isConnected ? '已連線' : '未連線',
+            '錯誤數量': result.errors.length,
+            '測試通過': Object.keys(result.tests).length
+        });
+        
+        if (result.errors.length > 0) {
+            console.group('❌ 發現的問題：');
+            result.errors.forEach((error, index) => {
+                console.error(`${index + 1}. ${error}`);
+            });
+            console.groupEnd();
+        }
+        
+        if (result.recommendations.length > 0) {
+            console.group('💡 建議：');
+            result.recommendations.forEach((rec, index) => {
+                console.log(`${index + 1}. ${rec}`);
+            });
+            console.groupEnd();
+        }
+        
+        return result;
+    } catch (error) {
+        console.error('🚨 診斷過程發生錯誤:', error);
+        return { error: error.message };
+    }
+};
+
+// 快速測試房間創建功能
+window.testRoomCreation = async function(playerName = 'TestUser') {
+    console.log(`🧪 快速測試房間創建功能 (玩家: ${playerName})...`);
+    
+    if (!firebaseManager) {
+        console.error('❌ FirebaseManager 未初始化');
+        return false;
+    }
+    
+    try {
+        // 測試自動房間創建
+        const result = await firebaseManager.joinRoom('', playerName, 'dev');
+        
+        if (result && result.roomId) {
+            console.log(`✅ 房間創建測試成功！`);
+            console.log(`🏠 房間 ID: ${result.roomId}`);
+            console.log(`👤 玩家 ID: ${result.playerId}`);
+            console.log(`🆕 是新房間: ${result.isNewRoom ? '是' : '否'}`);
+            
+            // 清除測試資料（僅在模擬模式下）
+            if (!firebaseManager.useFirebase) {
+                await firebaseManager.leaveRoom();
+                console.log('🧹 已清除測試資料');
+            }
+            
+            return true;
+        } else {
+            console.error('❌ 房間創建測試失敗：未返回有效結果');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ 房間創建測試失敗:', error);
+        console.error('🔍 錯誤詳情:', {
+            code: error.code,
+            message: error.message
+        });
+        return false;
+    }
+};
+
 console.log('🎮 遊戲整合邏輯已載入');
+console.log('💡 使用 diagnoseRoomCreation() 進行房間創建診斷');
+console.log('💡 使用 testRoomCreation() 進行快速測試');
