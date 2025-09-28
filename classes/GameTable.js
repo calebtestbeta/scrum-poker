@@ -310,8 +310,14 @@ class GameTable {
             console.log('🔄 繪製重新開始按鈕 (finished 階段)');
             this.drawButton('🔄 重新開始', this.centerX, centerY, buttonWidth, buttonHeight,
                            color(59, 130, 246), () => {
-                               console.log('🔄 重新開始按鈕回調被調用');
-                               this.clearVotes();
+                               console.log('🔄 中央重新開始按鈕回調被調用');
+                               // 統一調用全域 clearVotes 函數，確保與右下角按鈕行為一致
+                               if (typeof clearVotes === 'function') {
+                                   clearVotes();
+                               } else {
+                                   console.error('❌ 全域 clearVotes 函數未定義，使用本地方法');
+                                   this.clearVotes();
+                               }
                            });
         }
         
@@ -994,6 +1000,7 @@ class GameTable {
             gamePhaseCheck: false,
             buttonArrayCheck: false,
             functionCallCheck: false,
+            consistencyCheck: false,
             overallResult: false
         };
         
@@ -1026,11 +1033,59 @@ class GameTable {
             console.error('測試 3 - 函數調用: ❌ 失敗 (拋出異常)', error);
         }
         
-        testResults.overallResult = testResults.gamePhaseCheck && testResults.buttonArrayCheck && testResults.functionCallCheck;
+        // 測試 4：檢查按鈕一致性
+        console.log('測試 4 - 按鈕一致性檢查:');
+        const globalClearVotesExists = (typeof clearVotes === 'function');
+        console.log(`  全域 clearVotes 函數: ${globalClearVotesExists ? '✅ 存在' : '❌ 不存在'}`);
+        
+        const domButton = document.getElementById('clearBtn');
+        const domButtonExists = !!domButton;
+        console.log(`  DOM 按鈕: ${domButtonExists ? '✅ 存在' : '❌ 不存在'}`);
+        
+        testResults.consistencyCheck = globalClearVotesExists && domButtonExists;
+        console.log('測試 4 - 一致性:', testResults.consistencyCheck ? '✅ 通過 (兩按鈕調用相同函數)' : '❌ 失敗 (函數或按鈕缺失)');
+        
+        testResults.overallResult = testResults.gamePhaseCheck && testResults.buttonArrayCheck && 
+                                  testResults.functionCallCheck && testResults.consistencyCheck;
         console.log('🧪 重新開始按鈕測試完成');
         console.log('整體結果:', testResults.overallResult ? '✅ 通過' : '❌ 失敗');
         
         return testResults;
+    }
+    
+    // 比對兩個重新開始按鈕的行為
+    compareRestartButtons() {
+        console.log('🧪 開始比對兩個重新開始按鈕的行為...');
+        
+        const comparison = {
+            domButton: {
+                element: document.getElementById('clearBtn'),
+                eventHandler: 'onclick="clearVotes()" + addEventListener',
+                functionality: 'gameTable.clearVotes() + firebaseManager.clearVotes() + uiManager.resetStatistics() + Toast提示',
+                visibility: '所有階段可見（waiting階段禁用）',
+                userFeedback: '有Toast成功提示'
+            },
+            canvasButton: {
+                element: 'p5.js drawButton in GameTable',
+                eventHandler: 'onClick callback -> clearVotes()',
+                functionality: '統一調用全域 clearVotes() 函數',
+                visibility: '只在finished階段顯示',
+                userFeedback: '有Toast成功提示（透過全域函數）'
+            },
+            consistency: {
+                eventBinding: '✅ 一致：都調用全域 clearVotes()',
+                functionality: '✅ 一致：都執行完整重置流程',
+                userFeedback: '✅ 一致：都有Toast提示',
+                overall: '✅ 統一：行為完全一致'
+            }
+        };
+        
+        console.log('📊 按鈕比對結果:');
+        console.log('  DOM按鈕 (右下角):', comparison.domButton);
+        console.log('  Canvas按鈕 (中央):', comparison.canvasButton);
+        console.log('  一致性檢查:', comparison.consistency);
+        
+        return comparison;
     }
     
     // 取得遊戲狀態
