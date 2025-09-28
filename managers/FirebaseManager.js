@@ -179,6 +179,13 @@ class FirebaseManager {
                 };
                 
                 console.log(`📋 準備創建房間資料:`, newRoomData);
+                
+                // 驗證房間資料是否符合 Firebase 規則
+                if (!newRoomData.gameState || !['voting', 'revealed'].includes(newRoomData.gameState)) {
+                    throw new Error(`房間 gameState 必須為 'voting' 或 'revealed'，目前為: ${newRoomData.gameState}`);
+                }
+                
+                console.log(`🔍 房間資料驗證通過，開始寫入 Firebase...`);
                 await roomRef.set(newRoomData);
                 console.log(`✅ 房間 ${roomId} 創建成功`);
             } else {
@@ -205,6 +212,15 @@ class FirebaseManager {
             
             console.log(`👤 準備添加玩家到房間: ${playerName} -> ${roomId}`);
             console.log(`👤 玩家資料:`, playerData);
+            
+            // 驗證玩家資料是否符合 Firebase 規則
+            const requiredFields = ['name', 'role', 'voted', 'connected'];
+            const missingFields = requiredFields.filter(field => !(field in playerData));
+            if (missingFields.length > 0) {
+                throw new Error(`玩家資料缺少必要欄位: ${missingFields.join(', ')}`);
+            }
+            
+            console.log(`🔍 玩家資料驗證通過，開始寫入 Firebase...`);
             
             // 並行寫入玩家資料到兩個節點
             await Promise.all([
@@ -403,23 +419,33 @@ class FirebaseManager {
         }
         
         try {
+            console.log(`🗳️ 開始投票程序: 玩家 ${this.currentPlayer.name}, 票數 ${value}`);
+            
             if (this.useFirebase) {
+                console.log(`📡 Firebase 模式投票: 房間 ${this.currentRoom}`);
+                
+                // 更新玩家投票狀態
                 const playerRef = this.db.ref(`rooms/${this.currentRoom}/players/${this.currentPlayer.id}`);
+                console.log(`📝 更新玩家投票狀態...`);
                 await playerRef.update({
                     hasVoted: true,
                     vote: value,
                     votedAt: firebase.database.ServerValue.TIMESTAMP
                 });
                 
-                // 同時更新投票記錄
+                // 同時更新投票記錄（符合 Firebase 規則：必須包含 points 和 submittedAt）
                 const voteRef = this.db.ref(`rooms/${this.currentRoom}/votes/${this.currentPlayer.id}`);
-                await voteRef.set({
+                const voteData = {
                     playerId: this.currentPlayer.id,
                     playerName: this.currentPlayer.name,
                     playerRole: this.currentPlayer.role,
-                    value: value,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
+                    points: value, // 使用 'points' 而不是 'value' 以符合 Firebase 規則
+                    submittedAt: firebase.database.ServerValue.TIMESTAMP // 使用 'submittedAt' 而不是 'timestamp'
+                };
+                
+                console.log(`📊 準備寫入投票記錄:`, voteData);
+                await voteRef.set(voteData);
+                console.log(`✅ 投票記錄寫入成功`);
             } else {
                 // 模擬模式
                 if (this.mockData.rooms[this.currentRoom]) {
@@ -436,9 +462,35 @@ class FirebaseManager {
             return true;
             
         } catch (error) {
-            console.error('投票失敗:', error);
-            if (this.onError) {
-                this.onError('投票失敗: ' + error.message);
+            console.error('❌ 投票失敗:', error);
+            console.error('📊 錯誤詳情:', {
+                errorCode: error.code,
+                errorMessage: error.message,
+                currentRoom: this.currentRoom,
+                playerId: this.currentPlayer?.id,
+                playerName: this.currentPlayer?.name,
+                voteValue: value
+            });
+            
+            // 特定錯誤處理
+            if (error.code === 'PERMISSION_DENIED') {
+                console.error('🚫 投票權限被拒絕 - 可能原因:');
+                console.error('   1. 投票資料格式不符合 Firebase 規則');
+                console.error('   2. 缺少必要欄位: points, submittedAt');
+                console.error('   3. 資料庫規則設定問題');
+                
+                if (this.onError) {
+                    this.onError('投票權限被拒絕，請檢查 Firebase 規則設定');
+                }
+            } else if (error.code === 'NETWORK_ERROR') {
+                console.error('🌐 網路連線問題');
+                if (this.onError) {
+                    this.onError('網路連線問題，請稍後再試');
+                }
+            } else {
+                if (this.onError) {
+                    this.onError('投票失敗: ' + error.message);
+                }
             }
             return false;
         }
@@ -911,6 +963,120 @@ class FirebaseManager {
         }
         
         console.log('🔍 === 房間創建診斷完成 ===');
+        console.log('📊 診斷結果:', diagnosticResult);
+        
+        return diagnosticResult;
+    }
+    
+    // 診斷 Firebase 連線和權限
+    async diagnoseFirebasePermissions() {
+        console.log('🔍 === Firebase 權限診斷開始 ===');
+        
+        const diagnosticResult = {
+            timestamp: new Date().toISOString(),
+            useFirebase: this.useFirebase,
+            isConnected: this.isConnected,
+            tests: {},
+            errors: [],
+            recommendations: []
+        };
+        
+        if (!this.useFirebase) {
+            diagnosticResult.recommendations.push('⚠️ 目前使用本地模式，無需檢查 Firebase 權限');
+            return diagnosticResult;
+        }
+        
+        try {
+            // 測試 1: 讀取權限
+            console.log('🧪 測試 1: 讀取權限');
+            try {
+                const roomsRef = this.db.ref('rooms');
+                const snapshot = await roomsRef.limitToFirst(1).once('value');
+                diagnosticResult.tests.readPermission = {
+                    success: true,
+                    message: '讀取權限正常'
+                };
+                console.log('✅ 讀取權限測試通過');
+            } catch (readError) {
+                diagnosticResult.tests.readPermission = {
+                    success: false,
+                    error: readError.message,
+                    code: readError.code
+                };
+                diagnosticResult.errors.push(`讀取權限失敗: ${readError.message}`);
+                console.error('❌ 讀取權限測試失敗:', readError);
+            }
+            
+            // 測試 2: 寫入權限
+            console.log('🧪 測試 2: 寫入權限');
+            try {
+                const testRef = this.db.ref('rooms/permission_test');
+                const testData = {
+                    gameState: 'voting',
+                    created: firebase.database.ServerValue.TIMESTAMP,
+                    test: true
+                };
+                
+                await testRef.set(testData);
+                await testRef.remove(); // 清除測試資料
+                
+                diagnosticResult.tests.writePermission = {
+                    success: true,
+                    message: '寫入權限正常'
+                };
+                console.log('✅ 寫入權限測試通過');
+            } catch (writeError) {
+                diagnosticResult.tests.writePermission = {
+                    success: false,
+                    error: writeError.message,
+                    code: writeError.code
+                };
+                diagnosticResult.errors.push(`寫入權限失敗: ${writeError.message}`);
+                console.error('❌ 寫入權限測試失敗:', writeError);
+            }
+            
+            // 測試 3: 資料格式驗證
+            console.log('🧪 測試 3: 資料格式驗證');
+            try {
+                const testRef = this.db.ref('rooms/format_test');
+                const invalidData = {
+                    gameState: 'invalid_state', // 故意使用無效狀態
+                    created: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                await testRef.set(invalidData);
+                // 如果成功，表示驗證沒有工作
+                diagnosticResult.tests.dataValidation = {
+                    success: false,
+                    message: 'Firebase 規則驗證可能沒有正確設定'
+                };
+                await testRef.remove();
+            } catch (validationError) {
+                // 預期的錯誤，表示驗證正常工作
+                diagnosticResult.tests.dataValidation = {
+                    success: true,
+                    message: 'Firebase 規則驗證正常工作',
+                    expectedError: validationError.message
+                };
+                console.log('✅ 資料格式驗證正常');
+            }
+            
+        } catch (error) {
+            console.error('🚨 診斷過程中發生錯誤:', error);
+            diagnosticResult.errors.push(`診斷錯誤: ${error.message}`);
+        }
+        
+        // 生成建議
+        if (diagnosticResult.errors.length === 0) {
+            diagnosticResult.recommendations.push('✅ Firebase 權限設定正常');
+        } else {
+            diagnosticResult.recommendations.push('⚠️ 發現 Firebase 權限問題，需要檢查：');
+            diagnosticResult.recommendations.push('1. 確認 Firebase 規則正確設定');
+            diagnosticResult.recommendations.push('2. 檢查專案 ID 和 API Key 是否正確');
+            diagnosticResult.recommendations.push('3. 確認資料格式符合 .validate 規則');
+        }
+        
+        console.log('🔍 === Firebase 權限診斷完成 ===');
         console.log('📊 診斷結果:', diagnosticResult);
         
         return diagnosticResult;

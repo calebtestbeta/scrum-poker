@@ -382,6 +382,7 @@
                     <p>查看當前系統狀態和詳細統計資訊</p>
                     <button class="btn btn-success" onclick="refreshSystemStats()">🔄 重新整理統計</button>
                     <button class="btn btn-primary" onclick="exportSystemBackup()">💾 匯出備份</button>
+                    <button class="btn btn-primary" onclick="diagnoseFirebasePermissions()" style="margin-top: 10px;">🔍 診斷 Firebase 權限</button>
                 </div>
                 
                 <!-- 房間管理 -->
@@ -647,6 +648,73 @@
                 showAlert('備份已匯出', 'success');
             } catch (error) {
                 showAlert('匯出備份失敗: ' + error.message, 'error');
+            }
+        }
+        
+        // 診斷 Firebase 權限
+        async function diagnoseFirebasePermissions() {
+            if (!firebaseManager) {
+                showAlert('Firebase 管理器未初始化', 'error');
+                return;
+            }
+            
+            try {
+                showAlert('正在進行 Firebase 權限診斷...', 'info');
+                
+                const diagnosticResult = await firebaseManager.diagnoseFirebasePermissions();
+                
+                // 顯示診斷結果
+                let resultMessage = `🔍 Firebase 權限診斷完成\n\n`;
+                resultMessage += `時間: ${new Date(diagnosticResult.timestamp).toLocaleString('zh-TW')}\n`;
+                resultMessage += `模式: ${diagnosticResult.useFirebase ? 'Firebase' : '本地'}\n`;
+                resultMessage += `連線狀態: ${diagnosticResult.isConnected ? '已連線' : '未連線'}\n\n`;
+                
+                // 測試結果
+                resultMessage += `測試結果:\n`;
+                Object.entries(diagnosticResult.tests).forEach(([testName, result]) => {
+                    const status = result.success ? '✅' : '❌';
+                    resultMessage += `${status} ${testName}: ${result.message || result.error}\n`;
+                });
+                
+                // 錯誤
+                if (diagnosticResult.errors.length > 0) {
+                    resultMessage += `\n錯誤:\n`;
+                    diagnosticResult.errors.forEach(error => {
+                        resultMessage += `❌ ${error}\n`;
+                    });
+                }
+                
+                // 建議
+                if (diagnosticResult.recommendations.length > 0) {
+                    resultMessage += `\n建議:\n`;
+                    diagnosticResult.recommendations.forEach(rec => {
+                        resultMessage += `💡 ${rec}\n`;
+                    });
+                }
+                
+                // 創建並下載診斷報告
+                const reportData = JSON.stringify(diagnosticResult, null, 2);
+                const reportBlob = new Blob([reportData], {type: 'application/json'});
+                const reportUrl = URL.createObjectURL(reportBlob);
+                
+                const link = document.createElement('a');
+                link.href = reportUrl;
+                link.download = `firebase-diagnostic-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                // 顯示結果摘要
+                if (diagnosticResult.errors.length === 0) {
+                    showAlert('✅ Firebase 權限診斷完成，未發現問題。診斷報告已下載。', 'success');
+                } else {
+                    showAlert(`⚠️ Firebase 權限診斷完成，發現 ${diagnosticResult.errors.length} 個問題。診斷報告已下載，請檢查詳細內容。`, 'warning');
+                }
+                
+                // 在控制台顯示詳細結果
+                console.log('📊 Firebase 權限診斷結果:', resultMessage);
+                
+            } catch (error) {
+                console.error('診斷過程發生錯誤:', error);
+                showAlert('診斷失敗: ' + error.message, 'error');
             }
         }
         

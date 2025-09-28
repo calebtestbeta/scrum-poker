@@ -76,9 +76,24 @@ class AdminManager {
             
             if (this.firebaseManager.useFirebase && this.firebaseManager.db) {
                 // Firebase 模式：讀取實際資料
+                console.log('📊 管理者正在讀取 Firebase 房間資料...');
                 const roomsRef = this.firebaseManager.db.ref('rooms');
-                const snapshot = await roomsRef.once('value');
-                const rooms = snapshot.val() || {};
+                
+                let snapshot, rooms;
+                try {
+                    snapshot = await roomsRef.once('value');
+                    rooms = snapshot.val() || {};
+                    console.log(`📋 成功讀取 ${Object.keys(rooms).length} 個房間`);
+                } catch (readError) {
+                    console.error('❌ 讀取房間資料失敗:', readError);
+                    if (readError.code === 'PERMISSION_DENIED') {
+                        console.error('🚫 管理者讀取權限被拒絕 - 可能原因:');
+                        console.error('   1. Firebase 規則不允許讀取 rooms 節點');
+                        console.error('   2. 需要身份驗證但未正確設定');
+                        throw new Error('無權限讀取房間資料，請檢查 Firebase 規則');
+                    }
+                    throw readError;
+                }
                 
                 stats.totalRooms = Object.keys(rooms).length;
                 
@@ -153,16 +168,28 @@ class AdminManager {
                 // Firebase 模式：清除實際資料
                 console.log('🗑️ 開始清除 Firebase 資料...');
                 
-                // 先獲取統計資料
-                const stats = await this.getSystemStats();
-                clearedRooms = stats.totalRooms;
-                clearedPlayers = stats.totalPlayers;
-                
-                // 清除所有房間
-                const roomsRef = this.firebaseManager.db.ref('rooms');
-                await roomsRef.remove();
-                
-                console.log('✅ Firebase 資料清除完成');
+                try {
+                    // 先獲取統計資料
+                    const stats = await this.getSystemStats();
+                    clearedRooms = stats.totalRooms;
+                    clearedPlayers = stats.totalPlayers;
+                    
+                    // 清除所有房間
+                    const roomsRef = this.firebaseManager.db.ref('rooms');
+                    console.log(`🗑️ 準備清除 ${clearedRooms} 個房間...`);
+                    await roomsRef.remove();
+                    
+                    console.log('✅ Firebase 資料清除完成');
+                } catch (clearError) {
+                    console.error('❌ 清除 Firebase 資料失敗:', clearError);
+                    if (clearError.code === 'PERMISSION_DENIED') {
+                        console.error('🚫 管理者清除權限被拒絕 - 可能原因:');
+                        console.error('   1. Firebase 規則不允許刪除 rooms 節點');
+                        console.error('   2. 需要管理者身份驗證');
+                        throw new Error('無權限清除資料，請檢查 Firebase 規則和管理者權限');
+                    }
+                    throw clearError;
+                }
                 
             } else {
                 // 模擬模式：清除本地資料
