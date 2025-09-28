@@ -180,14 +180,22 @@
         /* gameInfo 相關樣式已移除，改由畫布顯示 */
         
         #gameControls {
-            position: absolute;
-            bottom: 160px; /* 增加底部距離，避免與卡牌重疊 */
-            right: 20px;
+            position: fixed; /* 改為 fixed 確保固定在視窗底部 */
+            bottom: 20px; /* 距離底部的間距 */
+            left: 50%; /* 水平置中的起點 */
+            transform: translateX(-50%); /* 完成水平置中 */
             z-index: 150; /* 提高層級確保不被卡牌覆蓋 */
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: flex-end;
+            flex-direction: row; /* 改為橫向排列 */
+            gap: 12px; /* 增加按鈕間距 */
+            align-items: center; /* 垂直置中對齊 */
+            justify-content: center; /* 水平置中對齊 */
+            /* 背景效果增強視覺層次 */
+            background: rgba(0, 0, 0, 0.1);
+            padding: 12px 20px;
+            border-radius: 50px;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
         
         #gameControls button {
@@ -446,8 +454,8 @@
     <script>
         // 版本信息
         window.SCRUM_POKER_VERSION = {
-            hash: 'h4d5e6f7', 
-            buildTime: '20250928_2330',
+            hash: 'h5e6f7g8', 
+            buildTime: '20250928_2345',
             toString: function() { return `v${this.hash}-${this.buildTime}`; }
         };
         
