@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>響應式測試 - Scrum Poker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .test-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        #gameInfo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 12px 16px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            min-width: 200px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        #gameInfo div {
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #gameInfo div:last-child {
+            margin-bottom: 0;
+        }
+        
+        #gameControls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        
+        #gameControls button {
+            margin: 0;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 120px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        #gameControls button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .cards-area {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: calc(100vw - 40px);
+        }
+        
+        .card {
+            width: 60px;
+            height: 80px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .resolution-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 18px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 12px;
+        }
+        
+        /* 響應式設計 */
+        @media (max-width: 1024px) {
+            #gameInfo {
+                top: 15px;
+                left: 15px;
+                font-size: 12px;
+                min-width: 180px;
+                padding: 10px 12px;
+            }
+            
+            #gameControls {
+                bottom: 15px;
+                right: 15px;
+            }
+            
+            #gameControls button {
+                padding: 8px 16px;
+                font-size: 12px;
+                min-width: 100px;
+            }
+            
+            .resolution-indicator::before {
+                content: "平板解析度 (≤1024px)";
+                display: block;
+                color: #fbbf24;
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #gameInfo {
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                right: auto;
+                font-size: 11px;
+                min-width: 160px;
+                padding: 8px 10px;
+                max-width: calc(100vw - 20px);
+            }
+            
+            #gameControls {
+                position: fixed;
+                bottom: 140px;
+                right: 10px;
+                left: auto;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 6px;
+                max-width: calc(100vw - 20px);
+            }
+            
+            #gameControls button {
+                padding: 8px 12px;
+                font-size: 11px;
+                min-width: 80px;
+                flex: 1;
+                max-width: 120px;
+            }
+            
+            .cards-area {
+                bottom: 10px;
+                gap: 8px;
+            }
+            
+            .card {
+                width: 50px;
+                height: 65px;
+                font-size: 14px;
+            }
+            
+            .resolution-indicator::before {
+                content: "手機解析度 (≤768px)";
+                display: block;
+                color: #f87171;
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #gameInfo {
+                font-size: 10px;
+                min-width: 140px;
+                padding: 6px 8px;
+            }
+            
+            #gameControls {
+                bottom: 120px;
+                gap: 4px;
+            }
+            
+            #gameControls button {
+                padding: 6px 10px;
+                font-size: 10px;
+                min-width: 70px;
+            }
+            
+            .cards-area {
+                gap: 6px;
+            }
+            
+            .card {
+                width: 45px;
+                height: 60px;
+                font-size: 12px;
+            }
+            
+            .resolution-indicator::before {
+                content: "小螢幕手機 (≤480px)";
+                display: block;
+                color: #ef4444;
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (min-width: 1025px) {
+            .resolution-indicator::before {
+                content: "桌面解析度 (>1024px)";
+                display: block;
+                color: #10b981;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <!-- 遊戲資訊面板 -->
+        <div id="gameInfo">
+            <div>房間: <span>IOT</span></div>
+            <div>玩家: <span>2</span></div>
+            <div>狀態: <span>投票中</span></div>
+        </div>
+        
+        <!-- 遊戲控制按鈕 -->
+        <div id="gameControls">
+            <button>🎭 開牌</button>
+            <button>🔄 重新開始</button>
+            <button>🚪 離開房間</button>
+        </div>
+        
+        <!-- 解析度指示器 -->
+        <div class="resolution-indicator">
+            <div>當前視窗尺寸</div>
+            <div id="dimensions">載入中...</div>
+            <div style="margin-top: 10px; font-size: 14px;">
+                調整瀏覽器視窗大小來測試響應式設計
+            </div>
+        </div>
+        
+        <!-- 卡牌區域 -->
+        <div class="cards-area">
+            <div class="card">0</div>
+            <div class="card">1</div>
+            <div class="card">2</div>
+            <div class="card">3</div>
+            <div class="card">5</div>
+            <div class="card">8</div>
+            <div class="card">13</div>
+            <div class="card">21</div>
+            <div class="card">☕</div>
+            <div class="card">?</div>
+            <div class="card">∞</div>
+        </div>
+    </div>
+    
+    <script>
+        function updateDimensions() {
+            const dimensions = document.getElementById('dimensions');
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            dimensions.textContent = `${width} × ${height}`;
+        }
+        
+        // 初始更新
+        updateDimensions();
+        
+        // 監聽視窗大小變化
+        window.addEventListener('resize', updateDimensions);
+        
+        // 測試按鈕點擊
+        document.querySelectorAll('#gameControls button').forEach(button => {
+            button.addEventListener('click', () => {
+                alert(`點擊了: ${button.textContent}`);
+            });
+        });
+    </script>
+</body>
+</html>
