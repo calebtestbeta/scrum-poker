@@ -564,7 +564,6 @@ function setupTouchOptimizations() {
         }
     }, 100);
 }
-}
 
 // p5.js 觸控事件處理
 function touchStarted() {
