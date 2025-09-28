@@ -431,67 +431,133 @@ class UIManager {
         
         push();
         
-        // 背景
-        fill(0, 0, 0, 150);
+        // 響應式計算面板尺寸和位置
+        const panelWidth = Math.min(300, width * 0.35); // 最大300px或螢幕寬度35%
+        const margin = 20;
+        const panelX = width - panelWidth - margin;
+        let panelY = 20;
+        
+        // 動態計算高度
+        let contentHeight = 60; // 標題和基本間距
+        contentHeight += 25; // 總投票數
+        if (this.statistics.devAverage > 0) contentHeight += 70; // Dev組
+        if (this.statistics.qaAverage > 0) contentHeight += 70; // QA組
+        if (this.statistics.devAverage > 0 && this.statistics.qaAverage > 0) contentHeight += 45; // 差異分析
+        
+        const panelHeight = Math.min(contentHeight, height * 0.4); // 最多佔螢幕高度40%
+        
+        // 背景面板（統一樣式）
+        fill(30, 35, 42, 200); // 深色半透明背景
+        stroke(255, 255, 255, 80); // 白色邊框
+        strokeWeight(1);
+        rectMode(CORNER);
+        rect(panelX, panelY, panelWidth, panelHeight, 12);
+        
+        // 內容區域
+        const contentX = panelX + 15;
+        let currentY = panelY + 20;
+        
+        // 標題區域
+        fill(255, 255, 255, 240);
         noStroke();
         rectMode(CORNER);
-        rect(width - 280, 20, 250, 220, 10);
+        rect(contentX - 5, currentY - 5, panelWidth - 20, 30, 6);
         
-        // 標題
-        fill(255);
-        textAlign(LEFT, TOP);
+        fill(30, 35, 42);
+        textAlign(LEFT, CENTER);
         textSize(16);
         textStyle(BOLD);
-        text('📊 分組估點結果', width - 270, 35);
+        text('📊 分組估點結果', contentX + 5, currentY + 10);
+        currentY += 40;
         
-        // 統計資料
-        textSize(12);
+        // 總投票數
+        fill(255, 255, 255, 200);
+        textSize(13);
         textStyle(NORMAL);
-        let y = 55;
-        
-        text(`總投票數: ${this.statistics.totalVotes}`, width - 270, y);
-        y += 20;
+        text(`總投票數: ${this.statistics.totalVotes}`, contentX, currentY);
+        currentY += 25;
         
         // Dev 組結果
         if (this.statistics.devAverage > 0) {
-            fill(color(52, 211, 153)); // 青綠色
-            textStyle(BOLD);
-            text(`👨‍💻 開發組 (Dev)`, width - 270, y);
-            y += 16;
-            textStyle(NORMAL);
-            fill(255);
-            text(`  平均點數: ${this.statistics.devAverage}`, width - 270, y);
-            y += 16;
-            text(`  複雜度評估: ${this.getComplexityLabel(this.statistics.devAverage)}`, width - 270, y);
-            y += 20;
+            this.drawRoleStatistics(
+                contentX, currentY, panelWidth - 30,
+                '👨‍💻 開發組 (Dev)', 
+                this.statistics.devAverage,
+                color(52, 211, 153, 200) // 青綠色
+            );
+            currentY += 70;
         }
         
         // QA 組結果
         if (this.statistics.qaAverage > 0) {
-            fill(color(251, 146, 60)); // 橘色
-            textStyle(BOLD);
-            text(`🐛 測試組 (QA)`, width - 270, y);
-            y += 16;
-            textStyle(NORMAL);
-            fill(255);
-            text(`  平均點數: ${this.statistics.qaAverage}`, width - 270, y);
-            y += 16;
-            text(`  測試複雜度: ${this.getComplexityLabel(this.statistics.qaAverage)}`, width - 270, y);
-            y += 20;
+            this.drawRoleStatistics(
+                contentX, currentY, panelWidth - 30,
+                '🐛 測試組 (QA)', 
+                this.statistics.qaAverage,
+                color(251, 146, 60, 200) // 橘色
+            );
+            currentY += 70;
         }
         
         // 差異分析
         if (this.statistics.devAverage > 0 && this.statistics.qaAverage > 0) {
             const diff = Math.abs(this.statistics.devAverage - this.statistics.qaAverage);
-            const diffColor = diff > 3 ? color(239, 68, 68) : color(34, 197, 94);
-            fill(diffColor);
-            textStyle(BOLD);
-            text(`⚖️ 差異分析: ${diff.toFixed(1)} 點`, width - 270, y);
-            y += 16;
-            textStyle(NORMAL);
-            fill(255);
-            text(`  ${this.getDifferenceAnalysis(diff)}`, width - 270, y);
+            this.drawDifferenceAnalysis(contentX, currentY, panelWidth - 30, diff);
         }
+        
+        pop();
+    }
+    
+    // 繪製角色統計資料
+    drawRoleStatistics(x, y, width, roleTitle, average, roleColor) {
+        push();
+        
+        // 角色區塊背景
+        fill(roleColor);
+        noStroke();
+        rectMode(CORNER);
+        rect(x - 5, y - 5, width, 60, 8);
+        
+        // 角色標題
+        fill(255);
+        textAlign(LEFT, TOP);
+        textSize(14);
+        textStyle(BOLD);
+        text(roleTitle, x + 5, y + 5);
+        
+        // 統計資料
+        textSize(12);
+        textStyle(NORMAL);
+        fill(255, 255, 255, 230);
+        text(`平均點數: ${average}`, x + 5, y + 25);
+        text(`複雜度評估: ${this.getComplexityLabel(average)}`, x + 5, y + 40);
+        
+        pop();
+    }
+    
+    // 繪製差異分析
+    drawDifferenceAnalysis(x, y, width, diff) {
+        push();
+        
+        const diffColor = diff > 3 ? color(239, 68, 68, 200) : color(34, 197, 94, 200);
+        
+        // 差異分析區塊背景
+        fill(diffColor);
+        noStroke();
+        rectMode(CORNER);
+        rect(x - 5, y - 5, width, 40, 8);
+        
+        // 標題和數據
+        fill(255);
+        textAlign(LEFT, TOP);
+        textSize(13);
+        textStyle(BOLD);
+        text(`⚖️ 差異分析: ${diff.toFixed(1)} 點`, x + 5, y + 5);
+        
+        textSize(11);
+        textStyle(NORMAL);
+        fill(255, 255, 255, 230);
+        text(this.getDifferenceAnalysis(diff), x + 5, y + 22);
         
         pop();
     }
@@ -685,25 +751,56 @@ class UIManager {
     // 繪製快捷鍵提示
     drawShortcutHints() {
         push();
-        fill(255, 255, 255, 120);
-        textAlign(RIGHT, BOTTOM);
-        textSize(10);
+        
+        // 響應式計算提示面板位置
+        const hintWidth = Math.min(320, width * 0.3);
+        const hintHeight = 90;
+        const margin = 20;
+        const hintX = width - hintWidth - margin;
+        const hintY = height - hintHeight - margin;
+        
+        // 提示面板背景（與其他面板統一風格）
+        fill(30, 35, 42, 160);
+        stroke(255, 255, 255, 60);
+        strokeWeight(1);
+        rectMode(CORNER);
+        rect(hintX, hintY, hintWidth, hintHeight, 8);
+        
+        // 內容區域
+        const contentX = hintX + 10;
+        let contentY = hintY + 15;
+        
+        // 主要提示
+        fill(255, 255, 255, 200);
+        textAlign(LEFT, TOP);
+        textSize(11);
+        textStyle(NORMAL);
         
         if (this.gamePhase === 'voting') {
-            text('💡 點擊下方卡牌選擇點數', width - 20, height - 85);
-            text('快捷鍵: 數字鍵投票, R 鍵開牌, C 鍵重設', width - 20, height - 70);
+            // 投票階段提示
+            fill(52, 211, 153, 200); // 青綠色
+            text('💡 點擊下方卡牌選擇點數', contentX, contentY);
+            contentY += 16;
+            
+            fill(255, 255, 255, 180);
+            text('快捷鍵: 數字鍵投票, Ctrl+R 開牌, Ctrl+C 重設', contentX, contentY);
+            
         } else if (this.gamePhase === 'finished') {
-            text('💡 估點完成！按 H 鍵查看 Scrum Master 建議', width - 20, height - 70);
+            // 完成階段提示
+            fill(59, 130, 246, 200); // 藍色
+            text('💡 估點完成！按 H 鍵查看 Scrum Master 建議', contentX, contentY);
         }
         
-        // 刪除功能提示
-        fill(255, 200, 200, 120);
-        text('🗑️ 刪除玩家: 按 D 鍵或點擊玩家頭像顯示刪除按鈕', width - 20, height - 55);
+        contentY += 20;
         
-        // 通用快捷鍵
-        fill(255, 255, 255, 100);
-        text('ESC 離開房間, H 鍵查看建議, D 鍵切換刪除按鈕', width - 20, height - 40);
-        text('點擊紅色 X 按鈕移除對應玩家（不可移除自己）', width - 20, height - 25);
+        // 通用操作提示
+        fill(255, 200, 200, 160);
+        textSize(10);
+        text('🗑️ 刪除玩家: 點擊玩家頭像顯示刪除按鈕', contentX, contentY);
+        contentY += 14;
+        
+        fill(255, 255, 255, 140);
+        text('ESC 離開 | H 建議 | D 刪除切換', contentX, contentY);
         
         pop();
     }

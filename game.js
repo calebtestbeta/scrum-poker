@@ -475,49 +475,96 @@ class ScrumMasterAdvice {
         
         push();
         
-        // 背景
-        fill(0, 0, 0, 180);
+        // 響應式計算面板尺寸和位置
+        const panelWidth = Math.min(380, width * 0.4); // 最大380px或螢幕寬度40%
+        const maxHeight = height * 0.6; // 最多佔螢幕高度60%
+        const margin = 20;
+        
+        // 動態計算高度
+        const suggestionsHeight = this.suggestions.length * 85 + 20;
+        const panelHeight = Math.min(suggestionsHeight + 80, maxHeight);
+        
+        // 計算位置，避免與統計面板重疊
+        const panelX = width - panelWidth - margin;
+        let panelY = height - panelHeight - 120; // 增加底部邊距
+        
+        // 如果有統計面板，調整位置避免重疊
+        if (uiManager && uiManager.gamePhase === 'finished') {
+            const statisticsHeight = height * 0.4;
+            if (panelY < 20 + statisticsHeight + 10) {
+                panelY = Math.max(20 + statisticsHeight + 10, height - panelHeight - 120);
+            }
+        }
+        
+        // 背景面板（與統計面板統一樣式）
+        fill(30, 35, 42, 200); // 深色半透明背景
+        stroke(255, 255, 255, 80); // 白色邊框
+        strokeWeight(1);
+        rectMode(CORNER);
+        rect(panelX, panelY, panelWidth, panelHeight, 12);
+        
+        // 內容區域
+        const contentX = panelX + 15;
+        let currentY = panelY + 20;
+        
+        // 標題區域（與統計面板統一樣式）
+        fill(255, 255, 255, 240);
         noStroke();
         rectMode(CORNER);
-        const panelWidth = 350;
-        const panelHeight = Math.min(400, this.suggestions.length * 80 + 60);
-        const panelX = width - panelWidth - 20;
-        const panelY = height - panelHeight - 100;
+        rect(contentX - 5, currentY - 5, panelWidth - 20, 30, 6);
         
-        rect(panelX, panelY, panelWidth, panelHeight, 15);
-        
-        // 標題
-        fill(GAME_CONFIG.colors.accent);
-        textAlign(LEFT, TOP);
-        textSize(18);
+        fill(30, 35, 42);
+        textAlign(LEFT, CENTER);
+        textSize(16);
         textStyle(BOLD);
-        text('🎯 Scrum Master 建議', panelX + 20, panelY + 20);
+        text('🎯 Scrum Master 建議', contentX + 5, currentY + 10);
+        currentY += 40;
         
         // 建議列表
-        textStyle(NORMAL);
-        let currentY = panelY + 50;
-        
-        for (const suggestion of this.suggestions) {
+        for (let i = 0; i < this.suggestions.length; i++) {
+            const suggestion = this.suggestions[i];
+            
+            // 建議項目背景
+            const itemHeight = 75;
+            const itemY = currentY - 5;
+            
+            // 根據建議類型設定背景色
+            let bgColor;
+            if (suggestion.type === 'warning') {
+                bgColor = color(239, 68, 68, 120); // 紅色警告
+            } else if (suggestion.type === 'info') {
+                bgColor = color(59, 130, 246, 120); // 藍色資訊
+            } else {
+                bgColor = color(34, 197, 94, 120); // 綠色建議
+            }
+            
+            fill(bgColor);
+            noStroke();
+            rectMode(CORNER);
+            rect(contentX - 5, itemY, panelWidth - 20, itemHeight, 8);
+            
             // 圖示
-            textSize(20);
-            text(suggestion.icon, panelX + 20, currentY);
+            fill(255, 255, 255, 240);
+            textAlign(LEFT, TOP);
+            textSize(18);
+            text(suggestion.icon, contentX + 5, currentY + 5);
             
             // 標題
             fill(255);
-            textSize(14);
+            textSize(13);
             textStyle(BOLD);
-            text(suggestion.title, panelX + 50, currentY);
+            text(suggestion.title, contentX + 35, currentY + 5);
             
             // 訊息
-            fill(200);
-            textSize(12);
+            fill(255, 255, 255, 220);
+            textSize(11);
             textStyle(NORMAL);
-            const messageLines = this.wrapText(suggestion.message, panelWidth - 70);
-            for (let i = 0; i < messageLines.length; i++) {
-                text(messageLines[i], panelX + 50, currentY + 20 + i * 15);
+            const messageLines = this.wrapText(suggestion.message, panelWidth - 60);
+            for (let j = 0; j < Math.min(messageLines.length, 3); j++) { // 最多顯示3行
+                text(messageLines[j], contentX + 35, currentY + 25 + j * 14);
             }
             
-            currentY += 70;
+            currentY += 85;
         }
         
         pop();
