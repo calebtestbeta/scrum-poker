@@ -326,6 +326,16 @@ function setupFirebaseCallbacks() {
                 if (gameTable) {
                     gameTable.gamePhase = 'revealing';
                     gameTable.revealStartTime = millis();
+                    
+                    // 【修復】更新所有玩家卡牌的遊戲階段，確保B使用者看到卡牌翻開
+                    gameTable.updatePlayerCardsPhase();
+                    
+                    // 【修復】觸發所有玩家卡牌的翻牌動畫
+                    for (const player of gameTable.players) {
+                        if (player.card) {
+                            player.card.flip();
+                        }
+                    }
                 }
                 
                 // 觸發開牌動畫
