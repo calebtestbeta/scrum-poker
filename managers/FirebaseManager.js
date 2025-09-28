@@ -561,8 +561,25 @@ class FirebaseManager {
     
     // 更新投票進度
     updateVotingProgress(votedCount, totalPlayers) {
+        // 計算投票完成百分比
+        const percentage = totalPlayers > 0 ? Math.round((votedCount / totalPlayers) * 100) : 0;
+        
+        // 產生更有意義的狀態訊息
+        let statusMessage = `📊 投票進度: ${votedCount}/${totalPlayers} (${percentage}%)`;
+        
+        if (votedCount === 0) {
+            statusMessage += ' - 等待玩家投票';
+        } else if (votedCount === totalPlayers) {
+            statusMessage += ' - 所有玩家已完成投票 ✅';
+        } else {
+            const remaining = totalPlayers - votedCount;
+            statusMessage += ` - 還有 ${remaining} 位玩家未投票`;
+        }
+        
+        console.log(statusMessage);
+        
         // 這裡可以更新 UI 顯示投票進度
-        console.log(`投票進度: ${votedCount}/${totalPlayers}`);
+        // 註：實際的 UI 更新已由 game.js 中的回調處理
     }
     
     // 取得房間狀態

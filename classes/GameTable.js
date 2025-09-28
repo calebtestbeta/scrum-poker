@@ -21,6 +21,11 @@ class GameTable {
         this.revealStartTime = 0;
         this.allVotesRevealed = false;
         
+        // 投票狀態追蹤（用於避免重複 log）
+        this.lastVotedCount = -1;
+        this.lastTotalPlayers = -1;
+        this.lastGamePhase = '';
+        
         // 視覺效果
         this.tableRotation = 0;
         this.glowIntensity = 0;
@@ -170,10 +175,23 @@ class GameTable {
         // 檢查投票狀態
         if (this.gamePhase === 'voting') {
             const votedCount = this.players.filter(p => p.hasVoted).length;
+            const totalPlayers = this.players.length;
             
-            // 更新投票進度
-            if (firebaseManager) {
-                firebaseManager.updateVotingProgress(votedCount, this.players.length);
+            // 只在投票狀態改變時才更新，避免每幀都調用 log
+            if (this.lastVotedCount !== votedCount || 
+                this.lastTotalPlayers !== totalPlayers || 
+                this.lastGamePhase !== this.gamePhase) {
+                
+                this.lastVotedCount = votedCount;
+                this.lastTotalPlayers = totalPlayers;
+                this.lastGamePhase = this.gamePhase;
+                
+                // 更新投票進度
+                if (firebaseManager) {
+                    firebaseManager.updateVotingProgress(votedCount, totalPlayers);
+                }
+                
+                console.log(`🎯 投票狀態變化: ${votedCount}/${totalPlayers} 玩家已投票`);
             }
         }
         
@@ -184,6 +202,7 @@ class GameTable {
             if (revealProgress >= 1) {
                 this.allVotesRevealed = true;
                 this.gamePhase = 'finished';
+                this.lastGamePhase = 'finished'; // 更新追蹤狀態
                 
                 console.log('🎊 開牌動畫完成，轉換到完成狀態');
                 
@@ -528,9 +547,14 @@ class GameTable {
     // 開始投票
     startVoting() {
         this.gamePhase = 'voting';
+        this.lastGamePhase = 'voting'; // 更新追蹤狀態
         this.votingStartTime = millis();
         this.selectedCard = null;
         this.allVotesRevealed = false;
+        
+        // 重設投票狀態追蹤
+        this.lastVotedCount = -1;
+        this.lastTotalPlayers = -1;
         
         // 重設所有玩家狀態
         for (const player of this.players) {
@@ -627,6 +651,7 @@ class GameTable {
         if (this.gamePhase !== 'voting') return;
         
         this.gamePhase = 'revealing';
+        this.lastGamePhase = 'revealing'; // 更新追蹤狀態
         this.revealStartTime = millis();
         
         // 更新所有玩家卡牌的遊戲階段
