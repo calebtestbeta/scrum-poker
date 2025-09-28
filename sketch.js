@@ -18,9 +18,7 @@ const GAME_CONFIG = {
     },
     table: {
         centerX: 600,
-        centerY: 400,
-        radius: 280,
-        innerRadius: 150
+        centerY: 400
     },
     cards: {
         width: 80,
@@ -75,8 +73,8 @@ let deviceInfo = {
 };
 
 // 版本信息
-const VERSION_HASH = 'bb7d18a2';
-const BUILD_TIME = '20250928_1000';
+const VERSION_HASH = '32a11a54';
+const BUILD_TIME = '20250928_1010';
 const VERSION_STRING = `v${VERSION_HASH}-${BUILD_TIME}`;
 
 // p5.js 設定函數
@@ -268,14 +266,12 @@ function setupCanvas() {
     GAME_CONFIG.table.centerX = canvasWidth / 2;
     GAME_CONFIG.table.centerY = canvasHeight / 2;
     
-    // 根據畫布大小調整桌子和卡牌尺寸
+    // 根據畫布大小調整卡牌尺寸
     const sizeScale = Math.min(canvasWidth / 1200, canvasHeight / 800);
     if (sizeScale < 1) {
-        GAME_CONFIG.table.radius = Math.max(200, 280 * sizeScale);
-        GAME_CONFIG.table.innerRadius = Math.max(100, 150 * sizeScale);
         GAME_CONFIG.cards.width = Math.max(60, 80 * sizeScale);
         GAME_CONFIG.cards.height = Math.max(90, 120 * sizeScale);
-        console.log(`📐 尺寸縮放: ${(sizeScale * 100).toFixed(1)}%`);
+        console.log(`📐 卡牌尺寸縮放: ${(sizeScale * 100).toFixed(1)}%`);
     }
     
     console.log(`🖼️ 畫布建立完成: ${canvasWidth}x${canvasHeight}`);
@@ -530,7 +526,6 @@ function setupTouchOptimizations() {
         // 行動裝置優化
         GAME_CONFIG.cards.width *= GAME_CONFIG.responsive.cardScaleMobile;
         GAME_CONFIG.cards.height *= GAME_CONFIG.responsive.cardScaleMobile;
-        GAME_CONFIG.table.radius *= 0.8;
         
         // 設定動畫管理器為低性能模式
         if (animationManager) {
@@ -540,7 +535,6 @@ function setupTouchOptimizations() {
         // 平板裝置優化
         GAME_CONFIG.cards.width *= GAME_CONFIG.responsive.cardScaleTablet;
         GAME_CONFIG.cards.height *= GAME_CONFIG.responsive.cardScaleTablet;
-        GAME_CONFIG.table.radius *= 0.9;
         
         if (animationManager) {
             animationManager.setPerformanceMode('medium');

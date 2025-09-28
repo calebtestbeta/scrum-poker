@@ -6,12 +6,16 @@ class Player {
         this.role = role;
         this.seatIndex = seatIndex;
         
-        // 計算座位位置（圓桌排列）
-        const angle = (seatIndex / 12) * TWO_PI - PI / 2; // 從頂部開始
-        const radius = GAME_CONFIG.table.radius;
+        // 計算座位位置（橫向排列在畫面上方）
+        const screenWidth = width || window.innerWidth || 1200;
+        const playerWidth = 120; // 每個玩家的寬度
+        const playerSpacing = Math.min(playerWidth, screenWidth / Math.max(1, 12)); // 最多12個玩家
+        const totalWidth = Math.min(screenWidth - 40, playerSpacing * 12);
+        const startX = (screenWidth - totalWidth) / 2 + playerSpacing / 2;
+        
         this.position = new Vector2D(
-            GAME_CONFIG.table.centerX + cos(angle) * radius,
-            GAME_CONFIG.table.centerY + sin(angle) * radius
+            startX + seatIndex * playerSpacing,
+            80 // 固定在上方80px處
         );
         
         // 玩家狀態
@@ -28,11 +32,11 @@ class Player {
         this.opacity = 255;
         this.pulsePhase = random(TWO_PI);
         
-        // 卡牌
+        // 卡牌（顯示在玩家下方）
         this.card = null;
         this.cardPosition = new Vector2D(
-            this.position.x + cos(angle + PI) * 40,
-            this.position.y + sin(angle + PI) * 40
+            this.position.x,
+            this.position.y + 80 // 卡牌在玩家下方80px
         );
         
         // 動畫

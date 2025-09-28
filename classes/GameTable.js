@@ -1,11 +1,9 @@
 // 遊戲桌面類別 - 管理圓桌和遊戲流程
 class GameTable {
     constructor() {
-        // 桌面屬性
+        // 簡化設計 - 移除桌面設計
         this.centerX = GAME_CONFIG.table.centerX;
         this.centerY = GAME_CONFIG.table.centerY;
-        this.radius = GAME_CONFIG.table.radius;
-        this.innerRadius = GAME_CONFIG.table.innerRadius;
         
         // 玩家管理
         this.players = [];
@@ -16,7 +14,6 @@ class GameTable {
         this.availableCards = [];
         this.selectedCard = null;
         this.cardPositions = [];
-        this.deckPosition = new Vector2D(this.centerX, this.centerY + this.innerRadius + 60);
         
         // 遊戲狀態
         this.gamePhase = 'waiting'; // waiting, voting, revealing, finished
@@ -57,19 +54,17 @@ class GameTable {
             return specialOrder.indexOf(a) - specialOrder.indexOf(b);
         });
         
-        // 改為水平排列，從左到右按順序顯示
+        // 卡牌水平排列在畫面下方
         const cardWidth = GAME_CONFIG.cards.width;
         const cardHeight = GAME_CONFIG.cards.height;
-        const cardSpacing = cardWidth + 15; // 調整間距為 15px
-        const totalWidth = cardValues.length * cardSpacing - 15; // 總寬度
-        const startX = this.centerX - totalWidth / 2; // 起始 X 座標（置中）
+        const cardSpacing = cardWidth + 12; // 調整間距
+        const totalWidth = cardValues.length * cardSpacing - 12;
+        const startX = this.centerX - totalWidth / 2;
         
-        // 響應式計算卡牌 Y 位置，確保不會超出螢幕
+        // 卡牌固定在畫面底部區域
         const screenHeight = height || window.innerHeight || 800;
-        const bottomMargin = 20;
-        const maxCardY = screenHeight - cardHeight / 2 - bottomMargin;
-        const idealCardY = this.centerY + this.radius + cardHeight / 2 + 30;
-        const cardY = Math.min(idealCardY, maxCardY);
+        const bottomMargin = 30;
+        const cardY = screenHeight - cardHeight / 2 - bottomMargin;
         
         for (let i = 0; i < cardValues.length; i++) {
             const x = startX + i * cardSpacing;
@@ -93,41 +88,29 @@ class GameTable {
         
         if (this.availableCards.length === 0) return;
         
-        // 重新計算卡牌位置，確保適應不同螢幕尺寸
+        // 重新計算卡牌位置 - 簡化版本
         const cardWidth = GAME_CONFIG.cards.width;
         const cardHeight = GAME_CONFIG.cards.height;
-        const cardSpacing = cardWidth + 15; // 調整間距為 15px
-        const totalWidth = this.availableCards.length * cardSpacing - 15;
-        const startX = this.centerX - totalWidth / 2;
+        const cardSpacing = cardWidth + 12;
+        const totalWidth = this.availableCards.length * cardSpacing - 12;
         
-        // 響應式計算卡牌 Y 位置，確保不會超出螢幕
         const screenWidth = width || window.innerWidth;
         const screenHeight = height || window.innerHeight;
-        const margin = 30; // 邊距
-        const bottomMargin = 20; // 底部邊距
+        const margin = 20;
+        const bottomMargin = 30;
         
-        // 計算最大可用 Y 位置
-        const maxCardY = screenHeight - cardHeight / 2 - bottomMargin;
-        const idealCardY = this.centerY + this.radius + cardHeight / 2 + 30;
-        const cardY = Math.min(idealCardY, maxCardY);
+        // 卡牌固定在底部
+        const cardY = screenHeight - cardHeight / 2 - bottomMargin;
         
-        // 檢查是否超出螢幕寬度，如果超出則調整間距
+        // 響應式寬度調整
         const availableWidth = screenWidth - margin * 2;
-        
         let finalSpacing = cardSpacing;
-        let finalStartX = startX;
+        let finalStartX = this.centerX - totalWidth / 2;
         
         if (totalWidth > availableWidth) {
-            // 如果總寬度超出螢幕，調整間距
-            finalSpacing = Math.max(cardWidth + 5, availableWidth / this.availableCards.length); // 最小間距為卡片寬度+5px
+            finalSpacing = Math.max(cardWidth + 5, availableWidth / this.availableCards.length);
             finalStartX = margin + finalSpacing / 2;
-            console.log(`📱 響應式調整：螢幕寬度 ${screenWidth}px，調整間距至 ${finalSpacing.toFixed(1)}px`);
-        }
-        
-        // 如果卡牌太多導致間距過小，考慮縮小卡牌
-        if (finalSpacing < cardWidth + 10) {
-            const scale = Math.min(1, (finalSpacing - 5) / cardWidth);
-            console.log(`📱 卡牌縮放：${(scale * 100).toFixed(1)}%`);
+            console.log(`📱 卡牌響應式調整：間距 ${finalSpacing.toFixed(1)}px`);
         }
         
         // 更新所有卡牌位置
@@ -219,85 +202,108 @@ class GameTable {
     draw() {
         this.update();
         
-        // 繪製桌面
-        this.drawTable();
+        // 繪製背景
+        this.drawBackground();
         
-        // 繪製卡牌區域
-        this.drawCardArea();
-        
-        // 繪製玩家
+        // 繪製玩家（上方橫向排列）
         this.drawPlayers();
         
-        // 繪製中央資訊
-        this.drawCenterInfo();
+        // 繪製遊戲資訊
+        this.drawGameInfo();
         
-        // 繪製遊戲狀態
+        // 繪製中央操作區域
+        this.drawCenterControls();
+        
+        // 繪製卡牌區域（下方）
+        this.drawCardArea();
+        
+        // 繪製遊戲狀態資訊
         this.drawGameStatus();
     }
     
-    // 繪製桌面
-    drawTable() {
+    // 繪製簡單背景
+    drawBackground() {
+        // 簡單的漸層背景
         push();
-        translate(this.centerX, this.centerY);
-        rotate(this.tableRotation);
-        
-        // 外圈桌面
-        fill(color(GAME_CONFIG.colors.table));
-        stroke(color(GAME_CONFIG.colors.tableHighlight));
-        strokeWeight(4);
-        circle(0, 0, this.radius * 2);
-        
-        // 內圈桌面（稍亮）
-        fill(red(color(GAME_CONFIG.colors.table)) + 20,
-             green(color(GAME_CONFIG.colors.table)) + 15,
-             blue(color(GAME_CONFIG.colors.table)) + 10);
         noStroke();
-        circle(0, 0, this.innerRadius * 2);
         
-        // 桌面紋理
-        this.drawTableTexture();
-        
-        // 光暈效果
-        if (this.gamePhase === 'voting' || this.gamePhase === 'revealing') {
-            this.drawTableGlow();
+        // 背景漸層效果
+        for (let y = 0; y < height; y += 5) {
+            const alpha = map(y, 0, height, 50, 20);
+            fill(255, 255, 255, alpha);
+            rect(0, y, width, 5);
         }
         
         pop();
     }
     
-    // 繪製桌面紋理
-    drawTableTexture() {
-        stroke(255, 255, 255, 20);
-        strokeWeight(1);
-        noFill();
+    // 繪製中央操作區域
+    drawCenterControls() {
+        push();
         
-        // 同心圓紋理
-        for (let r = 20; r < this.innerRadius; r += 15) {
-            circle(0, 0, r * 2);
+        // 中央區域背景
+        const centerY = height * 0.4;
+        const buttonWidth = 150;
+        const buttonHeight = 50;
+        const buttonSpacing = 20;
+        
+        // 根據遊戲狀態顯示不同的控制按鈕
+        if (this.gamePhase === 'voting') {
+            const totalVoted = this.players.filter(p => p.hasVoted).length;
+            const totalPlayers = this.players.length;
+            
+            // 顯示投票進度
+            fill(255, 255, 255, 200);
+            textAlign(CENTER, CENTER);
+            textSize(20);
+            text(`投票進度: ${totalVoted}/${totalPlayers}`, this.centerX, centerY - 60);
+            
+            // 開牌按鈕
+            if (totalVoted > 0) {
+                this.drawButton('🎭 開牌', this.centerX, centerY, buttonWidth, buttonHeight, 
+                               color(52, 211, 153), () => this.revealCards());
+            }
+        } else if (this.gamePhase === 'finished') {
+            // 重新開始按鈕
+            this.drawButton('🔄 重新開始', this.centerX, centerY, buttonWidth, buttonHeight,
+                           color(59, 130, 246), () => this.clearVotes());
         }
         
-        // 放射線紋理
-        for (let i = 0; i < 16; i++) {
-            const angle = (i / 16) * TWO_PI;
-            const x1 = cos(angle) * 30;
-            const y1 = sin(angle) * 30;
-            const x2 = cos(angle) * (this.innerRadius - 10);
-            const y2 = sin(angle) * (this.innerRadius - 10);
-            line(x1, y1, x2, y2);
-        }
+        pop();
     }
     
-    // 繪製桌面光暈
-    drawTableGlow() {
-        const glowColor = color(GAME_CONFIG.colors.accent);
+    // 繪製按鈕
+    drawButton(text, x, y, w, h, bgColor, onClick) {
+        push();
         
-        for (let i = 0; i < 3; i++) {
-            stroke(red(glowColor), green(glowColor), blue(glowColor), 
-                   (50 - i * 15) * this.glowIntensity);
-            strokeWeight(2 - i * 0.5);
-            noFill();
-            circle(0, 0, (this.innerRadius + i * 10) * 2);
+        // 檢查滑鼠懸停
+        const isHovered = mouseX >= x - w/2 && mouseX <= x + w/2 && 
+                         mouseY >= y - h/2 && mouseY <= y + h/2;
+        
+        // 按鈕背景
+        if (isHovered) {
+            fill(red(bgColor) + 20, green(bgColor) + 20, blue(bgColor) + 20);
+        } else {
+            fill(bgColor);
         }
+        
+        stroke(255, 255, 255, 100);
+        strokeWeight(2);
+        rectMode(CENTER);
+        rect(x, y, w, h, 10);
+        
+        // 按鈕文字
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(16);
+        textStyle(BOLD);
+        text(text, x, y);
+        
+        // 儲存點擊區域（用於後續點擊檢測）
+        if (!this.buttons) this.buttons = [];
+        this.buttons.push({x, y, w, h, onClick, text});
+        
+        pop();
     }
     
     // 繪製卡牌區域
@@ -349,83 +355,41 @@ class GameTable {
         }
     }
     
-    // 繪製中央資訊
-    drawCenterInfo() {
+    // 繪製遊戲資訊（整合到中央區域）
+    drawGameInfo() {
         push();
         textAlign(CENTER, CENTER);
         fill(255, 200);
         
+        const infoY = height * 0.25;
+        
         if (this.gamePhase === 'waiting') {
-            textSize(24);
-            text('🎮', this.centerX, this.centerY - 30);
-            textSize(18);
-            text('客製化 Scrum Poker', this.centerX, this.centerY - 5);
-            textSize(12);
-            text('Dev 與 QA 分組估點', this.centerX, this.centerY + 15);
-            textSize(10);
-            text('點擊下方卡牌進行估點', this.centerX, this.centerY + 30);
-        } else if (this.gamePhase === 'voting') {
-            // 計算各組投票狀況
-            const devPlayers = this.players.filter(p => p.role === 'dev');
-            const qaPlayers = this.players.filter(p => p.role === 'qa');
-            const devVoted = devPlayers.filter(p => p.hasVoted).length;
-            const qaVoted = qaPlayers.filter(p => p.hasVoted).length;
-            
-            textSize(18);
-            text('🗳️ 分組估點進行中', this.centerX, this.centerY - 30);
-            
-            // Dev 組狀態
-            if (devPlayers.length > 0) {
-                const devColor = devVoted === devPlayers.length ? color(34, 197, 94) : color(251, 191, 36);
-                fill(devColor);
-                textSize(12);
-                text(`👨‍💻 Dev: ${devVoted}/${devPlayers.length}`, this.centerX - 50, this.centerY);
-            }
-            
-            // QA 組狀態
-            if (qaPlayers.length > 0) {
-                const qaColor = qaVoted === qaPlayers.length ? color(34, 197, 94) : color(251, 191, 36);
-                fill(qaColor);
-                textSize(12);
-                text(`🐛 QA: ${qaVoted}/${qaPlayers.length}`, this.centerX + 50, this.centerY);
-            }
-            
-            // 總體狀態
-            fill(255, 200);
-            textSize(10);
-            const totalVoted = this.players.filter(p => p.hasVoted).length;
-            text(`總進度: ${totalVoted}/${this.players.length}`, this.centerX, this.centerY + 20);
-            
-        } else if (this.gamePhase === 'revealing') {
-            textSize(20);
-            text('🎭 開牌中...', this.centerX, this.centerY - 10);
-            textSize(12);
-            text('即將顯示分組結果', this.centerX, this.centerY + 10);
+            textSize(28);
+            text('🎮 Scrum Poker', this.centerX, infoY);
+            textSize(16);
+            text('等待玩家加入遊戲...', this.centerX, infoY + 40);
         } else if (this.gamePhase === 'finished') {
-            textSize(20);
-            text('🎉 估點完成！', this.centerX, this.centerY - 20);
+            textSize(24);
+            text('🎉 估點完成！', this.centerX, infoY);
             
-            // 顯示分組結果摘要
+            // 顯示結果統計
             const devPlayers = this.players.filter(p => p.role === 'dev' && p.hasVoted);
             const qaPlayers = this.players.filter(p => p.role === 'qa' && p.hasVoted);
             
+            let resultY = infoY + 30;
             if (devPlayers.length > 0) {
-                const devAvg = devPlayers.reduce((sum, p) => sum + p.vote, 0) / devPlayers.length;
+                const devAvg = devPlayers.reduce((sum, p) => sum + (typeof p.vote === 'number' ? p.vote : 0), 0) / devPlayers.length;
                 fill(color(52, 211, 153));
-                textSize(12);
-                text(`👨‍💻 Dev: ${devAvg.toFixed(1)} 點`, this.centerX - 50, this.centerY + 5);
+                textSize(14);
+                text(`👨‍💻 開發組平均: ${devAvg.toFixed(1)} 點`, this.centerX - 100, resultY);
             }
             
             if (qaPlayers.length > 0) {
-                const qaAvg = qaPlayers.reduce((sum, p) => sum + p.vote, 0) / qaPlayers.length;
+                const qaAvg = qaPlayers.reduce((sum, p) => sum + (typeof p.vote === 'number' ? p.vote : 0), 0) / qaPlayers.length;
                 fill(color(251, 146, 60));
-                textSize(12);
-                text(`🐛 QA: ${qaAvg.toFixed(1)} 點`, this.centerX + 50, this.centerY + 5);
+                textSize(14);
+                text(`🐛 測試組平均: ${qaAvg.toFixed(1)} 點`, this.centerX + 100, resultY);
             }
-            
-            fill(255, 200);
-            textSize(10);
-            text('按 H 鍵查看 Scrum Master 建議', this.centerX, this.centerY + 25);
         }
         
         pop();
@@ -520,17 +484,25 @@ class GameTable {
         }
     }
     
-    // 重新安排座位
+    // 重新安排座位（橫向排列）
     rearrangeSeats() {
+        const screenWidth = width || window.innerWidth || 1200;
+        const playerWidth = 120;
+        const playerSpacing = Math.min(playerWidth, screenWidth / Math.max(1, this.players.length));
+        const totalWidth = Math.min(screenWidth - 40, playerSpacing * this.players.length);
+        const startX = (screenWidth - totalWidth) / 2 + playerSpacing / 2;
+        
         for (let i = 0; i < this.players.length; i++) {
             this.players[i].seatIndex = i;
-            
-            // 重新計算位置
-            const angle = (i / 12) * TWO_PI - PI / 2;
-            const radius = GAME_CONFIG.table.radius;
             this.players[i].position.set(
-                GAME_CONFIG.table.centerX + cos(angle) * radius,
-                GAME_CONFIG.table.centerY + sin(angle) * radius
+                startX + i * playerSpacing,
+                80
+            );
+            
+            // 更新卡牌位置
+            this.players[i].cardPosition.set(
+                this.players[i].position.x,
+                this.players[i].position.y + 80
             );
         }
     }
@@ -660,13 +632,28 @@ class GameTable {
     
     // 滑鼠按下處理
     handleMousePressed(mx, my) {
+        // 清除之前的按鈕列表
+        this.buttons = [];
+        
         // 首先檢查是否有確認對話框需要處理
         if (uiManager && uiManager.confirmDialog.visible) {
             const handled = uiManager.handleConfirmDialogClick(mx, my);
-            if (handled) return; // 如果對話框處理了點擊，就停止其他處理
+            if (handled) return;
         }
         
         console.log(`🖱️ 點擊檢測: (${mx}, ${my}) - 遊戲階段: ${this.gamePhase}`);
+        
+        // 檢查是否點擊了中央按鈕
+        if (this.buttons) {
+            for (const button of this.buttons) {
+                if (mx >= button.x - button.w/2 && mx <= button.x + button.w/2 && 
+                    my >= button.y - button.h/2 && my <= button.y + button.h/2) {
+                    console.log(`🔘 點擊了按鈕: ${button.text}`);
+                    button.onClick();
+                    return;
+                }
+            }
+        }
         
         // 檢查是否點擊了卡牌（僅在投票階段）
         if (this.gamePhase === 'voting') {
@@ -674,7 +661,7 @@ class GameTable {
                 if (card.isMouseOver(mx, my)) {
                     console.log(`🃏 點擊了卡牌: ${card.value}`);
                     this.selectCard(card.value);
-                    return; // 避免重複處理
+                    return;
                 }
             }
         }
