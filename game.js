@@ -1147,7 +1147,7 @@ class ScrumMasterAdvice {
         this.isVisible = !this.isVisible;
     }
     
-    // 新增反饋
+    // 新增回饋
     addFeedback(suggestionId, rating, comment = '') {
         const feedback = {
             id: Date.now(),
@@ -1160,15 +1160,15 @@ class ScrumMasterAdvice {
         };
         
         this.feedback.push(feedback);
-        console.log(`📝 已新增建議反饋: ${rating}星 - ${comment}`);
+        console.log(`📝 已新增建議回饋: ${rating}星 - ${comment}`);
         
-        // 儲存反饋到本地儲存
+        // 儲存回饋到本地儲存
         this.saveFeedbackToStorage();
         
         return feedback;
     }
     
-    // 獲取特定建議的反饋
+    // 獲取特定建議的回饋
     getFeedbackForSuggestion(suggestionId) {
         return this.feedback.filter(f => f.suggestionId === suggestionId);
     }
@@ -1182,7 +1182,7 @@ class ScrumMasterAdvice {
         return (totalRating / feedbacks.length).toFixed(1);
     }
     
-    // 儲存反饋到本地儲存
+    // 儲存回饋到本地儲存
     saveFeedbackToStorage() {
         try {
             const feedbackData = {
@@ -1191,29 +1191,29 @@ class ScrumMasterAdvice {
             };
             localStorage.setItem('scrumPokerAdviceFeedback', JSON.stringify(feedbackData));
         } catch (error) {
-            console.warn('⚠️ 無法儲存反饋資料:', error);
+            console.warn('⚠️ 無法儲存回饋資料:', error);
         }
     }
     
-    // 從本地儲存載入反饋
+    // 從本地儲存載入回饋
     loadFeedbackFromStorage() {
         try {
             const savedData = localStorage.getItem('scrumPokerAdviceFeedback');
             if (savedData) {
                 const feedbackData = JSON.parse(savedData);
                 this.feedback = feedbackData.feedback || [];
-                console.log(`📚 已載入 ${this.feedback.length} 筆反饋資料`);
+                console.log(`📚 已載入 ${this.feedback.length} 筆回饋資料`);
             }
         } catch (error) {
-            console.warn('⚠️ 無法載入反饋資料:', error);
+            console.warn('⚠️ 無法載入回饋資料:', error);
             this.feedback = [];
         }
     }
     
-    // 顯示反饋統計
+    // 顯示回饋統計
     showFeedbackStats() {
         if (this.feedback.length === 0) {
-            console.log('📊 尚無反饋資料');
+            console.log('📊 尚無回饋資料');
             return;
         }
         
@@ -1228,7 +1228,7 @@ class ScrumMasterAdvice {
             stats.ratingDistribution[`${i}星`] = this.feedback.filter(f => f.rating === i).length;
         }
         
-        console.log('📊 建議反饋統計:');
+        console.log('📊 建議回饋統計:');
         console.table(stats);
         
         return stats;
@@ -1316,7 +1316,7 @@ document.addEventListener('keydown', (event) => {
             }
         }
         
-        // F 鍵顯示反饋統計
+        // F 鍵顯示回饋統計
         if (event.code === 'KeyF' && scrumMasterAdvice && event.ctrlKey) {
             event.preventDefault();
             scrumMasterAdvice.showFeedbackStats();
@@ -1407,7 +1407,7 @@ window.testRoomCreation = async function(playerName = 'TestUser') {
     }
 };
 
-// 全域反饋函數
+// 全域回饋函數
 window.addAdviceFeedback = function(rating, comment = '') {
     if (!scrumMasterAdvice) {
         console.error('❌ Scrum Master 建議系統尚未初始化');
@@ -1424,7 +1424,7 @@ window.addAdviceFeedback = function(rating, comment = '') {
     const suggestionId = latestSuggestion.type;
     
     const feedback = scrumMasterAdvice.addFeedback(suggestionId, rating, comment);
-    console.log(`✅ 已新增反饋: ${rating}/5 星`);
+    console.log(`✅ 已新增回饋: ${rating}/5 星`);
     
     return true;
 };
@@ -1446,7 +1446,7 @@ window.clearAdviceFeedback = function() {
     
     scrumMasterAdvice.feedback = [];
     scrumMasterAdvice.saveFeedbackToStorage();
-    console.log('🧹 已清除所有反饋資料');
+    console.log('🧹 已清除所有回饋資料');
     
     return true;
 };
@@ -1454,6 +1454,6 @@ window.clearAdviceFeedback = function() {
 console.log('🎮 遊戲整合邏輯已載入');
 console.log('💡 使用 diagnoseRoomCreation() 進行房間創建診斷');
 console.log('💡 使用 testRoomCreation() 進行快速測試');
-console.log('💡 使用 addAdviceFeedback(rating, comment) 新增建議反饋');
-console.log('💡 使用 showAdviceFeedbackStats() 查看反饋統計');
-console.log('💡 使用 clearAdviceFeedback() 清除反饋資料');
+console.log('💡 使用 addAdviceFeedback(rating, comment) 新增建議回饋');
+console.log('💡 使用 showAdviceFeedbackStats() 查看回饋統計');
+console.log('💡 使用 clearAdviceFeedback() 清除回饋資料');
