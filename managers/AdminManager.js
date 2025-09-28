@@ -77,20 +77,66 @@ class AdminManager {
             if (this.firebaseManager.useFirebase && this.firebaseManager.db) {
                 // Firebase 模式：讀取實際資料
                 console.log('📊 管理者正在讀取 Firebase 房間資料...');
-                const roomsRef = this.firebaseManager.db.ref('rooms');
+                console.log('🔍 使用 shallow 查詢先獲取房間列表...');
                 
-                let snapshot, rooms;
+                let rooms = {};
                 try {
-                    snapshot = await roomsRef.once('value');
-                    rooms = snapshot.val() || {};
-                    console.log(`📋 成功讀取 ${Object.keys(rooms).length} 個房間`);
+                    // 首先使用 shallow 查詢獲取房間 ID 列表
+                    const roomsRef = this.firebaseManager.db.ref('rooms');
+                    const shallowSnapshot = await roomsRef.once('value');
+                    const roomIds = shallowSnapshot.val() ? Object.keys(shallowSnapshot.val()) : [];
+                    
+                    console.log(`📋 發現 ${roomIds.length} 個房間 ID:`, roomIds);
+                    
+                    if (roomIds.length > 0) {
+                        // 逐個讀取房間詳細資料
+                        const roomPromises = roomIds.map(async (roomId) => {
+                            try {
+                                const roomRef = this.firebaseManager.db.ref(`rooms/${roomId}`);
+                                const roomSnapshot = await roomRef.once('value');
+                                const roomData = roomSnapshot.val();
+                                
+                                if (roomData) {
+                                    console.log(`✅ 成功讀取房間 ${roomId}`);
+                                    return { roomId, roomData };
+                                } else {
+                                    console.warn(`⚠️ 房間 ${roomId} 資料為空`);
+                                    return null;
+                                }
+                            } catch (roomError) {
+                                console.error(`❌ 讀取房間 ${roomId} 失敗:`, roomError);
+                                return null;
+                            }
+                        });
+                        
+                        const roomResults = await Promise.all(roomPromises);
+                        
+                        // 建構房間物件
+                        roomResults.filter(result => result !== null).forEach(({ roomId, roomData }) => {
+                            rooms[roomId] = roomData;
+                        });
+                        
+                        console.log(`📊 成功讀取 ${Object.keys(rooms).length} 個房間的詳細資料`);
+                    } else {
+                        console.log('📭 沒有找到任何房間');
+                    }
                 } catch (readError) {
                     console.error('❌ 讀取房間資料失敗:', readError);
                     if (readError.code === 'PERMISSION_DENIED') {
                         console.error('🚫 管理者讀取權限被拒絕 - 可能原因:');
                         console.error('   1. Firebase 規則不允許讀取 rooms 節點');
                         console.error('   2. 需要身份驗證但未正確設定');
-                        throw new Error('無權限讀取房間資料，請檢查 Firebase 規則');
+                        console.error('   3. 當前使用無身份驗證模式，可能需要調整規則');
+                        
+                        // 嘗試診斷 Firebase 權限
+                        try {
+                            const diagnosis = await this.firebaseManager.diagnoseFirebasePermissions();
+                            console.log('🔍 Firebase 權限診斷結果:', diagnosis);
+                        } catch (diagError) {
+                            console.error('❌ 權限診斷失敗:', diagError);
+                        }
+                        
+                        throw new Error('無權限讀取房間資料，請檢查 Firebase 規則和身份驗證設定');
                     }
                     throw readError;
                 }
@@ -174,18 +220,44 @@ class AdminManager {
                     clearedRooms = stats.totalRooms;
                     clearedPlayers = stats.totalPlayers;
                     
-                    // 清除所有房間
-                    const roomsRef = this.firebaseManager.db.ref('rooms');
-                    console.log(`🗑️ 準備清除 ${clearedRooms} 個房間...`);
-                    await roomsRef.remove();
+                    console.log(`🗑️ 準備逐個清除 ${clearedRooms} 個房間...`);
                     
-                    console.log('✅ Firebase 資料清除完成');
+                    // 使用個別刪除而不是刪除整個 rooms 節點
+                    if (stats.roomDetails && stats.roomDetails.length > 0) {
+                        const deletePromises = stats.roomDetails.map(async (room) => {
+                            try {
+                                const roomRef = this.firebaseManager.db.ref(`rooms/${room.id}`);
+                                await roomRef.remove();
+                                console.log(`✅ 已清除房間: ${room.id}`);
+                                return { success: true, roomId: room.id };
+                            } catch (deleteError) {
+                                console.error(`❌ 清除房間 ${room.id} 失敗:`, deleteError);
+                                return { success: false, roomId: room.id, error: deleteError.message };
+                            }
+                        });
+                        
+                        const deleteResults = await Promise.all(deletePromises);
+                        const successCount = deleteResults.filter(r => r.success).length;
+                        const failCount = deleteResults.filter(r => !r.success).length;
+                        
+                        if (failCount > 0) {
+                            console.warn(`⚠️ ${failCount} 個房間清除失敗`);
+                            deleteResults.filter(r => !r.success).forEach(result => {
+                                console.error(`   房間 ${result.roomId}: ${result.error}`);
+                            });
+                        }
+                        
+                        console.log(`✅ Firebase 資料清除完成 - 成功: ${successCount}, 失敗: ${failCount}`);
+                    } else {
+                        console.log('📭 沒有房間需要清除');
+                    }
                 } catch (clearError) {
                     console.error('❌ 清除 Firebase 資料失敗:', clearError);
                     if (clearError.code === 'PERMISSION_DENIED') {
                         console.error('🚫 管理者清除權限被拒絕 - 可能原因:');
                         console.error('   1. Firebase 規則不允許刪除 rooms 節點');
                         console.error('   2. 需要管理者身份驗證');
+                        console.error('   3. 當前使用無身份驗證模式，可能需要調整規則');
                         throw new Error('無權限清除資料，請檢查 Firebase 規則和管理者權限');
                     }
                     throw clearError;
@@ -290,8 +362,34 @@ class AdminManager {
         
         try {
             if (this.firebaseManager.useFirebase && this.firebaseManager.db) {
-                const roomsRef = this.firebaseManager.db.ref('rooms');
-                await roomsRef.remove();
+                // 緊急模式：仍然嘗試逐個刪除房間，但不等待統計
+                console.log('🚨 緊急模式：嘗試取得房間列表進行清除...');
+                try {
+                    const roomsRef = this.firebaseManager.db.ref('rooms');
+                    const snapshot = await roomsRef.once('value');
+                    const rooms = snapshot.val() || {};
+                    const roomIds = Object.keys(rooms);
+                    
+                    if (roomIds.length > 0) {
+                        console.log(`🗑️ 緊急清除 ${roomIds.length} 個房間...`);
+                        const deletePromises = roomIds.map(roomId => {
+                            const roomRef = this.firebaseManager.db.ref(`rooms/${roomId}`);
+                            return roomRef.remove().catch(error => {
+                                console.error(`❌ 緊急清除房間 ${roomId} 失敗:`, error);
+                                return null;
+                            });
+                        });
+                        
+                        await Promise.all(deletePromises);
+                        console.log('✅ 緊急清除完成');
+                    } else {
+                        console.log('📭 沒有房間需要緊急清除');
+                    }
+                } catch (emergencyError) {
+                    console.error('❌ 緊急清除過程失敗，將使用模擬模式:', emergencyError);
+                    // 如果 Firebase 清除失敗，回退到清空本地模擬資料
+                    this.firebaseManager.mockData.rooms = {};
+                }
             } else {
                 this.firebaseManager.mockData.rooms = {};
             }
