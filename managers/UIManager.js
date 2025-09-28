@@ -317,6 +317,48 @@ class UIManager {
         this.showToast('已離開房間', 'info');
     }
     
+    // 繪製畫布上的遊戲資訊（避免被其他元素遮蔽）
+    draw() {
+        if (!this.isGameStarted) return;
+        
+        push();
+        
+        // 繪製半透明背景
+        fill(0, 0, 0, 120);
+        noStroke();
+        rectMode(CORNER);
+        
+        // 計算位置（畫布中央上方）
+        const infoWidth = 300;
+        const infoHeight = 80;
+        const infoX = (width - infoWidth) / 2;
+        const infoY = 30;
+        
+        rect(infoX, infoY, infoWidth, infoHeight, 10);
+        
+        // 繪製文字資訊
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(16);
+        textStyle(BOLD);
+        
+        const centerX = infoX + infoWidth / 2;
+        let currentY = infoY + 20;
+        
+        // 房間資訊
+        text(`房間: ${this.currentRoom || 'N/A'}`, centerX, currentY);
+        currentY += 20;
+        
+        // 玩家和狀態資訊
+        const statusText = this.gamePhase === 'voting' ? 
+            `投票中 (${this.playerCount} 玩家)` : 
+            `${this.gamePhase === 'revealing' ? '開牌中' : '等待中'} (${this.playerCount} 玩家)`;
+        
+        text(statusText, centerX, currentY);
+        
+        pop();
+    }
+    
     // 更新統計資料
     updateStatistics(votes) {
         const numericVotes = votes.filter(v => typeof v.value === 'number');

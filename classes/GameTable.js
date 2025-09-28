@@ -102,9 +102,20 @@ class GameTable {
         const screenWidth = width || window.innerWidth;
         const screenHeight = height || window.innerHeight;
         const margin = 20;
-        const bottomMargin = 30;
         
-        // 卡牌固定在底部
+        // 根據螢幕尺寸動態調整底部邊距，避免與控制按鈕重疊
+        let bottomMargin = 30;
+        if (screenWidth <= 480) {
+            bottomMargin = 140; // 小螢幕：避免與按鈕重疊
+        } else if (screenWidth <= 768) {
+            bottomMargin = 160; // 中螢幕：給按鈕留更多空間
+        } else if (screenWidth <= 1024) {
+            bottomMargin = 180; // 大螢幕：標準間距
+        } else {
+            bottomMargin = 200; // 桌面：最大間距
+        }
+        
+        // 卡牌位置計算，向上移動避免重疊
         const cardY = screenHeight - cardHeight / 2 - bottomMargin;
         
         // 響應式寬度調整
