@@ -995,15 +995,166 @@ input[type="radio"] {
   font-size: var(--font-size-base);
   transition: var(--transition-base);
   background: var(--bg-primary);
+  color: var(--text-primary);
+  /* 確保在所有瀏覽器中有足夠的對比度 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
+/* Select 下拉選單特殊處理 */
+.input-field[type="select"],
+.input-field select,
+select.input-field {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* Option 元素樣式 - 確保高對比度 */
+.input-field option,
+select.input-field option,
+option {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  /* 確保在所有瀏覽器中正確顯示 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Focus 狀態改進 - 提高對比度 */
 .input-field:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-alpha);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.25);
+  outline: none;
 }
 
+/* Hover 狀態 */
+.input-field:hover:not(:focus) {
+  border-color: var(--color-gray-400);
+}
+
+/* 無效狀態 */
 .input-field:invalid {
   border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* 深色模式適配 */
+@media (prefers-color-scheme: dark) {
+  .input-field {
+    background: var(--color-gray-800);
+    color: var(--color-gray-100);
+    border-color: var(--color-gray-600);
+  }
+  
+  .input-field option,
+  select.input-field option,
+  option {
+    background: var(--color-gray-800);
+    color: var(--color-gray-100);
+  }
+  
+  .input-field:focus {
+    border-color: var(--color-primary-light);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  }
+  
+  .input-field:hover:not(:focus) {
+    border-color: var(--color-gray-500);
+  }
+}
+
+/* 高對比模式支援 */
+@media (prefers-contrast: high) {
+  .input-field {
+    border-width: var(--border-width-thick);
+    border-color: var(--text-primary);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+  
+  .input-field option,
+  select.input-field option,
+  option {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--text-primary);
+  }
+  
+  .input-field:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.5);
+  }
+}
+
+/* 改善視覺輔助 */
+.input-field:disabled {
+  background: var(--color-gray-100);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 文字輸入框特殊樣式 */
+.input-field[type="text"],
+.input-field[type="email"],
+.input-field[type="password"] {
+  /* 改善文字對比度 */
+  color: var(--text-primary);
+  font-weight: var(--font-weight-normal);
+}
+
+/* Placeholder 文字樣式 */
+.input-field::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1; /* Firefox 預設會降低 placeholder 透明度 */
+}
+
+/* 深色模式下的 placeholder */
+@media (prefers-color-scheme: dark) {
+  .input-field::placeholder {
+    color: var(--color-gray-400);
+  }
+  
+  .input-field:disabled {
+    background: var(--color-gray-700);
+    color: var(--color-gray-500);
+  }
+}
+
+/* 確保 label 文字對比度 */
+.input-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  /* 改善可讀性 */
+  text-shadow: none;
+  background: transparent;
+}
+
+/* 深色模式下的 label */
+@media (prefers-color-scheme: dark) {
+  .input-label {
+    color: var(--color-gray-300);
+  }
+}
+
+/* 錯誤狀態改進 */
+.input-field.error,
+.input-field[aria-invalid="true"] {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* 成功狀態 */
+.input-field.success,
+.input-field[aria-invalid="false"] {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 /* 卡片樣式 */
@@ -1338,11 +1489,57 @@ input[type="radio"] {
 .font-semibold { font-weight: var(--font-weight-semibold); }
 .font-bold { font-weight: var(--font-weight-bold); }
 
-/* 文字顏色 */
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
-.text-muted { color: var(--text-muted); }
-.text-inverse { color: var(--text-inverse); }
+/* 文字顏色 - 改善對比度 */
+.text-primary { 
+  color: var(--text-primary); 
+  /* 確保足夠對比度 */
+  text-shadow: none;
+}
+
+.text-secondary { 
+  color: var(--text-secondary); 
+  /* 確保 WCAG AA 合規性 */
+  font-weight: var(--font-weight-medium);
+}
+
+.text-muted { 
+  color: var(--text-muted); 
+  /* 提高可讀性 */
+  font-size: var(--font-size-sm);
+}
+
+.text-inverse { 
+  color: var(--text-inverse); 
+  /* 在深色背景上的白色文字 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 深色模式下的文字顏色調整 */
+@media (prefers-color-scheme: dark) {
+  .text-secondary {
+    color: var(--color-gray-300);
+  }
+  
+  .text-muted {
+    color: var(--color-gray-400);
+    /* 在深色背景下提高對比度 */
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+/* 高對比模式文字 */
+@media (prefers-contrast: high) {
+  .text-primary,
+  .text-secondary {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+  
+  .text-muted {
+    color: var(--text-primary);
+    opacity: 0.8;
+  }
+}
 
 /* 背景顏色 */
 .bg-primary { background-color: var(--bg-primary); }
