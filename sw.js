@@ -10,7 +10,7 @@ const CACHE_VERSION = '20241229_performance';
 // 需要快取的核心資源
 const CORE_ASSETS = [
     './',
-    './index-new.html',
+    './index.html',
     './src/styles/variables.css',
     './src/styles/main.css',
     './src/core/EventBus.js',
@@ -164,7 +164,7 @@ async function handleRequest(request) {
         // 回退到離線頁面（如果有的話）
         if (request.mode === 'navigate') {
             const cache = await caches.open(CACHE_NAME);
-            return await cache.match('./index-new.html') || 
+            return await cache.match('./index.html') || 
                    new Response('離線模式：無法連接到伺服器', {
                        status: 503,
                        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
@@ -248,7 +248,7 @@ async function networkFirstWithCacheFallback(request, cacheName) {
     } catch (error) {
         // 網路失敗，回退到任何可用的 HTML 頁面
         const cachedResponse = await cache.match(request) ||
-                              await cache.match('./index-new.html') ||
+                              await cache.match('./index.html') ||
                               await cache.match('./');
         
         if (cachedResponse) {
