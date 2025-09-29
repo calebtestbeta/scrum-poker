@@ -26,6 +26,10 @@ class ScrumPokerApp {
         this.storageService = null;
         this.touchManager = null;
         
+        // 投票進度節流控制
+        this.lastAppProgressKey = null;
+        this.lastAppProgressTime = null;
+        
         // DOM 元素引用
         this.elements = {
             loadingScreen: null,
@@ -960,12 +964,45 @@ class ScrumPokerApp {
     }
     
     /**
-     * 更新投票進度
+     * 更新投票進度（使用節流避免重複 log）
      * @param {Object} progress - 進度數據
      */
     updateVotingProgress(progress) {
-        // 這裡可以添加全域進度顯示邏輯
-        console.log('📊 投票進度:', progress);
+        // 使用節流避免重複 log 輸出
+        const progressKey = `${progress.voted}_${progress.total}_${progress.percentage}`;
+        const now = Date.now();
+        
+        // 檢查是否與上次進度相同或時間間隔太短
+        if (this.lastAppProgressKey !== progressKey || 
+            !this.lastAppProgressTime || 
+            (now - this.lastAppProgressTime) > 1000) { // 至少間隔 1 秒
+            
+            this.lastAppProgressKey = progressKey;
+            this.lastAppProgressTime = now;
+            
+            // 只在進度真正變化或間隔足夠時記錄 log
+            if (progress.total > 0) {
+                console.log(`🎯 全域投票進度: ${progress.voted}/${progress.total} 玩家已投票 (${progress.percentage}%)`);
+            }
+        }
+        
+        // 這裡可以添加全域進度顯示邏輯，如更新 UI 元素
+        this.updateGlobalProgressDisplay(progress);
+    }
+    
+    /**
+     * 更新全域進度顯示
+     * @param {Object} progress - 進度數據
+     */
+    updateGlobalProgressDisplay(progress) {
+        // 更新頁面標題或其他全域 UI 元素
+        if (progress.total > 0 && progress.percentage < 100) {
+            document.title = `Scrum Poker - 投票中 (${progress.percentage}%)`;
+        } else if (progress.percentage >= 100) {
+            document.title = `Scrum Poker - 投票完成`;
+        } else {
+            document.title = `Scrum Poker - 等待玩家`;
+        }
     }
     
     /**

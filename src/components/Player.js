@@ -535,6 +535,9 @@ class PlayerList {
         this.players = new Map();
         this.currentPlayerId = null;
         
+        // 投票進度節流控制
+        this.lastProgressKey = null;
+        
         this.options = {
             maxPlayers: options.maxPlayers || 20,
             showCards: options.showCards !== false,
@@ -703,7 +706,7 @@ class PlayerList {
     }
     
     /**
-     * 更新投票進度
+     * 更新投票進度（使用節流避免重複 log）
      */
     updateVotingProgress() {
         const totalPlayers = this.players.size;
@@ -716,9 +719,18 @@ class PlayerList {
             percentage: percentage
         };
         
-        // 發送事件
-        if (window.eventBus) {
-            window.eventBus.emit('players:voting-progress', progress);
+        // 檢查是否與上次進度相同，避免重複事件
+        const progressKey = `${progress.voted}_${progress.total}`;
+        if (this.lastProgressKey !== progressKey) {
+            this.lastProgressKey = progressKey;
+            
+            // 發送事件
+            if (window.eventBus) {
+                window.eventBus.emit('players:voting-progress', progress);
+            }
+            
+            // 只在進度真正變化時記錄 log
+            console.log(`📊 投票進度更新: ${progress.voted}/${progress.total} (${progress.percentage}%)`);
         }
         
         return progress;
