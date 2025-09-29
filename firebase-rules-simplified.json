@@ -1,0 +1,77 @@
+{
+  "rules": {
+    // 簡化版規則 - 移除 email 要求
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['gameState', 'players', 'createdAt', 'createdBy'])",
+        
+        "gameState": {
+          ".validate": "newData.hasChildren(['phase', 'votes']) && newData.child('phase').isString()"
+        },
+        
+        "players": {
+          "$playerId": {
+            ".validate": "newData.hasChildren(['name', 'role']) && newData.child('name').isString() && newData.child('role').isString()",
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+            },
+            "role": {
+              ".validate": "newData.isString() && ['dev', 'qa', 'scrum_master', 'po', 'other'].indexOf(newData.val()) >= 0"
+            },
+            "taskType": {
+              ".validate": "newData.isString()"
+            },
+            "joinedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "isOnline": {
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        
+        "votes": {
+          "$playerId": {
+            ".validate": "newData.isNumber() || newData.isString()"
+          }
+        },
+        
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        
+        "createdBy": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    
+    // 用戶檔案（完全可選）
+    "userProfiles": {
+      "$userId": {
+        ".read": "$userId === auth.uid || root.child('admins').child(auth.uid).exists()",
+        ".write": "$userId === auth.uid || root.child('admins').child(auth.uid).exists()",
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "preferredRole": {
+          ".validate": "newData.isString()"
+        },
+        "lastActive": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    
+    // 管理員清單
+    "admins": {
+      ".read": "root.child('admins').child(auth.uid).exists()",
+      ".write": "root.child('admins').child(auth.uid).exists()",
+      "$adminId": {
+        ".validate": "newData.isBoolean()"
+      }
+    }
+  }
+}

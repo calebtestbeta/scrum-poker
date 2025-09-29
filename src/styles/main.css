@@ -43,6 +43,31 @@ body {
 
 /* === 無障礙改善 === */
 
+/* 改善聚焦樣式 */
+*:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* 移除預設 focus outline 僅在支援 focus-visible 時 */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 螢幕報讀器專用文字 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* 跳過連結 */
 .skip-link {
   position: absolute;
@@ -151,6 +176,15 @@ input[type="radio"] {
   width: 100vw;
   overflow: hidden;
   position: relative;
+  /* Safari 修復 */
+  min-height: -webkit-fill-available;
+}
+
+/* Safari 特定修復 */
+@supports (-webkit-touch-callout: none) {
+  .app-container {
+    height: -webkit-fill-available;
+  }
 }
 
 .game-container {
@@ -183,10 +217,27 @@ input[type="radio"] {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  /* 降級背景（不支援 backdrop-filter 的瀏覽器） */
+  background: rgba(255, 255, 255, 0.15);
   border-radius: var(--border-radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 支援 backdrop-filter 的瀏覽器使用毛玻璃效果 */
+@supports (backdrop-filter: blur(10px)) {
+  .game-header {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* Safari 前綴支援 */
+@supports (-webkit-backdrop-filter: blur(10px)) {
+  .game-header {
+    background: rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
 }
 
 .players-area {
@@ -201,12 +252,28 @@ input[type="radio"] {
 
 .stats-panel {
   grid-area: stats;
-  background: var(--stats-panel-bg);
-  backdrop-filter: blur(15px);
+  /* 降級背景 */
+  background: rgba(30, 35, 42, 0.95);
   border: 1px solid var(--stats-panel-border);
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-lg);
   overflow-y: auto;
+}
+
+/* 支援 backdrop-filter 的瀏覽器 */
+@supports (backdrop-filter: blur(15px)) {
+  .stats-panel {
+    background: var(--stats-panel-bg);
+    backdrop-filter: blur(15px);
+  }
+}
+
+@supports (-webkit-backdrop-filter: blur(15px)) {
+  .stats-panel {
+    background: var(--stats-panel-bg);
+    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(15px);
+  }
 }
 
 .game-area {
@@ -232,10 +299,26 @@ input[type="radio"] {
   align-items: center;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
-  background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(15px);
+  /* 降級背景 */
+  background: rgba(0, 0, 0, 0.2);
   border-radius: var(--border-radius-full);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 支援 backdrop-filter 的瀏覽器 */
+@supports (backdrop-filter: blur(15px)) {
+  .game-controls {
+    background: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(15px);
+  }
+}
+
+@supports (-webkit-backdrop-filter: blur(15px)) {
+  .game-controls {
+    background: rgba(0, 0, 0, 0.1);
+    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(15px);
+  }
 }
 
 /* === 卡牌區域 === */
@@ -264,6 +347,9 @@ input[type="radio"] {
   transition: var(--transition-base);
   user-select: none;
   perspective: 1000px;
+  /* 鍵盤無障礙支援 */
+  tabindex: 0;
+  outline: none;
 }
 
 .card:hover {
@@ -281,7 +367,20 @@ input[type="radio"] {
   border-color: var(--card-border-selected);
   box-shadow: var(--card-shadow-selected);
   color: var(--text-inverse);
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(1.05);
+}
+
+.card.card-selected::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, var(--color-primary), var(--color-secondary));
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.8;
 }
 
 .card.card-disabled {
@@ -354,13 +453,22 @@ input[type="radio"] {
   color: var(--text-inverse);
 }
 
-/* 卡牌動畫 */
+/* 卡牌動畫 - 效能優化 */
 .card.card-animating {
   pointer-events: none;
+  will-change: transform; /* 提升到合成層 */
 }
 
 .card.card-touching {
   transform: scale(0.95);
+  will-change: transform;
+}
+
+/* 效能優化：使用 transform 而非改變 layout 屬性 */
+.card:hover {
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--color-primary);
+  transform: translateZ(0); /* 強制硬體加速 */
 }
 
 /* === 玩家組件樣式 === */
@@ -683,6 +791,38 @@ input[type="radio"] {
   z-index: var(--z-modal-backdrop);
 }
 
+/* 快速開始區域 */
+.quick-start-section {
+  margin: var(--spacing-lg) 0;
+  text-align: center;
+}
+
+.divider {
+  position: relative;
+  text-align: center;
+  margin: var(--spacing-md) 0;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-gray-300);
+  z-index: 0;
+}
+
+.divider span {
+  background: var(--bg-primary);
+  padding: 0 var(--spacing-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  position: relative;
+  z-index: 1;
+}
+
 .firebase-config {
   margin-top: var(--spacing-lg);
   padding-top: var(--spacing-lg);
@@ -705,6 +845,12 @@ input[type="radio"] {
   border-radius: var(--border-radius-base);
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: var(--transition-base);
+}
+
+.connection-status:hover {
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .status-indicator {
@@ -733,7 +879,7 @@ input[type="radio"] {
 
 /* === 通用組件樣式 === */
 
-/* 按鈕樣式 */
+/* 按鈕樣式 - 效能優化 */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -747,6 +893,10 @@ input[type="radio"] {
   min-height: 44px; /* 觸控友善的最小高度 */
   position: relative;
   overflow: hidden;
+  /* 效能優化 */
+  will-change: transform, box-shadow;
+  transform: translateZ(0); /* 硬體加速 */
+  backface-visibility: hidden; /* 減少重繪 */
 }
 
 .btn:before {
@@ -959,7 +1109,33 @@ input[type="radio"] {
   }
   
   .stats-panel {
-    display: none; /* 在平板上隱藏統計面板 */
+    position: fixed;
+    top: 50%;
+    right: -280px;
+    transform: translateY(-50%);
+    width: 280px;
+    height: 60vh;
+    z-index: var(--z-modal);
+    transition: right var(--duration-slow) var(--ease-out);
+  }
+  
+  .stats-panel.stats-visible {
+    right: 0;
+  }
+  
+  .stats-toggle {
+    position: fixed;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--border-radius-full);
+    z-index: var(--z-modal);
+    cursor: pointer;
   }
   
   .cards-area {
@@ -1030,16 +1206,41 @@ input[type="radio"] {
   .btn {
     padding: var(--spacing-xs) var(--spacing-sm);
     font-size: var(--font-size-sm);
-    min-height: 40px;
+    min-height: 44px; /* 改善觸控體驗：增加最小點擊區域 */
+  }
+  
+  /* 觸控裝置優化 */
+  .card {
+    min-width: 60px;
+    min-height: 80px;
+    margin: var(--spacing-xs);
+  }
+  
+  .player {
+    min-width: 100px;
+    padding: var(--spacing-md);
   }
 }
 
-/* === 動畫和過渡效果 === */
+/* === 動畫和過渡效果 - 效能優化 === */
 
-/* 淡入動畫 */
+/* 效能優化的動畫基礎設定 */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    /* 只對需要動畫的元素使用 will-change */
+  }
+}
+
+/* 淡入動畫 - 使用 GPU 加速 */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { 
+    opacity: 0; 
+    transform: translateZ(0); /* 強制硬體加速 */
+  }
+  to { 
+    opacity: 1; 
+    transform: translateZ(0);
+  }
 }
 
 @keyframes fadeInUp {

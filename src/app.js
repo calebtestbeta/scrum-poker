@@ -44,6 +44,9 @@ class ScrumPokerApp {
     async initialize() {
         console.log(`🚀 Scrum Poker ${this.version} 正在初始化...`);
         
+        // 效能監控開始
+        const initStartTime = performance.now();
+        
         try {
             // 等待 DOM 載入完成
             if (document.readyState !== 'complete') {
@@ -62,6 +65,9 @@ class ScrumPokerApp {
             // 設置全域錯誤處理
             this.setupErrorHandling();
             
+            // 設置效能監控
+            this.setupPerformanceMonitoring();
+            
             // 檢查保存的使用者資訊
             this.checkSavedUserInfo();
             
@@ -71,7 +77,17 @@ class ScrumPokerApp {
             // 標記為已初始化
             this.isInitialized = true;
             
-            console.log(`✅ Scrum Poker ${this.version} 初始化完成`);
+            // 效能監控結束
+            const initEndTime = performance.now();
+            const initDuration = Math.round(initEndTime - initStartTime);
+            
+            console.log(`✅ Scrum Poker ${this.version} 初始化完成 (${initDuration}ms)`);
+            
+            // 記錄效能指標
+            this.recordPerformanceMetrics({
+                initTime: initDuration,
+                timestamp: Date.now()
+            });
             
         } catch (error) {
             console.error('❌ 應用程式初始化失敗:', error);
@@ -107,19 +123,82 @@ class ScrumPokerApp {
     }
     
     /**
-     * 初始化服務
+     * 初始化服務 - 懶載入優化
      */
     async initializeServices() {
         console.log('🛠️ 正在初始化服務...');
         
         try {
-            // 初始化 StorageService
-            if (window.StorageService) {
-                this.storageService = new StorageService();
-                console.log('✅ StorageService 已初始化');
-            }
+            // 優先初始化關鍵服務
+            await this.initializeCriticalServices();
             
-            // 初始化 TouchManager
+            // 延遲初始化次要服務
+            this.initializeSecondaryServices();
+            
+        } catch (error) {
+            console.error('❌ 服務初始化失敗:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * 初始化關鍵服務（阻塞載入）
+     */
+    async initializeCriticalServices() {
+        // 初始化 StorageService - 關鍵服務
+        if (window.StorageService) {
+            this.storageService = new StorageService();
+            console.log('✅ StorageService 已初始化');
+        }
+        
+        // 取得 Firebase 設定 - 決定是否需要 Firebase
+        const firebaseConfig = await this.getFirebaseConfig();
+        if (firebaseConfig && window.FirebaseService) {
+            try {
+                this.firebaseService = new FirebaseService();
+                
+                // 監聽連線狀態變化
+                this.firebaseService.on('firebase:connected', () => {
+                    this.updateConnectionStatus(true);
+                    this.showToast('success', 'Firebase 連線成功');
+                });
+                
+                this.firebaseService.on('firebase:disconnected', () => {
+                    this.updateConnectionStatus(false);
+                    this.showToast('warning', 'Firebase 連線中斷');
+                });
+                
+                this.firebaseService.on('firebase:error', (data) => {
+                    console.error('Firebase 錯誤:', data.error);
+                    this.showError('Firebase 連線異常，請檢查網路狀態');
+                });
+                
+                // 設置 Firebase 事件監聽器
+                this.setupFirebaseEventListeners();
+                
+                // 初始化 Firebase
+                const initialized = await this.firebaseService.initialize(firebaseConfig);
+                if (initialized) {
+                    console.log('✅ FirebaseService 已初始化');
+                } else {
+                    throw new Error('Firebase 初始化失敗');
+                }
+            } catch (error) {
+                console.error('❌ FirebaseService 初始化失敗:', error);
+                this.firebaseService = null;
+                this.showError('Firebase 初始化失敗，將使用本地模式');
+            }
+        } else {
+            console.log('ℹ️ 使用本地模式（未設定 Firebase）');
+        }
+    }
+    
+    /**
+     * 初始化次要服務（非阻塞載入）
+     */
+    initializeSecondaryServices() {
+        // 延遲初始化 TouchManager
+        setTimeout(() => {
             if (window.TouchManager) {
                 this.touchManager = new TouchManager({
                     debug: false,
@@ -129,54 +208,9 @@ class ScrumPokerApp {
                 
                 // 設置觸控手勢監聽器
                 this.setupTouchGestures();
-                console.log('✅ TouchManager 已初始化');
+                console.log('✅ TouchManager 已初始化（延遲載入）');
             }
-            
-            // 初始化 FirebaseService（如果有設定）
-            const firebaseConfig = await this.getFirebaseConfig();
-            if (firebaseConfig && window.FirebaseService) {
-                try {
-                    this.firebaseService = new FirebaseService();
-                    
-                    // 監聽連線狀態變化
-                    this.firebaseService.on('firebase:connected', () => {
-                        this.updateConnectionStatus(true);
-                        this.showToast('success', 'Firebase 連線成功');
-                    });
-                    
-                    this.firebaseService.on('firebase:disconnected', () => {
-                        this.updateConnectionStatus(false);
-                        this.showToast('warning', 'Firebase 連線中斷');
-                    });
-                    
-                    this.firebaseService.on('firebase:error', (data) => {
-                        console.error('Firebase 錯誤:', data.error);
-                        this.showError('Firebase 連線異常，請檢查網路狀態');
-                    });
-                    
-                    // 監聽房間事件
-                    this.setupFirebaseEventListeners();
-                    
-                    // 手動初始化 Firebase
-                    const initialized = await this.firebaseService.initialize(firebaseConfig);
-                    if (initialized) {
-                        console.log('✅ FirebaseService 已初始化');
-                    } else {
-                        throw new Error('Firebase 初始化失敗');
-                    }
-                } catch (error) {
-                    console.error('❌ FirebaseService 初始化失敗:', error);
-                    this.firebaseService = null;
-                    this.showError('Firebase 初始化失敗，將使用本地模式');
-                }
-            } else {
-                console.log('ℹ️ 使用本地模式（未設定 Firebase）');
-            }
-            
-        } catch (error) {
-            console.error('❌ 服務初始化失敗:', error);
-            throw error;
-        }
+        }, 100); // 100ms 延遲，避免阻塞主執行緒
     }
     
     /**
@@ -332,6 +366,14 @@ class ScrumPokerApp {
             });
         }
         
+        // 快速開始按鈕
+        const quickStartBtn = document.getElementById('quickStartBtn');
+        if (quickStartBtn) {
+            quickStartBtn.addEventListener('click', () => {
+                this.handleQuickStart();
+            });
+        }
+        
         // 複製房間 ID 按鈕
         const copyRoomBtn = document.getElementById('copyRoomBtn');
         if (copyRoomBtn) {
@@ -451,6 +493,18 @@ class ScrumPokerApp {
                 const fibValues = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
                 if (fibValues.includes(value)) {
                     this.quickVote(value);
+                }
+            }
+            
+            // Enter 鍵: 選擇聚焦的卡牌
+            if (event.key === 'Enter' && event.target.classList.contains('card')) {
+                event.preventDefault();
+                const value = event.target.dataset.value;
+                if (value && window.eventBus) {
+                    window.eventBus.emit('deck:card-selected', {
+                        value: parseInt(value),
+                        card: event.target
+                    });
                 }
             }
         });
@@ -1043,6 +1097,45 @@ class ScrumPokerApp {
     }
     
     /**
+     * 處理快速開始
+     */
+    async handleQuickStart() {
+        try {
+            // 自動填入預設值
+            const playerName = document.getElementById('playerName');
+            const playerRole = document.getElementById('playerRole');
+            const roomId = document.getElementById('roomId');
+            
+            if (!playerName.value.trim()) {
+                playerName.value = `玩家_${Math.random().toString(36).substring(2, 8)}`;
+            }
+            
+            if (!playerRole.value) {
+                playerRole.value = 'dev';
+            }
+            
+            if (!roomId.value.trim()) {
+                roomId.value = `快速房間_${Math.random().toString(36).substring(2, 8)}`;
+            }
+            
+            // 啟用本地模式
+            await this.enableLocalMode();
+            
+            // 直接開始遊戲
+            this.showToast('info', '正在啟動快速遊戲模式...');
+            
+            // 稍微延遲以讓用戶看到提示
+            setTimeout(() => {
+                this.handleLogin();
+            }, 500);
+            
+        } catch (error) {
+            console.error('快速開始失敗:', error);
+            this.showError('快速開始失敗，請重試');
+        }
+    }
+    
+    /**
      * 顯示 Firebase 設定
      */
     showFirebaseConfig() {
@@ -1135,6 +1228,99 @@ class ScrumPokerApp {
     }
     
     /**
+     * 記錄效能指標
+     * @param {Object} metrics - 效能指標
+     */
+    recordPerformanceMetrics(metrics) {
+        try {
+            // 儲存到本地存儲
+            const existingMetrics = JSON.parse(localStorage.getItem('scrumPoker_performanceMetrics') || '[]');
+            existingMetrics.push(metrics);
+            
+            // 只保留最近 50 筆記錄
+            if (existingMetrics.length > 50) {
+                existingMetrics.splice(0, existingMetrics.length - 50);
+            }
+            
+            localStorage.setItem('scrumPoker_performanceMetrics', JSON.stringify(existingMetrics));
+            
+            // 如果初始化時間過長，發出警告
+            if (metrics.initTime > 2000) {
+                console.warn(`⚠️ 初始化時間較長: ${metrics.initTime}ms`);
+            }
+            
+        } catch (error) {
+            console.error('效能指標記錄失敗:', error);
+        }
+    }
+    
+    /**
+     * 取得效能指標
+     * @returns {Array} 效能指標陣列
+     */
+    getPerformanceMetrics() {
+        try {
+            return JSON.parse(localStorage.getItem('scrumPoker_performanceMetrics') || '[]');
+        } catch (error) {
+            console.error('讀取效能指標失敗:', error);
+            return [];
+        }
+    }
+    
+    /**
+     * 清除效能指標
+     */
+    clearPerformanceMetrics() {
+        try {
+            localStorage.removeItem('scrumPoker_performanceMetrics');
+            console.log('效能指標已清除');
+        } catch (error) {
+            console.error('清除效能指標失敗:', error);
+        }
+    }
+    
+    /**
+     * 效能監控
+     */
+    setupPerformanceMonitoring() {
+        // 監控記憶體使用
+        if (performance.memory) {
+            setInterval(() => {
+                const memoryMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                if (memoryMB > 50) { // 超過 50MB 發出警告
+                    console.warn(`⚠️ 記憶體使用較高: ${memoryMB}MB`);
+                }
+            }, 30000); // 每 30 秒檢查一次
+        }
+        
+        // 監控長任務
+        if (window.PerformanceObserver) {
+            try {
+                const observer = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        if (entry.duration > 50) { // 超過 50ms 的任務
+                            console.warn(`⚠️ 長任務檢測: ${Math.round(entry.duration)}ms`);
+                        }
+                    }
+                });
+                observer.observe({ entryTypes: ['longtask'] });
+            } catch (error) {
+                console.log('瀏覽器不支援長任務監控');
+            }
+        }
+        
+        // 監控頁面可見性變化
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('📱 頁面已隱藏，暫停非必要操作');
+                // 可以在這裡暫停動畫或減少更新頻率
+            } else {
+                console.log('📱 頁面已顯示，恢復正常操作');
+            }
+        });
+    }
+    
+    /**
      * 獲取應用狀態
      * @returns {Object} 應用狀態
      */
@@ -1151,6 +1337,14 @@ class ScrumPokerApp {
                 firebase: !!this.firebaseService,
                 storage: !!this.storageService,
                 touch: !!this.touchManager
+            },
+            performance: {
+                metrics: this.getPerformanceMetrics(),
+                memory: performance.memory ? {
+                    used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+                    total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
+                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+                } : null
             }
         };
     }

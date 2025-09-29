@@ -6,17 +6,17 @@
 :root {
   /* === 顏色系統 === */
   
-  /* 主要顏色 */
-  --color-primary: #3b82f6;
-  --color-primary-light: #60a5fa;
-  --color-primary-dark: #1d4ed8;
-  --color-primary-alpha: rgba(59, 130, 246, 0.1);
+  /* 主要顏色 - 提升對比度符合 WCAG AA 標準 */
+  --color-primary: #1e40af;
+  --color-primary-light: #3b82f6;
+  --color-primary-dark: #1e3a8a;
+  --color-primary-alpha: rgba(30, 64, 175, 0.1);
   
-  /* 次要顏色 */
-  --color-secondary: #10b981;
-  --color-secondary-light: #34d399;
-  --color-secondary-dark: #047857;
-  --color-secondary-alpha: rgba(16, 185, 129, 0.1);
+  /* 次要顏色 - 提升對比度符合 WCAG AA 標準 */
+  --color-secondary: #065f46;
+  --color-secondary-light: #10b981;
+  --color-secondary-dark: #064e3b;
+  --color-secondary-alpha: rgba(6, 95, 70, 0.1);
   
   /* 狀態顏色 */
   --color-success: #10b981;

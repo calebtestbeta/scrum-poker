@@ -21,18 +21,67 @@
     <title>Scrum Poker 遊戲版 - 敏捷估點工具 (重新設計版)</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
     
-    <!-- Google Fonts -->
+    <!-- Google Fonts - 效能優化 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- 使用 font-display: swap 提升載入效能 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <!-- 資源提示優化 - 效能增強 -->
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preload" href="src/styles/variables.css" as="style">
+    <link rel="preload" href="src/styles/main.css" as="style">
+    <!-- 預載入關鍵 JavaScript -->
+    <link rel="preload" href="src/core/EventBus.js" as="script">
+    <link rel="preload" href="src/app.js" as="script">
+    
+    <!-- Firebase SDK - 效能優化載入 -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
     
     <!-- 主樣式文件 -->
     <link rel="stylesheet" href="src/styles/main.css">
+    
+    <!-- 關鍵 CSS 內聯優化 -->
+    <style>
+        /* 關鍵路徑 CSS - 首屏渲染優化 */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
     
     <style>
         /* 載入動畫 */
@@ -160,6 +209,19 @@
                         
                         <button type="submit" class="btn btn-primary btn-lg">🚀 開始遊戲</button>
                         
+                        <!-- 快速開始模式 -->
+                        <div class="quick-start-section">
+                            <div class="divider">
+                                <span>或者</span>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-lg" id="quickStartBtn">
+                                ⚡ 快速開始（本地模式）
+                            </button>
+                            <p class="text-muted text-center">
+                                <small>🏠 適合單一團隊使用，無需設定即可開始估點</small>
+                            </p>
+                        </div>
+                        
                         <!-- Firebase 設定區域 -->
                         <div class="firebase-config" id="firebaseConfig">
                             <h3>🔧 Firebase 設定（首次使用）</h3>
@@ -224,6 +286,11 @@
                         <h2 class="text-inverse text-center">等待玩家加入...</h2>
                     </div>
                     
+                    <!-- 螢幕報讀器即時狀態播報 -->
+                    <div aria-live="polite" aria-atomic="true" class="sr-only" id="gameStatusAnnouncer">
+                        遊戲開始，等待玩家加入
+                    </div>
+                    
                     <div class="game-actions" id="gameActions">
                         <!-- 中央按鈕動態生成在這裡 -->
                     </div>
@@ -249,8 +316,9 @@
             </div>
             
             <!-- 卡牌區域 -->
-            <div class="cards-area" id="cardsArea" role="group" aria-label="估點卡牌">
+            <div class="cards-area" id="cardsArea" role="group" aria-label="估點卡牌" aria-describedby="cardsHelp">
                 <!-- 卡牌動態生成在這裡 -->
+                <div id="cardsHelp" class="sr-only">選擇一張卡牌進行估點。可使用數字鍵 1-9 快速選擇，或使用 Tab 鍵導航。</div>
             </div>
         </main>
     </div>
@@ -354,43 +422,56 @@
         });
     </script>
     
-    <!-- 核心模組載入 -->
+    <!-- 核心模組載入 - 效能優化 -->
     <script>
         updateLoadingProgress(2, '載入核心模組');
     </script>
-    <script src="src/core/EventBus.js"></script>
-    <script src="src/core/GameState.js"></script>
-    <script src="src/core/Utils.js"></script>
+    <script src="src/core/EventBus.js" defer></script>
+    <script src="src/core/GameState.js" defer></script>
+    <script src="src/core/Utils.js" defer></script>
     
-    <!-- 服務層載入 -->
+    <!-- 服務層載入 - 效能優化 -->
     <script>
         updateLoadingProgress(3, '載入服務層');
     </script>
     <!-- Firebase 設定 -->
-    <script src="firebase-config.js"></script>
+    <script src="firebase-config.js" defer></script>
     <!-- 服務模組 -->
-    <script src="src/services/FirebaseService.js"></script>
-    <script src="src/services/StorageService.js"></script>
+    <script src="src/services/FirebaseService.js" defer></script>
+    <script src="src/services/StorageService.js" defer></script>
     <!-- 觸控管理器 -->
-    <script src="src/core/TouchManager.js"></script>
-    <!-- <script src="src/services/NotificationService.js"></script> -->
+    <script src="src/core/TouchManager.js" defer></script>
     
-    <!-- 組件載入 -->
+    <!-- 組件載入 - 效能優化 -->
     <script>
         updateLoadingProgress(4, '載入 UI 組件');
     </script>
-    <script src="src/components/Card.js"></script>
-    <script src="src/components/Player.js"></script>
-    <script src="src/components/GameTable.js"></script>
+    <script src="src/components/Card.js" defer></script>
+    <script src="src/components/Player.js" defer></script>
+    <script src="src/components/GameTable.js" defer></script>
     
-    <!-- 主應用程式 -->
+    <!-- 主應用程式 - 效能優化 -->
     <script>
         updateLoadingProgress(5, '初始化應用程式');
     </script>
-    <script src="src/app.js"></script>
+    <script src="src/app.js" defer></script>
     
+    <!-- Service Worker 註冊 -->
     <script>
         updateLoadingProgress(6, '準備就緒');
+        
+        // 註冊 Service Worker 提升效能和離線體驗
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker 註冊成功:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Service Worker 註冊失敗:', error);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
