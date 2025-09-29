@@ -69,7 +69,7 @@ class ScrumPokerApp {
             this.setupPerformanceMonitoring();
             
             // 檢查保存的使用者資訊
-            this.checkSavedUserInfo();
+            await this.checkSavedUserInfo();
             
             // 隱藏載入畫面
             this.hideLoadingScreen();
@@ -528,7 +528,7 @@ class ScrumPokerApp {
     /**
      * 檢查保存的使用者資訊
      */
-    checkSavedUserInfo() {
+    async checkSavedUserInfo() {
         const savedInfo = Utils.Storage.getItem('scrumPoker_userInfo');
         if (savedInfo) {
             const playerName = document.getElementById('playerName');
@@ -542,12 +542,35 @@ class ScrumPokerApp {
             this.handleRoleChange(); // 觸發角色變更邏輯
         }
         
-        // 檢查保存的 Firebase 設定
-        const savedConfig = Utils.Storage.getItem('scrumPoker_firebaseConfig');
-        if (savedConfig) {
+        // 檢查保存的 Firebase 設定（檢查兩種儲存方式）
+        const hasFirebaseConfig = await this.hasFirebaseConfig();
+        if (hasFirebaseConfig) {
             this.hideFirebaseConfig();
         } else {
             this.showFirebaseConfig();
+        }
+    }
+    
+    /**
+     * 檢查是否已有 Firebase 設定
+     * @returns {Promise<boolean>} 是否有設定
+     */
+    async hasFirebaseConfig() {
+        try {
+            // 檢查新版 StorageService
+            if (this.storageService) {
+                const config = await this.storageService.getItem('firebaseConfig');
+                if (config && config.projectId && config.apiKey) {
+                    return true;
+                }
+            }
+            
+            // 檢查舊版 Utils.Storage
+            const legacyConfig = Utils.Storage.getItem('scrumPoker_firebaseConfig');
+            return !!(legacyConfig && legacyConfig.projectId && legacyConfig.apiKey);
+        } catch (error) {
+            console.error('檢查 Firebase 設定失敗:', error);
+            return false;
         }
     }
     

@@ -1,0 +1,100 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
+        "gameState": {
+          "phase": {
+            ".validate": "newData.isString()"
+          },
+          "votes": {
+            ".validate": "true"
+          },
+          "currentRound": {
+            ".validate": "newData.isNumber()"
+          },
+          "lastActivity": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        
+        "players": {
+          "$playerId": {
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+            },
+            "role": {
+              ".validate": "newData.isString()"
+            },
+            "taskType": {
+              ".validate": "newData.isString()"
+            },
+            "joinedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "isOnline": {
+              ".validate": "newData.isBoolean()"
+            },
+            "lastSeen": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+        
+        "votes": {
+          "$playerId": {
+            ".validate": "true"
+          }
+        },
+        
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdBy": {
+          ".validate": "newData.isString()"
+        },
+        "lastUpdated": {
+          ".validate": "newData.isNumber()"
+        },
+        "settings": {
+          "cardDeck": {
+            ".validate": "newData.isString()"
+          },
+          "autoReveal": {
+            ".validate": "newData.isBoolean()"
+          },
+          "allowObservers": {
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      }
+    },
+    
+    "userProfiles": {
+      "$userId": {
+        ".read": "$userId === auth.uid",
+        ".write": "$userId === auth.uid",
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "preferredRole": {
+          ".validate": "newData.isString()"
+        },
+        "preferredCardDeck": {
+          ".validate": "newData.isString()"
+        },
+        "totalGames": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "lastActive": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    }
+  }
+}
