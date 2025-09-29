@@ -982,14 +982,76 @@ const StorageUtils = {
      * 安全的 localStorage 設定
      * @param {string} key - 鍵
      * @param {*} value - 值
+     * @param {Object} options - 選項 { encrypt: boolean, compress: boolean }
      * @returns {boolean} 是否成功
      */
-    setItem(key, value) {
+    setItem(key, value, options = {}) {
         try {
-            localStorage.setItem(key, JSON.stringify(value));
+            let dataToStore;
+            
+            // 序列化資料
+            if (typeof value === 'string') {
+                dataToStore = value;
+            } else {
+                try {
+                    dataToStore = JSON.stringify(value);
+                } catch (stringifyError) {
+                    console.error('StorageUtils.setItem: 序列化失敗', {
+                        key,
+                        error: stringifyError.message,
+                        valueType: typeof value
+                    });
+                    return false;
+                }
+            }
+            
+            // 壓縮處理
+            if (options.compress && dataToStore.length > 100) {
+                try {
+                    dataToStore = 'COMPRESSED:' + btoa(dataToStore);
+                } catch (compressError) {
+                    console.warn('StorageUtils.setItem: 壓縮失敗，使用原始資料', {
+                        key,
+                        error: compressError.message
+                    });
+                }
+            }
+            
+            // 加密處理
+            if (options.encrypt && window.StorageService) {
+                try {
+                    const storageService = new window.StorageService();
+                    dataToStore = storageService.encryptData(dataToStore);
+                } catch (encryptError) {
+                    console.warn('StorageUtils.setItem: 加密失敗，使用原始資料', {
+                        key,
+                        error: encryptError.message
+                    });
+                }
+            }
+            
+            localStorage.setItem(key, dataToStore);
             return true;
         } catch (error) {
-            console.warn('StorageUtils.setItem: 無法儲存到 localStorage', error);
+            console.error('StorageUtils.setItem: 存儲失敗', {
+                key,
+                error: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+            
+            // 檢查是否因為空間不足
+            if (error.name === 'QuotaExceededError') {
+                console.warn('StorageUtils.setItem: localStorage 空間不足');
+                
+                // 嘗試清理過期資料（如果有相關功能）
+                try {
+                    this.cleanup();
+                } catch (cleanupError) {
+                    console.error('StorageUtils.setItem: 清理失敗', cleanupError);
+                }
+            }
+            
             return false;
         }
     },
@@ -1003,9 +1065,88 @@ const StorageUtils = {
     getItem(key, defaultValue = null) {
         try {
             const item = localStorage.getItem(key);
-            return item ? JSON.parse(item) : defaultValue;
+            if (!item) return defaultValue;
+            
+            // 檢查是否為加密資料
+            if (item.startsWith('ENCRYPTED:')) {
+                try {
+                    // 如果存在 StorageService，使用它的解密方法
+                    if (window.StorageService) {
+                        const storageService = new window.StorageService();
+                        return storageService.decryptData(item);
+                    } else {
+                        console.warn('StorageUtils.getItem: 發現加密資料但 StorageService 不可用');
+                        return defaultValue;
+                    }
+                } catch (decryptError) {
+                    console.error('StorageUtils.getItem: 解密失敗', {
+                        key,
+                        error: decryptError.message,
+                        stack: decryptError.stack
+                    });
+                    return defaultValue;
+                }
+            }
+            
+            // 檢查是否為壓縮資料
+            if (item.startsWith('COMPRESSED:')) {
+                try {
+                    const decompressed = atob(item.substring(11));
+                    return JSON.parse(decompressed);
+                } catch (decompressError) {
+                    console.error('StorageUtils.getItem: 解壓縮失敗', {
+                        key,
+                        error: decompressError.message
+                    });
+                    return defaultValue;
+                }
+            }
+            
+            // 嘗試解析 JSON
+            try {
+                return JSON.parse(item);
+            } catch (parseError) {
+                // 如果不是 JSON，檢查是否是簡單字串
+                if (typeof item === 'string' && item.length > 0) {
+                    // 嘗試判斷是否為數字
+                    const numValue = Number(item);
+                    if (!isNaN(numValue) && isFinite(numValue)) {
+                        return numValue;
+                    }
+                    
+                    // 嘗試判斷是否為布林值
+                    if (item.toLowerCase() === 'true') return true;
+                    if (item.toLowerCase() === 'false') return false;
+                    
+                    // 返回原始字串
+                    return item;
+                }
+                
+                console.error('StorageUtils.getItem: JSON 解析失敗', {
+                    key,
+                    value: item.substring(0, 100) + (item.length > 100 ? '...' : ''),
+                    error: parseError.message,
+                    type: typeof item
+                });
+                
+                return defaultValue;
+            }
         } catch (error) {
-            console.warn('StorageUtils.getItem: 無法從 localStorage 讀取', error);
+            console.error('StorageUtils.getItem: 存取 localStorage 失敗', {
+                key,
+                error: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+            
+            // 嘗試清除損壞的資料
+            try {
+                localStorage.removeItem(key);
+                console.warn(`StorageUtils.getItem: 已清除損壞的鍵值 "${key}"`);
+            } catch (removeError) {
+                console.error('StorageUtils.getItem: 無法清除損壞的資料', removeError);
+            }
+            
             return defaultValue;
         }
     },
@@ -1034,6 +1175,110 @@ const StorageUtils = {
             return true;
         } catch (error) {
             return false;
+        }
+    },
+
+    /**
+     * 清理損壞或過期的資料
+     */
+    cleanup() {
+        try {
+            const keysToRemove = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                
+                try {
+                    // 嘗試讀取每個項目
+                    this.getItem(key);
+                } catch (error) {
+                    // 如果讀取失敗，標記為需要清除
+                    keysToRemove.push(key);
+                    console.warn(`StorageUtils.cleanup: 發現損壞的資料 "${key}"`, error.message);
+                }
+            }
+            
+            // 移除損壞的項目
+            keysToRemove.forEach(key => {
+                try {
+                    localStorage.removeItem(key);
+                    console.log(`StorageUtils.cleanup: 已清除損壞的項目 "${key}"`);
+                } catch (removeError) {
+                    console.error(`StorageUtils.cleanup: 無法清除項目 "${key}"`, removeError);
+                }
+            });
+            
+            console.log(`StorageUtils.cleanup: 清理完成，共清除 ${keysToRemove.length} 個項目`);
+            return keysToRemove.length;
+            
+        } catch (error) {
+            console.error('StorageUtils.cleanup: 清理過程中發生錯誤', error);
+            return 0;
+        }
+    },
+
+    /**
+     * 獲取存儲統計資訊
+     * @returns {Object} 統計資訊
+     */
+    getStats() {
+        try {
+            const stats = {
+                totalItems: localStorage.length,
+                totalSize: 0,
+                availableSpace: null,
+                corrupted: 0,
+                encrypted: 0,
+                compressed: 0
+            };
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                
+                try {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                        stats.totalSize += value.length;
+                        
+                        if (value.startsWith('ENCRYPTED:')) {
+                            stats.encrypted++;
+                        } else if (value.startsWith('COMPRESSED:')) {
+                            stats.compressed++;
+                        }
+                    }
+                } catch (error) {
+                    stats.corrupted++;
+                }
+            }
+            
+            // 嘗試獲取可用空間資訊
+            try {
+                if ('storage' in navigator && 'estimate' in navigator.storage) {
+                    navigator.storage.estimate().then(estimate => {
+                        stats.availableSpace = {
+                            quota: estimate.quota,
+                            usage: estimate.usage,
+                            usagePercentage: Math.round((estimate.usage / estimate.quota) * 100)
+                        };
+                    });
+                }
+            } catch (spaceError) {
+                console.warn('StorageUtils.getStats: 無法獲取空間資訊', spaceError);
+            }
+            
+            return stats;
+        } catch (error) {
+            console.error('StorageUtils.getStats: 統計資訊獲取失敗', error);
+            return {
+                totalItems: 0,
+                totalSize: 0,
+                availableSpace: null,
+                corrupted: 0,
+                encrypted: 0,
+                compressed: 0
+            };
         }
     }
 };
