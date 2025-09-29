@@ -1333,12 +1333,27 @@ class ScrumPokerApp {
         }
         
         // 監控頁面可見性變化
+        let lastVisibilityState = document.visibilityState;
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                console.log('📱 頁面已隱藏，暫停非必要操作');
-                // 可以在這裡暫停動畫或減少更新頻率
-            } else {
-                console.log('📱 頁面已顯示，恢復正常操作');
+            const currentState = document.visibilityState;
+            
+            // 只在狀態改變時觸發操作
+            if (currentState !== lastVisibilityState) {
+                lastVisibilityState = currentState;
+                
+                if (document.hidden) {
+                    console.log('📱 頁面已隱藏，暫停非必要操作');
+                    // 暫停動畫或減少更新頻率
+                    if (window.eventBus) {
+                        window.eventBus.emit('app:page-hidden');
+                    }
+                } else {
+                    console.log('📱 頁面已顯示，恢復正常操作');
+                    // 恢復正常操作
+                    if (window.eventBus) {
+                        window.eventBus.emit('app:page-visible');
+                    }
+                }
             }
         });
     }

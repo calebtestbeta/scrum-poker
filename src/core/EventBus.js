@@ -65,9 +65,16 @@ class EventBus {
             window.addEventListener('beforeunload', () => this.destroy());
             
             // 頁面可見性變化時清理
+            let lastVisibilityState = document.visibilityState;
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
+                const currentState = document.visibilityState;
+                
+                // 只在狀態改變且頁面隱藏時執行清理
+                if (currentState !== lastVisibilityState && document.hidden) {
+                    lastVisibilityState = currentState;
                     this.performIdleCleanup();
+                } else if (currentState !== lastVisibilityState) {
+                    lastVisibilityState = currentState;
                 }
             });
         }
