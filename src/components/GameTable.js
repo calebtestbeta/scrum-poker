@@ -278,4 +278,369 @@ class GameTable {
      * 處理投票進度
      * @param {Object} progress - 進度數據
      */
-    handleVotingProgress(progress) {        // 檢查是否所有人都投票了        if (progress.percentage >= (this.options.autoRevealThreshold * 100)) {            if (this.currentPhase === 'voting') {                console.log('🎯 所有玩家已投票，準備開牌');                                // 啟用開牌按鈕                if (this.buttons.reveal) {                    this.buttons.reveal.disabled = false;                    this.buttons.reveal.classList.add('btn-pulse');                }                                // 發送投票完成事件                if (window.eventBus) {                    window.eventBus.emit('game:voting-completed', {                        progress,                        canReveal: true                    });                }            }        }                this.updateGameStatus();    }        /**     * 處理階段變更     * @param {string} newPhase - 新階段     * @param {string} oldPhase - 舊階段     */    handlePhaseChange(newPhase, oldPhase) {        console.log(`🎮 遊戲階段變更: ${oldPhase} → ${newPhase}`);                this.currentPhase = newPhase;                switch (newPhase) {            case 'waiting':                this.cardDeck.setClickable(false);                break;            case 'voting':                this.enableVoting();                break;            case 'revealing':                this.cardDeck.setClickable(false);                this.revealVotes();                break;            case 'finished':                this.cardDeck.setClickable(false);                break;        }                this.updateButtonStates();        this.updateGameStatus();    }        /**     * 啟用投票     */    enableVoting() {        if (this.currentPlayerId) {            const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);            if (currentPlayer && !currentPlayer.hasVoted) {                this.cardDeck.setClickable(true);            }        }    }        /**     * 開牌顯示結果     */    revealVotes() {        if (this.currentPhase === 'voting') {            this.currentPhase = 'revealing';        }                // 顯示所有投票        this.playerList.revealAllVotes();                // 清除卡牌選擇        this.cardDeck.clearSelection();        this.cardDeck.setClickable(false);                // 計算統計數據        const statistics = this.playerList.getVotingStatistics();                // 發送開牌事件        if (window.eventBus) {            window.eventBus.emit('game:votes-revealed', {                statistics,                players: this.playerList.getAllPlayers().map(p => p.getData())            });        }                // 更新到 finished 階段        setTimeout(() => {            this.currentPhase = 'finished';            this.updateButtonStates();            this.updateGameStatus();        }, 1000);                console.log('🎭 投票結果已公開');    }        /**     * 清除投票重新開始     */    clearVotes() {        // 清除所有玩家投票        this.playerList.clearAllVotes();                // 清除卡牌選擇        this.cardDeck.clearSelection();                // 重置階段        this.currentPhase = 'voting';                // 重新啟用投票        this.enableVoting();                // 發送清除事件        if (window.eventBus) {            window.eventBus.emit('game:votes-cleared');        }                this.updateButtonStates();        this.updateGameStatus();                console.log('🔄 投票已清除，重新開始');    }        /**     * 離開房間     */    leaveRoom() {        // 顯示確認對話框        const confirmed = confirm('確定要離開房間嗎？');        if (!confirmed) return;                // 發送離開事件        if (window.eventBus) {            window.eventBus.emit('game:leave-room', {                playerId: this.currentPlayerId,                roomId: this.roomId            });        }                // 重置遊戲狀態        this.reset();                console.log('🚪 已離開房間');    }        /**     * 播放投票反饋     */    playVoteFeedback() {        // 觸覺反饋        if (navigator.vibrate) {            navigator.vibrate(100);        }                // 音效反饋（如果需要）        // 可以在這裡添加音效播放    }        /**     * 更新按鈕狀態     */    updateButtonStates() {        if (!this.buttons) return;                const progress = this.playerList.updateVotingProgress();                // 開牌按鈕        if (this.buttons.reveal) {            const canReveal = this.currentPhase === 'voting' && progress.voted > 0;            this.buttons.reveal.disabled = !canReveal;            this.buttons.reveal.classList.toggle('btn-pulse',                 canReveal && progress.percentage >= (this.options.autoRevealThreshold * 100));        }                // 重新開始按鈕        if (this.buttons.clear) {            const canClear = this.currentPhase === 'finished' || progress.voted > 0;            this.buttons.clear.disabled = !canClear;        }                // 離開按鈕始終可用        if (this.buttons.leave) {            this.buttons.leave.disabled = false;        }    }        /**     * 更新遊戲狀態顯示     */    updateGameStatus() {        if (!this.elements.gameStatus) return;                const progress = this.playerList.updateVotingProgress();        let statusText = '';        let statusClass = '';                switch (this.currentPhase) {            case 'waiting':                statusText = '等待玩家加入...';                statusClass = 'status-waiting';                break;            case 'voting':                if (progress.total === 0) {                    statusText = '等待玩家加入房間';                    statusClass = 'status-waiting';                } else if (progress.voted === 0) {                    statusText = `請選擇卡牌進行投票 (${progress.total} 位玩家)`;                    statusClass = 'status-voting';                } else if (progress.percentage < 100) {                    statusText = `投票進行中 ${progress.voted}/${progress.total} (${progress.percentage}%)`;                    statusClass = 'status-voting';                } else {                    statusText = `所有玩家已投票完成！點擊開牌查看結果`;                    statusClass = 'status-ready';                }                break;            case 'revealing':                statusText = '正在開牌...';                statusClass = 'status-revealing';                break;            case 'finished':                const stats = this.playerList.getVotingStatistics();                statusText = `投票結果 - 平均: ${stats.averagePoints}, 共識度: ${stats.consensus}%`;                statusClass = 'status-finished';                break;        }                this.elements.gameStatus.textContent = statusText;        this.elements.gameStatus.className = `game-status ${statusClass}`;    }        // === 公開 API 方法 ===        /**     * 設置房間 ID     * @param {string} roomId - 房間 ID     */    setRoomId(roomId) {        this.roomId = roomId;    }        /**     * 設置當前玩家     * @param {string} playerId - 玩家 ID     */    setCurrentPlayer(playerId) {        this.currentPlayerId = playerId;        this.playerList.setCurrentPlayer(playerId);                // 如果處於投票階段，啟用卡牌        if (this.currentPhase === 'voting') {            this.enableVoting();        }    }        /**     * 添加玩家     * @param {string} id - 玩家 ID     * @param {string} name - 玩家名稱     * @param {string} role - 玩家角色     * @param {Object} data - 額外數據     */    addPlayer(id, name, role, data = {}) {        const player = this.playerList.addPlayer(id, name, role, data);        this.updateGameStatus();        return player;    }        /**     * 移除玩家     * @param {string} id - 玩家 ID     */    removePlayer(id) {        this.playerList.removePlayer(id);        this.updateGameStatus();    }        /**     * 更新玩家數據     * @param {string} id - 玩家 ID     * @param {Object} data - 玩家數據     */    updatePlayer(id, data) {        const player = this.playerList.getPlayer(id);        if (player) {            player.updateFromData(data);        }    }        /**     * 開始遊戲     */    startGame() {        this.currentPhase = 'voting';        this.enableVoting();        this.updateButtonStates();        this.updateGameStatus();                console.log('🎮 遊戲開始');    }        /**     * 重置遊戲桌面     */    reset() {        this.currentPhase = 'waiting';        this.roomId = null;        this.currentPlayerId = null;                this.playerList.destroy();        this.cardDeck.destroy();                // 重新初始化        this.createPlayerList();        this.createCardDeck();                this.updateButtonStates();        this.updateGameStatus();                console.log('🔄 遊戲桌面已重置');    }        /**     * 獲取遊戲統計     * @returns {Object} 統計數據     */    getStatistics() {        return {            phase: this.currentPhase,            playerCount: this.playerList.getAllPlayers().length,            votingProgress: this.playerList.updateVotingProgress(),            votingStatistics: this.playerList.getVotingStatistics()        };    }        /**     * 銷毀遊戲桌面     */    destroy() {        if (this.playerList) {            this.playerList.destroy();        }                if (this.cardDeck) {            this.cardDeck.destroy();        }                if (this.container) {            this.container.innerHTML = '';        }                console.log('💥 GameTable 已銷毀');    }}// 匯出到全域window.GameTable = GameTable;console.log('🎯 GameTable 遊戲桌面已載入 - v3.0.0-enhanced');
+    handleVotingProgress(progress) {
+        // 檢查是否所有人都投票了
+        if (progress.percentage >= (this.options.autoRevealThreshold * 100)) {
+            if (this.currentPhase === 'voting') {
+                console.log('🎯 所有玩家已投票，準備開牌');
+                
+                // 啟用開牌按鈕
+                if (this.buttons.reveal) {
+                    this.buttons.reveal.disabled = false;
+                    this.buttons.reveal.classList.add('btn-pulse');
+                }
+                
+                // 發送投票完成事件
+                if (window.eventBus) {
+                    window.eventBus.emit('game:voting-completed', {
+                        progress,
+                        canReveal: true
+                    });
+                }
+            }
+        }
+        
+        this.updateGameStatus();
+    }
+    
+    /**
+     * 處理階段變更
+     * @param {string} newPhase - 新階段
+     * @param {string} oldPhase - 舊階段
+     */
+    handlePhaseChange(newPhase, oldPhase) {
+        console.log(`🎮 遊戲階段變更: ${oldPhase} → ${newPhase}`);
+        
+        this.currentPhase = newPhase;
+        
+        switch (newPhase) {
+            case 'waiting':
+                this.cardDeck.setClickable(false);
+                break;
+            case 'voting':
+                this.enableVoting();
+                break;
+            case 'revealing':
+                this.cardDeck.setClickable(false);
+                this.revealVotes();
+                break;
+            case 'finished':
+                this.cardDeck.setClickable(false);
+                break;
+        }
+        
+        this.updateButtonStates();
+        this.updateGameStatus();
+    }
+    
+    /**
+     * 啟用投票
+     */
+    enableVoting() {
+        if (this.currentPlayerId) {
+            const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);
+            if (currentPlayer && !currentPlayer.hasVoted) {
+                this.cardDeck.setClickable(true);
+            }
+        }
+    }
+    
+    /**
+     * 開牌顯示結果
+     */
+    revealVotes() {
+        if (this.currentPhase === 'voting') {
+            this.currentPhase = 'revealing';
+        }
+        
+        // 顯示所有投票
+        this.playerList.revealAllVotes();
+        
+        // 清除卡牌選擇
+        this.cardDeck.clearSelection();
+        this.cardDeck.setClickable(false);
+        
+        // 計算統計數據
+        const statistics = this.playerList.getVotingStatistics();
+        
+        // 發送開牌事件
+        if (window.eventBus) {
+            window.eventBus.emit('game:votes-revealed', {
+                statistics,
+                players: this.playerList.getAllPlayers().map(p => p.getData())
+            });
+        }
+        
+        // 更新到 finished 階段
+        setTimeout(() => {
+            this.currentPhase = 'finished';
+            this.updateButtonStates();
+            this.updateGameStatus();
+        }, 1000);
+        
+        console.log('🎭 投票結果已公開');
+    }
+    
+    /**
+     * 清除投票重新開始
+     */
+    clearVotes() {
+        // 清除所有玩家投票
+        this.playerList.clearAllVotes();
+        
+        // 清除卡牌選擇
+        this.cardDeck.clearSelection();
+        
+        // 重置階段
+        this.currentPhase = 'voting';
+        
+        // 重新啟用投票
+        this.enableVoting();
+        
+        // 發送清除事件
+        if (window.eventBus) {
+            window.eventBus.emit('game:votes-cleared');
+        }
+        
+        this.updateButtonStates();
+        this.updateGameStatus();
+        
+        console.log('🔄 投票已清除，重新開始');
+    }
+    
+    /**
+     * 離開房間
+     */
+    leaveRoom() {
+        // 顯示確認對話框
+        const confirmed = confirm('確定要離開房間嗎？');
+        if (!confirmed) return;
+        
+        // 發送離開事件
+        if (window.eventBus) {
+            window.eventBus.emit('game:leave-room', {
+                playerId: this.currentPlayerId,
+                roomId: this.roomId
+            });
+        }
+        
+        // 重置遊戲狀態
+        this.reset();
+        
+        console.log('🚪 已離開房間');
+    }
+    
+    /**
+     * 播放投票反饋
+     */
+    playVoteFeedback() {
+        // 觸覺反饋
+        if (navigator.vibrate) {
+            navigator.vibrate(100);
+        }
+        
+        // 音效反饋（如果需要）
+        // 可以在這裡添加音效播放
+    }
+    
+    /**
+     * 更新按鈕狀態
+     */
+    updateButtonStates() {
+        if (!this.buttons) return;
+        
+        const progress = this.playerList.updateVotingProgress();
+        
+        // 開牌按鈕
+        if (this.buttons.reveal) {
+            const canReveal = this.currentPhase === 'voting' && progress.voted > 0;
+            this.buttons.reveal.disabled = !canReveal;
+            this.buttons.reveal.classList.toggle('btn-pulse', 
+                canReveal && progress.percentage >= (this.options.autoRevealThreshold * 100));
+        }
+        
+        // 重新開始按鈕
+        if (this.buttons.clear) {
+            const canClear = this.currentPhase === 'finished' || progress.voted > 0;
+            this.buttons.clear.disabled = !canClear;
+        }
+        
+        // 離開按鈕始終可用
+        if (this.buttons.leave) {
+            this.buttons.leave.disabled = false;
+        }
+    }
+    
+    /**
+     * 更新遊戲狀態顯示
+     */
+    updateGameStatus() {
+        if (!this.elements.gameStatus) return;
+        
+        const progress = this.playerList.updateVotingProgress();
+        let statusText = '';
+        let statusClass = '';
+        
+        switch (this.currentPhase) {
+            case 'waiting':
+                statusText = '等待玩家加入...';
+                statusClass = 'status-waiting';
+                break;
+            case 'voting':
+                if (progress.total === 0) {
+                    statusText = '等待玩家加入房間';
+                    statusClass = 'status-waiting';
+                } else if (progress.voted === 0) {
+                    statusText = `請選擇卡牌進行投票 (${progress.total} 位玩家)`;
+                    statusClass = 'status-voting';
+                } else if (progress.percentage < 100) {
+                    statusText = `投票進行中 ${progress.voted}/${progress.total} (${progress.percentage}%)`;
+                    statusClass = 'status-voting';
+                } else {
+                    statusText = `所有玩家已投票完成！點擊開牌查看結果`;
+                    statusClass = 'status-ready';
+                }
+                break;
+            case 'revealing':
+                statusText = '正在開牌...';
+                statusClass = 'status-revealing';
+                break;
+            case 'finished':
+                const stats = this.playerList.getVotingStatistics();
+                statusText = `投票結果 - 平均: ${stats.averagePoints}, 共識度: ${stats.consensus}%`;
+                statusClass = 'status-finished';
+                break;
+        }
+        
+        this.elements.gameStatus.textContent = statusText;
+        this.elements.gameStatus.className = `game-status ${statusClass}`;
+    }
+    
+    // === 公開 API 方法 ===
+    
+    /**
+     * 設置房間 ID
+     * @param {string} roomId - 房間 ID
+     */
+    setRoomId(roomId) {
+        this.roomId = roomId;
+    }
+    
+    /**
+     * 設置當前玩家
+     * @param {string} playerId - 玩家 ID
+     */
+    setCurrentPlayer(playerId) {
+        this.currentPlayerId = playerId;
+        this.playerList.setCurrentPlayer(playerId);
+        
+        // 如果處於投票階段，啟用卡牌
+        if (this.currentPhase === 'voting') {
+            this.enableVoting();
+        }
+    }
+    
+    /**
+     * 添加玩家
+     * @param {string} id - 玩家 ID
+     * @param {string} name - 玩家名稱
+     * @param {string} role - 玩家角色
+     * @param {Object} data - 額外數據
+     */
+    addPlayer(id, name, role, data = {}) {
+        const player = this.playerList.addPlayer(id, name, role, data);
+        this.updateGameStatus();
+        return player;
+    }
+    
+    /**
+     * 移除玩家
+     * @param {string} id - 玩家 ID
+     */
+    removePlayer(id) {
+        this.playerList.removePlayer(id);
+        this.updateGameStatus();
+    }
+    
+    /**
+     * 更新玩家數據
+     * @param {string} id - 玩家 ID
+     * @param {Object} data - 玩家數據
+     */
+    updatePlayer(id, data) {
+        const player = this.playerList.getPlayer(id);
+        if (player) {
+            player.updateFromData(data);
+        }
+    }
+    
+    /**
+     * 開始遊戲
+     */
+    startGame() {
+        this.currentPhase = 'voting';
+        this.enableVoting();
+        this.updateButtonStates();
+        this.updateGameStatus();
+        
+        console.log('🎮 遊戲開始');
+    }
+    
+    /**
+     * 重置遊戲桌面
+     */
+    reset() {
+        this.currentPhase = 'waiting';
+        this.roomId = null;
+        this.currentPlayerId = null;
+        
+        this.playerList.destroy();
+        this.cardDeck.destroy();
+        
+        // 重新初始化
+        this.createPlayerList();
+        this.createCardDeck();
+        
+        this.updateButtonStates();
+        this.updateGameStatus();
+        
+        console.log('🔄 遊戲桌面已重置');
+    }
+    
+    /**
+     * 獲取遊戲統計
+     * @returns {Object} 統計數據
+     */
+    getStatistics() {
+        return {
+            phase: this.currentPhase,
+            playerCount: this.playerList.getAllPlayers().length,
+            votingProgress: this.playerList.updateVotingProgress(),
+            votingStatistics: this.playerList.getVotingStatistics()
+        };
+    }
+    
+    /**
+     * 銷毀遊戲桌面
+     */
+    destroy() {
+        if (this.playerList) {
+            this.playerList.destroy();
+        }
+        
+        if (this.cardDeck) {
+            this.cardDeck.destroy();
+        }
+        
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+        
+        console.log('💥 GameTable 已銷毀');
+    }
+}
+
+// 匯出到全域
+window.GameTable = GameTable;
+
+console.log('🎯 GameTable 遊戲桌面已載入 - v3.0.0-enhanced');
