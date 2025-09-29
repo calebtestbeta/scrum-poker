@@ -3,6 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://fonts.googleapis.com;
+        img-src 'self' data: https:;
+        frame-ancestors 'none';
+        base-uri 'self';
+        form-action 'self';
+    ">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <title>Scrum Poker 遊戲版 - 敏捷估點工具 (重新設計版)</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
     
@@ -353,26 +368,26 @@
     </script>
     <!-- Firebase 設定 -->
     <script src="firebase-config.js"></script>
-    <!-- 待建立的服務模組 -->
-    <!-- <script src="src/services/FirebaseService.js"></script> -->
-    <!-- <script src="src/services/StorageService.js"></script> -->
+    <!-- 服務模組 -->
+    <script src="src/services/FirebaseService.js"></script>
+    <script src="src/services/StorageService.js"></script>
+    <!-- 觸控管理器 -->
+    <script src="src/core/TouchManager.js"></script>
     <!-- <script src="src/services/NotificationService.js"></script> -->
     
     <!-- 組件載入 -->
     <script>
         updateLoadingProgress(4, '載入 UI 組件');
     </script>
-    <!-- 待建立的組件模組 -->
-    <!-- <script src="src/components/Card.js"></script> -->
-    <!-- <script src="src/components/Player.js"></script> -->
-    <!-- <script src="src/components/GameTable.js"></script> -->
-    <!-- <script src="src/components/StatPanel.js"></script> -->
+    <script src="src/components/Card.js"></script>
+    <script src="src/components/Player.js"></script>
+    <script src="src/components/GameTable.js"></script>
     
     <!-- 主應用程式 -->
     <script>
         updateLoadingProgress(5, '初始化應用程式');
     </script>
-    <!-- <script src="src/app.js"></script> -->
+    <script src="src/app.js"></script>
     
     <script>
         updateLoadingProgress(6, '準備就緒');

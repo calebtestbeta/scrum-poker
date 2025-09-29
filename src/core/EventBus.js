@@ -43,6 +43,34 @@ class EventBus {
         this.debug = false;
         this.maxListeners = 50; // 防止記憶體洩漏
         this.eventStats = new Map(); // 事件統計
+        
+        // 記憶體洩漏防護
+        this.listenerRegistry = new Map(); // 監聽器註冊表
+        this.componentListeners = new Map(); // 組件監聽器追蹤
+        this.autoCleanupEnabled = true;
+        this.cleanupThreshold = 100; // 當監聽器數量超過此值時觸發清理
+        this.maxIdleTime = 30 * 60 * 1000; // 30分鐘無活動監聽器清理時間
+        
+        // 定期清理定時器
+        this.cleanupTimer = null;
+        this.cleanupInterval = 5 * 60 * 1000; // 5分鐘清理間隔
+        
+        // 啟動自動清理
+        if (this.autoCleanupEnabled) {
+            this.startAutoCleanup();
+        }
+        
+        // 頁面卸載時清理
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', () => this.destroy());
+            
+            // 頁面可見性變化時清理
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this.performIdleCleanup();
+                }
+            });
+        }
     }
 
     /**
@@ -50,10 +78,11 @@ class EventBus {
      * @param {string} event - 事件名稱
      * @param {Function} callback - 回調函數
      * @param {Object} context - 執行上下文（可選）
+     * @param {string} [componentId] - 組件 ID，用於批量清理
      * @returns {Function} 取消訂閱函數
      * @throws {Error} 當回調不是函數或監聽器數量超過限制時
      */
-    on(event, callback, context = null) {
+    on(event, callback, context = null, componentId = null) {
         if (typeof callback !== 'function') {
             throw new Error('EventBus.on: callback must be a function');
         }
@@ -69,13 +98,33 @@ class EventBus {
             this.eventStats.set(event, { subscriptions: 0, emissions: 0 });
         }
 
+        const listenerId = this.generateListenerId();
         const listener = { 
             callback, 
             context,
-            id: this.generateListenerId(),
-            subscribedAt: new Date().toISOString()
+            id: listenerId,
+            subscribedAt: new Date().toISOString(),
+            lastUsed: Date.now(),
+            componentId: componentId,
+            active: true
         };
+        
         this.events.get(event).push(listener);
+        
+        // 註冊到監聽器註冊表
+        this.listenerRegistry.set(listenerId, {
+            event,
+            listener,
+            createdAt: Date.now()
+        });
+        
+        // 組件監聽器追蹤
+        if (componentId) {
+            if (!this.componentListeners.has(componentId)) {
+                this.componentListeners.set(componentId, new Set());
+            }
+            this.componentListeners.get(componentId).add(listenerId);
+        }
         
         // 更新統計
         const stats = this.eventStats.get(event);
@@ -83,11 +132,16 @@ class EventBus {
         this.eventStats.set(event, stats);
 
         if (this.debug) {
-            console.log(`📡 EventBus: 訂閱事件 '${event}' (ID: ${listener.id})`);
+            console.log(`📡 EventBus: 訂閱事件 '${event}' (ID: ${listener.id}, 組件: ${componentId || 'N/A'})`);
+        }
+
+        // 檢查是否需要清理
+        if (this.getTotalListenerCount() > this.cleanupThreshold) {
+            setTimeout(() => this.performCleanup(), 0);
         }
 
         // 返回取消訂閱函數
-        return () => this.off(event, callback, context);
+        return () => this.removeListener(listenerId);
     }
 
     /**
@@ -163,11 +217,17 @@ class EventBus {
             if (options.async) {
                 // 異步執行
                 listeners.forEach(({ callback, context, id }) => {
-                    setTimeout(() => executeCallback(callback, context, data), 0);
+                    setTimeout(() => {
+                        // 標記監聽器已使用
+                        if (id) this.markListenerUsed(id);
+                        executeCallback(callback, context, data);
+                    }, 0);
                 });
             } else {
                 // 同步執行
                 listeners.forEach(({ callback, context, id }) => {
+                    // 標記監聽器已使用
+                    if (id) this.markListenerUsed(id);
                     executeCallback(callback, context, data);
                 });
             }
@@ -388,6 +448,7 @@ class EventBus {
      */
     checkMemoryLeaks() {
         const risks = [];
+        const now = Date.now();
         
         this.events.forEach((listeners, event) => {
             if (listeners.length > this.maxListeners * 0.8) {
@@ -398,9 +459,279 @@ class EventBus {
                     recommendation: '檢查是否有未正確清理的監聽器'
                 });
             }
+            
+            // 檢查長時間未使用的監聽器
+            const idleListeners = listeners.filter(listener => 
+                now - listener.lastUsed > this.maxIdleTime
+            );
+            
+            if (idleListeners.length > 0) {
+                risks.push({
+                    event,
+                    idleListenerCount: idleListeners.length,
+                    risk: 'medium',
+                    recommendation: '清理長時間未使用的監聽器'
+                });
+            }
         });
         
         return risks;
+    }
+
+    /**
+     * 啟動自動清理
+     */
+    startAutoCleanup() {
+        if (this.cleanupTimer) {
+            clearInterval(this.cleanupTimer);
+        }
+        
+        this.cleanupTimer = setInterval(() => {
+            this.performCleanup();
+        }, this.cleanupInterval);
+        
+        if (this.debug) {
+            console.log('📡 EventBus: 自動清理已啟動');
+        }
+    }
+
+    /**
+     * 停止自動清理
+     */
+    stopAutoCleanup() {
+        if (this.cleanupTimer) {
+            clearInterval(this.cleanupTimer);
+            this.cleanupTimer = null;
+        }
+        
+        if (this.debug) {
+            console.log('📡 EventBus: 自動清理已停止');
+        }
+    }
+
+    /**
+     * 執行清理操作
+     */
+    performCleanup() {
+        const before = this.getTotalListenerCount();
+        let cleanedCount = 0;
+        
+        // 清理無效監聽器
+        cleanedCount += this.cleanupInactiveListeners();
+        
+        // 清理長時間未使用的監聽器
+        cleanedCount += this.cleanupIdleListeners();
+        
+        // 清理空事件
+        cleanedCount += this.cleanupEmptyEvents();
+        
+        const after = this.getTotalListenerCount();
+        
+        if (this.debug && cleanedCount > 0) {
+            console.log(`🧹 EventBus: 清理完成，移除 ${cleanedCount} 個監聽器 (${before} → ${after})`);
+        }
+        
+        return cleanedCount;
+    }
+
+    /**
+     * 清理無效監聽器
+     */
+    cleanupInactiveListeners() {
+        let cleanedCount = 0;
+        
+        this.events.forEach((listeners, event) => {
+            const activeListeners = listeners.filter(listener => listener.active);
+            const removedCount = listeners.length - activeListeners.length;
+            
+            if (removedCount > 0) {
+                this.events.set(event, activeListeners);
+                cleanedCount += removedCount;
+            }
+        });
+        
+        return cleanedCount;
+    }
+
+    /**
+     * 清理長時間未使用的監聽器
+     */
+    cleanupIdleListeners() {
+        const now = Date.now();
+        let cleanedCount = 0;
+        
+        this.events.forEach((listeners, event) => {
+            const activeListeners = listeners.filter(listener => {
+                const isIdle = now - listener.lastUsed > this.maxIdleTime;
+                if (isIdle) {
+                    // 從註冊表中移除
+                    this.listenerRegistry.delete(listener.id);
+                    cleanedCount++;
+                    
+                    if (this.debug) {
+                        console.log(`🧹 EventBus: 清理閒置監聽器 ${listener.id} (事件: ${event})`);
+                    }
+                }
+                return !isIdle;
+            });
+            
+            if (activeListeners.length !== listeners.length) {
+                this.events.set(event, activeListeners);
+            }
+        });
+        
+        return cleanedCount;
+    }
+
+    /**
+     * 清理空事件
+     */
+    cleanupEmptyEvents() {
+        let cleanedCount = 0;
+        
+        this.events.forEach((listeners, event) => {
+            if (listeners.length === 0) {
+                this.events.delete(event);
+                this.eventStats.delete(event);
+                cleanedCount++;
+            }
+        });
+        
+        this.onceEvents.forEach((listeners, event) => {
+            if (listeners.length === 0) {
+                this.onceEvents.delete(event);
+                cleanedCount++;
+            }
+        });
+        
+        return cleanedCount;
+    }
+
+    /**
+     * 執行閒置清理
+     */
+    performIdleCleanup() {
+        if (this.debug) {
+            console.log('📡 EventBus: 執行閒置清理');
+        }
+        
+        const cleanedCount = this.cleanupIdleListeners();
+        
+        if (cleanedCount > 0 && this.debug) {
+            console.log(`🧹 EventBus: 閒置清理完成，移除 ${cleanedCount} 個監聽器`);
+        }
+    }
+
+    /**
+     * 根據監聽器 ID 移除監聽器
+     * @param {string} listenerId - 監聽器 ID
+     */
+    removeListener(listenerId) {
+        const registration = this.listenerRegistry.get(listenerId);
+        
+        if (!registration) {
+            return false;
+        }
+        
+        const { event, listener } = registration;
+        
+        // 從事件列表中移除
+        if (this.events.has(event)) {
+            const listeners = this.events.get(event);
+            const index = listeners.findIndex(l => l.id === listenerId);
+            
+            if (index !== -1) {
+                listeners.splice(index, 1);
+                
+                // 如果沒有監聽器了，刪除事件
+                if (listeners.length === 0) {
+                    this.events.delete(event);
+                    this.eventStats.delete(event);
+                }
+            }
+        }
+        
+        // 從註冊表中移除
+        this.listenerRegistry.delete(listenerId);
+        
+        // 從組件追蹤中移除
+        if (listener.componentId && this.componentListeners.has(listener.componentId)) {
+            const componentListeners = this.componentListeners.get(listener.componentId);
+            componentListeners.delete(listenerId);
+            
+            if (componentListeners.size === 0) {
+                this.componentListeners.delete(listener.componentId);
+            }
+        }
+        
+        if (this.debug) {
+            console.log(`📡 EventBus: 移除監聽器 ${listenerId} (事件: ${event})`);
+        }
+        
+        return true;
+    }
+
+    /**
+     * 根據組件 ID 移除所有監聽器
+     * @param {string} componentId - 組件 ID
+     */
+    removeComponentListeners(componentId) {
+        if (!this.componentListeners.has(componentId)) {
+            return 0;
+        }
+        
+        const listenerIds = Array.from(this.componentListeners.get(componentId));
+        let removedCount = 0;
+        
+        listenerIds.forEach(listenerId => {
+            if (this.removeListener(listenerId)) {
+                removedCount++;
+            }
+        });
+        
+        if (this.debug && removedCount > 0) {
+            console.log(`📡 EventBus: 移除組件 ${componentId} 的 ${removedCount} 個監聽器`);
+        }
+        
+        return removedCount;
+    }
+
+    /**
+     * 取得總監聽器數量
+     */
+    getTotalListenerCount() {
+        return this.listenerRegistry.size;
+    }
+
+    /**
+     * 標記監聽器為已使用
+     * @param {string} listenerId - 監聽器 ID
+     */
+    markListenerUsed(listenerId) {
+        const registration = this.listenerRegistry.get(listenerId);
+        if (registration && registration.listener) {
+            registration.listener.lastUsed = Date.now();
+        }
+    }
+
+    /**
+     * 銷毀 EventBus 實例
+     */
+    destroy() {
+        // 停止自動清理
+        this.stopAutoCleanup();
+        
+        // 清除所有監聽器
+        this.clear();
+        
+        // 清理註冊表
+        this.listenerRegistry.clear();
+        this.componentListeners.clear();
+        this.eventStats.clear();
+        
+        if (this.debug) {
+            console.log('📡 EventBus: 實例已銷毀');
+        }
     }
 }
 
