@@ -796,22 +796,26 @@ class GameTable {
                     if (player && voteData) {
                         // 保存當前的開牌狀態
                         const wasRevealed = player.isRevealed;
+                        console.log(`🔄 Firebase 同步前 - ${player.name}: wasRevealed=${wasRevealed}, currentVote=${player.vote}`);
                         
                         if (typeof voteData === 'object' && voteData.value !== undefined) {
                             // 如果是物件格式 { value: ..., timestamp: ... }
                             player.setVote(voteData.value, false); // 不播放動畫，避免干擾
-                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData.value} (開牌狀態: ${wasRevealed})`);
+                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData.value} (原開牌狀態: ${wasRevealed})`);
                         } else {
                             // 如果是直接的值
                             player.setVote(voteData, false); // 不播放動畫，避免干擾
-                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData} (開牌狀態: ${wasRevealed})`);
+                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData} (原開牌狀態: ${wasRevealed})`);
                         }
                         
-                        // 恢復開牌狀態（如果之前已開牌）
+                        console.log(`🔄 Firebase 同步後 - ${player.name}: isRevealed=${player.isRevealed}, newVote=${player.vote}`);
+                        
+                        // 額外的安全檢查：確保開牌狀態被正確保護
                         if (wasRevealed && !player.isRevealed) {
-                            console.log(`🔄 恢復玩家 ${player.name} 的開牌狀態`);
+                            console.warn(`⚠️ 檢測到開牌狀態丟失 - ${player.name}，正在恢復...`);
                             player.isRevealed = true;
                             player.updateDisplay();
+                            console.log(`🔄 已恢復玩家 ${player.name} 的開牌狀態`);
                         }
                     }
                 } catch (error) {

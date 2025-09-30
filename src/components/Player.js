@@ -275,9 +275,20 @@ class Player {
     setVote(vote, animate = true) {
         const oldVote = this.vote;
         const wasVoted = this.hasVoted;
+        const wasRevealed = this.isRevealed; // 保存當前開牌狀態
         
         this.vote = vote;
         this.hasVoted = vote !== null && vote !== undefined;
+        
+        // 保護開牌狀態：如果之前已開牌且仍有投票，維持開牌狀態
+        if (wasRevealed && this.hasVoted) {
+            console.log(`🛡️ 保護玩家 ${this.name} 的開牌狀態 (setVote)`);
+            // 開牌狀態保持不變
+        } else if (!this.hasVoted) {
+            // 如果清除投票，重置開牌狀態
+            this.isRevealed = false;
+            console.log(`🧹 清除玩家 ${this.name} 的開牌狀態 (無投票)`);
+        }
         
         // 更新顯示
         this.updateDisplay();
@@ -458,14 +469,15 @@ class Player {
             const voteDisplay = this.cardElement.querySelector('.player-vote-display');
             if (voteDisplay) {
                 if (this.hasVoted) {
-                    // 使用 isRevealed 狀態決定顯示內容，同時檢查 CSS 類別作為備援
+                    // 優先使用 isRevealed 狀態，CSS 類別作為備援
                     const shouldReveal = this.isRevealed || this.cardElement.classList.contains('player-card-revealed');
-                    voteDisplay.textContent = shouldReveal ? 
-                        Utils.Game.formatPoints(this.vote) : '?';
+                    const displayValue = shouldReveal ? Utils.Game.formatPoints(this.vote) : '?';
+                    voteDisplay.textContent = displayValue;
                     
-                    console.log(`🎯 更新卡牌顯示 - ${this.name}: hasVoted=${this.hasVoted}, isRevealed=${this.isRevealed}, shouldReveal=${shouldReveal}, vote=${this.vote}`);
+                    console.log(`🎯 更新卡牌顯示 - ${this.name}: hasVoted=${this.hasVoted}, isRevealed=${this.isRevealed}, shouldReveal=${shouldReveal}, displayValue="${displayValue}", vote=${this.vote}`);
                 } else {
                     voteDisplay.textContent = '';
+                    console.log(`🎯 清空卡牌顯示 - ${this.name}: 無投票`);
                 }
             }
         }
