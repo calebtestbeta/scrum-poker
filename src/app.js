@@ -681,12 +681,15 @@ class ScrumPokerApp {
             return;
         }
         
-        // 進階輸入驗證和清理
+        // 進階輸入驗證和清理（增強版）
         try {
+            console.log('🔍 開始驗證玩家名稱:', playerName);
+            
             // 檢查名字長度和格式
             if (playerName.length < 1 || playerName.length > 20) {
                 throw new Error('名字長度必須在 1-20 個字符之間');
             }
+            console.log('✅ 長度檢查通過:', playerName.length);
             
             // 移除潛在的惡意字符
             const sanitizedName = playerName
@@ -695,18 +698,32 @@ class ScrumPokerApp {
                 .replace(/data:/gi, '') // 移除 data 協議
                 .trim();
             
+            console.log('🧹 清理後的名稱:', sanitizedName);
+            
             // 檢查清理後是否為空
             if (!sanitizedName) {
-                throw new Error('名字包含不允許的字符');
+                throw new Error('名字包含不允許的字符（清理後為空）');
             }
+            console.log('✅ 清理後非空檢查通過');
             
             // 檢查是否只包含允許的字符（字母、數字、中文、空格、連字符、底線）
-            if (!/^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/.test(sanitizedName)) {
-                throw new Error('名字包含不允許的字符');
+            const regex = /^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/;
+            const regexTest = regex.test(sanitizedName);
+            console.log('🔍 正規表達式測試:', regexTest, '使用:', regex.toString());
+            
+            if (!regexTest) {
+                // 提供更詳細的錯誤資訊
+                const invalidChars = [...sanitizedName].filter(char => {
+                    return !regex.test(char);
+                });
+                console.error('❌ 無效字符:', invalidChars);
+                throw new Error(`名字包含不允許的字符: ${invalidChars.join(', ')}`);
             }
+            console.log('✅ 字符格式檢查通過');
             
             // 更新為清理後的名字
             document.getElementById('playerName').value = sanitizedName;
+            console.log('✅ 玩家名稱驗證完成:', sanitizedName);
             
         } catch (error) {
             this.showError(error.message);
@@ -1534,6 +1551,128 @@ class ScrumPokerApp {
             console.error('❌ 資料遷移失敗:', error);
             return migrationResults;
         }
+    }
+    
+    /**
+     * 測試玩家名稱驗證問題
+     * @returns {Object} 測試結果
+     */
+    testPlayerNameValidation() {
+        console.log('🧪 測試玩家名稱驗證問題...');
+        
+        const testResults = {
+            appValidation: [],
+            firebaseValidation: [],
+            problematicNames: []
+        };
+        
+        const testNames = [
+            'caleb',
+            'Caleb', 
+            'CALEB',
+            'caleb123',
+            'caleb-test',
+            'caleb_test',
+            'caleb test',
+            '測試用戶',
+            'user123',
+            'test-user',
+            'test_user'
+        ];
+        
+        // 測試 app.js 中的驗證邏輯
+        testNames.forEach(name => {
+            try {
+                // 模擬 app.js 中的驗證邏輯
+                if (name.length < 1 || name.length > 20) {
+                    throw new Error('名字長度必須在 1-20 個字符之間');
+                }
+                
+                const sanitizedName = name
+                    .replace(/[<>\"'&]/g, '') // 移除 HTML 字符
+                    .replace(/javascript:/gi, '') // 移除 JavaScript 協議
+                    .replace(/data:/gi, '') // 移除 data 協議
+                    .trim();
+                
+                if (!sanitizedName) {
+                    throw new Error('名字包含不允許的字符');
+                }
+                
+                if (!/^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/.test(sanitizedName)) {
+                    throw new Error('名字包含不允許的字符');
+                }
+                
+                testResults.appValidation.push({
+                    name,
+                    sanitized: sanitizedName,
+                    status: '✅ 通過 app.js 驗證'
+                });
+            } catch (error) {
+                testResults.appValidation.push({
+                    name,
+                    error: error.message,
+                    status: '❌ app.js 驗證失敗'
+                });
+            }
+        });
+        
+        // 測試 FirebaseService 驗證邏輯（如果可用）
+        if (this.firebaseService && typeof this.firebaseService.validateAndSanitizeInput === 'function') {
+            testNames.forEach(name => {
+                try {
+                    const result = this.firebaseService.validateAndSanitizeInput(name, 20, 'playerName');
+                    testResults.firebaseValidation.push({
+                        name,
+                        result,
+                        status: '✅ 通過 Firebase 驗證'
+                    });
+                } catch (error) {
+                    testResults.firebaseValidation.push({
+                        name,
+                        error: error.message,
+                        status: '❌ Firebase 驗證失敗'
+                    });
+                }
+            });
+        }
+        
+        // 檢查特定問題案例
+        const problematicName = 'caleb';
+        try {
+            // 完整模擬登入流程的名稱檢查
+            console.log(`🔍 詳細檢查 "${problematicName}":`);
+            console.log('- 原始名稱:', problematicName);
+            console.log('- 長度:', problematicName.length);
+            console.log('- 字符碼:', [...problematicName].map(c => c.charCodeAt(0)));
+            
+            const sanitized = problematicName
+                .replace(/[<>\"'&]/g, '')
+                .replace(/javascript:/gi, '')
+                .replace(/data:/gi, '')
+                .trim();
+            
+            console.log('- 清理後:', sanitized);
+            console.log('- 正規表達式測試:', /^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/.test(sanitized));
+            
+            testResults.problematicNames.push({
+                name: problematicName,
+                analysis: {
+                    original: problematicName,
+                    length: problematicName.length,
+                    charCodes: [...problematicName].map(c => c.charCodeAt(0)),
+                    sanitized: sanitized,
+                    regexTest: /^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/.test(sanitized)
+                }
+            });
+        } catch (error) {
+            testResults.problematicNames.push({
+                name: problematicName,
+                error: error.message
+            });
+        }
+        
+        console.log('🧪 玩家名稱驗證測試結果:', testResults);
+        return testResults;
     }
     
     /**
