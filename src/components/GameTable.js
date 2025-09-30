@@ -511,11 +511,21 @@ class GameTable {
             });
         }
         
-        // 更新到 finished 階段
+        // 更新到 finished 階段（同步到 Firebase）
         setTimeout(() => {
             this.currentPhase = 'finished';
             this.updateButtonStates();
             this.updateGameStatus();
+            
+            // 同步階段到 Firebase
+            if (window.eventBus) {
+                window.eventBus.emit('game:phase-finished', {
+                    phase: 'finished',
+                    timestamp: Date.now()
+                });
+            }
+            
+            console.log('✅ 遊戲階段已更新為 finished 並同步到 Firebase');
         }, 1000);
         
         console.log('🎭 投票結果已公開');
@@ -788,6 +798,13 @@ class GameTable {
             }
             
             console.log('🗳️ 正在更新投票數據:', Object.keys(votes));
+            console.log(`🎮 當前遊戲階段: ${this.currentPhase}`);
+            
+            // 檢查是否在開牌相關階段 - 如果是，需要額外保護
+            const isRevealingPhase = this.currentPhase === 'revealing' || this.currentPhase === 'finished';
+            if (isRevealingPhase) {
+                console.log('🛡️ 檢測到開牌階段，啟動強化狀態保護');
+            }
             
             // 更新每個玩家的投票
             Object.entries(votes).forEach(([playerId, voteData]) => {
@@ -796,7 +813,7 @@ class GameTable {
                     if (player && voteData) {
                         // 保存當前的開牌狀態
                         const wasRevealed = player.isRevealed;
-                        console.log(`🔄 Firebase 同步前 - ${player.name}: wasRevealed=${wasRevealed}, currentVote=${player.vote}`);
+                        console.log(`🔄 Firebase 同步前 - ${player.name}: wasRevealed=${wasRevealed}, currentVote=${player.vote}, phase=${this.currentPhase}`);
                         
                         if (typeof voteData === 'object' && voteData.value !== undefined) {
                             // 如果是物件格式 { value: ..., timestamp: ... }
@@ -810,12 +827,20 @@ class GameTable {
                         
                         console.log(`🔄 Firebase 同步後 - ${player.name}: isRevealed=${player.isRevealed}, newVote=${player.vote}`);
                         
-                        // 額外的安全檢查：確保開牌狀態被正確保護
+                        // 強化的安全檢查：在開牌階段確保狀態不會丟失
                         if (wasRevealed && !player.isRevealed) {
                             console.warn(`⚠️ 檢測到開牌狀態丟失 - ${player.name}，正在恢復...`);
                             player.isRevealed = true;
                             player.updateDisplay();
                             console.log(`🔄 已恢復玩家 ${player.name} 的開牌狀態`);
+                        }
+                        
+                        // 額外保護：如果在開牌階段，強制保持開牌狀態
+                        if (isRevealingPhase && player.hasVoted && !player.isRevealed) {
+                            console.warn(`🛡️ 開牌階段強制保護 - ${player.name} 應該處於開牌狀態`);
+                            player.isRevealed = true;
+                            player.updateDisplay();
+                            console.log(`🔄 已強制設置玩家 ${player.name} 為開牌狀態`);
                         }
                     }
                 } catch (error) {

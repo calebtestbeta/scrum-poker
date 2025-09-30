@@ -529,6 +529,10 @@ class ScrumPokerApp {
             this.handleVotesCleared();
         });
         
+        window.eventBus.on('game:phase-finished', (data) => {
+            this.handlePhaseFinished(data);
+        });
+        
         window.eventBus.on('game:leave-room', () => {
             this.handleLeaveRoom();
         });
@@ -1083,6 +1087,21 @@ class ScrumPokerApp {
         // 如果有 Firebase 服務，同步清除
         if (this.firebaseService && this.roomId) {
             this.firebaseService.clearVotes(this.roomId);
+        }
+    }
+    
+    /**
+     * 處理階段完成
+     * @param {Object} data - 階段數據
+     */
+    handlePhaseFinished(data) {
+        console.log('🏁 遊戲階段完成:', data);
+        
+        // 同步階段到 Firebase（如果需要）
+        if (this.firebaseService && this.roomId && data.phase === 'finished') {
+            // 注意：這裡不直接更新 Firebase 階段，避免循環觸發
+            // Firebase 的階段更新應該由 revealVotes() 或其他明確的用戶操作觸發
+            console.log('🔄 階段完成事件已處理，開牌狀態應保持持久');
         }
     }
     

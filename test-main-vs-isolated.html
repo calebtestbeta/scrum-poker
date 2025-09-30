@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主畫面vs測試頁面行為對比 - Scrum Poker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .isolated-test, .main-behavior {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .isolated-test {
+            border-color: #4CAF50;
+            background: #f1f8e9;
+        }
+        
+        .main-behavior {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        
+        .test-button {
+            background: #2196F3;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .test-button:hover {
+            background: #1976D2;
+        }
+        
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .log-output {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .demo-player {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            background: white;
+            margin: 10px;
+            display: inline-block;
+            min-width: 100px;
+        }
+        
+        .demo-player.revealed {
+            background: #e8f5e8;
+            border-color: #4CAF50;
+        }
+        
+        .player-card {
+            width: 50px;
+            height: 60px;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            margin: 5px auto;
+        }
+        
+        .player-card.revealed {
+            background: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 主畫面vs測試頁面行為對比</h1>
+    
+    <div class="test-container">
+        <h2>問題分析</h2>
+        <p><strong>現象</strong>：test-reveal-persistence.html 中開牌狀態保持正常，但主畫面中卡牌會翻回背面</p>
+        <p><strong>推測</strong>：主畫面有額外的 Firebase 同步、定時器或事件處理器導致狀態被重置</p>
+    </div>
+
+    <div class="test-container">
+        <div class="comparison">
+            <div class="isolated-test">
+                <h3>🟢 隔離測試環境 (成功)</h3>
+                <p>模擬主畫面邏輯但無 Firebase 同步</p>
+                <button class="test-button" onclick="testIsolated()">運行隔離測試</button>
+                <div id="isolatedResult" class="log-output"></div>
+                <div id="isolatedDemo"></div>
+            </div>
+            
+            <div class="main-behavior">
+                <h3>🔴 主畫面行為模擬 (問題)</h3>
+                <p>完整模擬主畫面的事件流程</p>
+                <button class="test-button" onclick="testMainBehavior()">模擬主畫面行為</button>
+                <div id="mainResult" class="log-output"></div>
+                <div id="mainDemo"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>差異對比分析</h2>
+        <button class="test-button" onclick="compareBehavior()">對比行為差異</button>
+        <div id="comparisonResult" class="log-output"></div>
+    </div>
+
+    <!-- 載入必要的腳本 -->
+    <script src="src/core/Utils.js"></script>
+    <script src="src/core/EventBus.js"></script>
+    <script src="src/services/StorageService.js"></script>
+    <script src="src/components/Player.js"></script>
+    <script src="src/components/Card.js"></script>
+    <script src="src/components/PlayerList.js"></script>
+    <script src="src/components/GameTable.js"></script>
+    
+    <script>
+        let isolatedPlayerList = null;
+        let mainPlayerList = null;
+        let testResults = {
+            isolated: [],
+            main: []
+        };
+        
+        function log(target, message, type = 'info') {
+            const output = document.getElementById(target);
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let className = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
+            const logEntry = document.createElement('div');
+            logEntry.className = className;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            output.appendChild(logEntry);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearLog(target) {
+            document.getElementById(target).innerHTML = '';
+        }
+        
+        // 隔離測試（僅本地邏輯，無 Firebase）
+        function testIsolated() {
+            clearLog('isolatedResult');
+            log('isolatedResult', '🧪 開始隔離測試（無 Firebase 同步）');
+            
+            try {
+                // 創建隔離的 PlayerList
+                const container = document.createElement('div');
+                container.style.display = 'none';
+                document.body.appendChild(container);
+                
+                isolatedPlayerList = new PlayerList(container);
+                
+                // 添加測試玩家
+                const player = isolatedPlayerList.addPlayer('test_1', 'Alice', 'dev');
+                player.setVote(5, false);
+                log('isolatedResult', `✅ 創建玩家: ${player.name}, 投票: ${player.vote}`);
+                
+                // 開牌
+                log('isolatedResult', `開牌前狀態: isRevealed=${player.isRevealed}`);
+                player.revealVote(false);
+                log('isolatedResult', `開牌後直接狀態: isRevealed=${player.isRevealed}`, 'success');
+                
+                // 模擬可能的狀態更新（類似 Firebase 同步）
+                setTimeout(() => {
+                    log('isolatedResult', '🔄 模擬狀態更新（無 Firebase 事件）');
+                    const beforeUpdate = player.isRevealed;
+                    
+                    // 重新設置投票（模擬 updateVotes）
+                    player.setVote(5, false);
+                    
+                    const afterUpdate = player.isRevealed;
+                    log('isolatedResult', `狀態更新前: ${beforeUpdate}, 更新後: ${afterUpdate}`);
+                    
+                    if (afterUpdate) {
+                        log('isolatedResult', '✅ 隔離測試成功 - 開牌狀態保持', 'success');
+                        createDemoPlayer('isolatedDemo', 'Alice', 5, true);
+                    } else {
+                        log('isolatedResult', '❌ 隔離測試失敗 - 開牌狀態丟失', 'error');
+                        createDemoPlayer('isolatedDemo', 'Alice', 5, false);
+                    }
+                    
+                    testResults.isolated = { success: afterUpdate };
+                }, 100);
+                
+            } catch (error) {
+                log('isolatedResult', `❌ 隔離測試錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        // 主畫面行為測試（模擬完整的事件流程）
+        function testMainBehavior() {
+            clearLog('mainResult');
+            log('mainResult', '🧪 開始主畫面行為模擬（含事件流程）');
+            
+            try {
+                // 創建模擬 GameTable 環境
+                const container = document.createElement('div');
+                container.style.display = 'none';
+                document.body.appendChild(container);
+                
+                mainPlayerList = new PlayerList(container);
+                
+                // 模擬 GameTable 的狀態管理
+                const mockGameTable = {
+                    currentPhase: 'voting',
+                    playerList: mainPlayerList,
+                    
+                    // 模擬 updateVotes 方法（含階段檢查）
+                    updateVotes: function(votes) {
+                        log('mainResult', `🔄 模擬 GameTable.updateVotes, 階段: ${this.currentPhase}`);
+                        
+                        Object.entries(votes).forEach(([playerId, voteData]) => {
+                            const player = this.playerList.getPlayer(playerId);
+                            if (player && voteData) {
+                                const wasRevealed = player.isRevealed;
+                                log('mainResult', `  同步前 ${player.name}: isRevealed=${wasRevealed}`);
+                                
+                                // 這裡是關鍵：調用 setVote 
+                                player.setVote(voteData, false);
+                                
+                                log('mainResult', `  同步後 ${player.name}: isRevealed=${player.isRevealed}`);
+                                
+                                // 檢查是否需要恢復狀態
+                                if (wasRevealed && !player.isRevealed) {
+                                    log('mainResult', `  ⚠️ 檢測到狀態丟失，嘗試恢復...`);
+                                    player.isRevealed = true;
+                                    player.updateDisplay();
+                                    log('mainResult', `  🔄 已恢復 ${player.name} 開牌狀態`);
+                                }
+                            }
+                        });
+                    },
+                    
+                    // 模擬階段變更
+                    handlePhaseChange: function(newPhase) {
+                        log('mainResult', `🎮 階段變更: ${this.currentPhase} → ${newPhase}`);
+                        this.currentPhase = newPhase;
+                        
+                        if (newPhase === 'revealing') {
+                            log('mainResult', '🎭 觸發 revealVotes()');
+                            this.playerList.revealAllVotes();
+                        }
+                    }
+                };
+                
+                // 添加測試玩家
+                const player = mainPlayerList.addPlayer('test_1', 'Bob', 'dev');
+                player.setVote(8, false);
+                log('mainResult', `✅ 創建玩家: ${player.name}, 投票: ${player.vote}`);
+                
+                // 模擬完整的開牌流程
+                log('mainResult', `開牌前狀態: isRevealed=${player.isRevealed}`);
+                
+                // 1. 本地開牌
+                player.revealVote(false);
+                log('mainResult', `本地開牌後: isRevealed=${player.isRevealed}`, 'success');
+                
+                // 2. 模擬 Firebase 階段變更事件（延遲觸發）
+                setTimeout(() => {
+                    log('mainResult', '📡 模擬 Firebase 階段變更事件...');
+                    mockGameTable.handlePhaseChange('revealing');
+                    
+                    // 3. 模擬後續的 Firebase 數據同步
+                    setTimeout(() => {
+                        log('mainResult', '📡 模擬 Firebase 投票數據同步...');
+                        mockGameTable.updateVotes({ 'test_1': 8 });
+                        
+                        // 4. 檢查最終狀態
+                        setTimeout(() => {
+                            const finalRevealed = player.isRevealed;
+                            log('mainResult', `最終狀態: isRevealed=${finalRevealed}`);
+                            
+                            if (finalRevealed) {
+                                log('mainResult', '✅ 主畫面行為測試成功 - 開牌狀態保持', 'success');
+                                createDemoPlayer('mainDemo', 'Bob', 8, true);
+                            } else {
+                                log('mainResult', '❌ 主畫面行為測試失敗 - 開牌狀態丟失', 'error');
+                                createDemoPlayer('mainDemo', 'Bob', 8, false);
+                            }
+                            
+                            testResults.main = { success: finalRevealed };
+                        }, 100);
+                    }, 200);
+                }, 300);
+                
+            } catch (error) {
+                log('mainResult', `❌ 主畫面測試錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        function createDemoPlayer(containerId, name, vote, revealed) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'demo-player' + (revealed ? ' revealed' : '');
+            
+            const nameDiv = document.createElement('div');
+            nameDiv.textContent = name;
+            
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'player-card' + (revealed ? ' revealed' : '');
+            cardDiv.textContent = revealed ? vote : '?';
+            
+            const statusDiv = document.createElement('div');
+            statusDiv.textContent = revealed ? '已開牌' : '已投票';
+            
+            playerDiv.appendChild(nameDiv);
+            playerDiv.appendChild(cardDiv);
+            playerDiv.appendChild(statusDiv);
+            
+            container.appendChild(playerDiv);
+        }
+        
+        function compareBehavior() {
+            clearLog('comparisonResult');
+            log('comparisonResult', '🔍 開始行為差異對比分析...');
+            
+            if (!testResults.isolated || !testResults.main) {
+                log('comparisonResult', '⚠️ 請先運行兩個測試', 'error');
+                return;
+            }
+            
+            log('comparisonResult', '📊 測試結果對比:');
+            log('comparisonResult', `  隔離測試: ${testResults.isolated.success ? '✅ 成功' : '❌ 失敗'}`);
+            log('comparisonResult', `  主畫面模擬: ${testResults.main.success ? '✅ 成功' : '❌ 失敗'}`);
+            
+            if (testResults.isolated.success && testResults.main.success) {
+                log('comparisonResult', '🎉 修復成功！兩個環境都保持開牌狀態', 'success');
+            } else if (testResults.isolated.success && !testResults.main.success) {
+                log('comparisonResult', '🔍 問題確認：主畫面特有的邏輯導致狀態丟失', 'error');
+                log('comparisonResult', '可能原因：');
+                log('comparisonResult', '  1. Firebase 同步事件時序問題');
+                log('comparisonResult', '  2. 階段變更邏輯衝突');
+                log('comparisonResult', '  3. 多次 updateVotes 調用');
+                log('comparisonResult', '  4. setTimeout 時序問題');
+            } else {
+                log('comparisonResult', '🔍 基礎邏輯問題，需要進一步調試', 'error');
+            }
+        }
+        
+        // 頁面載入時初始化
+        window.addEventListener('load', () => {
+            log('isolatedResult', '📋 隔離測試準備就緒');
+            log('mainResult', '📋 主畫面行為測試準備就緒');
+            log('comparisonResult', '📋 差異對比分析準備就緒');
+        });
+    </script>
+</body>
+</html>
