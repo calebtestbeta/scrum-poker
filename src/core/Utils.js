@@ -975,6 +975,188 @@ const DeviceUtils = {
 };
 
 /**
+ * Cookie 工具
+ */
+const CookieUtils = {
+    /**
+     * 設定 Cookie
+     * @param {string} name - Cookie 名稱
+     * @param {*} value - Cookie 值
+     * @param {Object} options - 選項
+     * @param {number} [options.days] - 過期天數（預設 30 天）
+     * @param {string} [options.path] - 路徑（預設 '/'）
+     * @param {boolean} [options.secure] - 是否僅 HTTPS（預設 false）
+     * @param {string} [options.sameSite] - SameSite 屬性（預設 'Lax'）
+     * @param {boolean} [options.httpOnly] - 是否僅 HTTP（無法透過 JS 設定，預設 false）
+     * @returns {boolean} 是否設定成功
+     */
+    setCookie(name, value, options = {}) {
+        try {
+            const {
+                days = 30,
+                path = '/',
+                secure = false,
+                sameSite = 'Lax'
+            } = options;
+            
+            // 序列化值
+            let cookieValue;
+            if (typeof value === 'string') {
+                cookieValue = encodeURIComponent(value);
+            } else {
+                cookieValue = encodeURIComponent(JSON.stringify(value));
+            }
+            
+            // 計算過期時間
+            const expirationDate = new Date();
+            expirationDate.setTime(expirationDate.getTime() + (days * 24 * 60 * 60 * 1000));
+            
+            // 建構 Cookie 字串
+            let cookieString = `${encodeURIComponent(name)}=${cookieValue}`;
+            cookieString += `; expires=${expirationDate.toUTCString()}`;
+            cookieString += `; path=${path}`;
+            cookieString += `; SameSite=${sameSite}`;
+            
+            if (secure || window.location.protocol === 'https:') {
+                cookieString += '; Secure';
+            }
+            
+            document.cookie = cookieString;
+            
+            console.log(`🍪 Cookie 已設定: ${name}`);
+            return true;
+        } catch (error) {
+            console.error('CookieUtils.setCookie: 設定 Cookie 失敗', {
+                name,
+                error: error.message,
+                stack: error.stack
+            });
+            return false;
+        }
+    },
+
+    /**
+     * 取得 Cookie
+     * @param {string} name - Cookie 名稱
+     * @param {*} defaultValue - 預設值
+     * @returns {*} Cookie 值
+     */
+    getCookie(name, defaultValue = null) {
+        try {
+            const encodedName = encodeURIComponent(name) + '=';
+            const cookies = document.cookie.split(';');
+            
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.indexOf(encodedName) === 0) {
+                    const cookieValue = cookie.substring(encodedName.length);
+                    const decodedValue = decodeURIComponent(cookieValue);
+                    
+                    // 嘗試解析 JSON
+                    try {
+                        return JSON.parse(decodedValue);
+                    } catch (parseError) {
+                        // 如果不是 JSON，返回字串
+                        return decodedValue;
+                    }
+                }
+            }
+            
+            return defaultValue;
+        } catch (error) {
+            console.error('CookieUtils.getCookie: 讀取 Cookie 失敗', {
+                name,
+                error: error.message
+            });
+            return defaultValue;
+        }
+    },
+
+    /**
+     * 刪除 Cookie
+     * @param {string} name - Cookie 名稱
+     * @param {string} [path] - 路徑（預設 '/'）
+     * @returns {boolean} 是否刪除成功
+     */
+    deleteCookie(name, path = '/') {
+        try {
+            document.cookie = `${encodeURIComponent(name)}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path};`;
+            console.log(`🗑️ Cookie 已刪除: ${name}`);
+            return true;
+        } catch (error) {
+            console.error('CookieUtils.deleteCookie: 刪除 Cookie 失敗', {
+                name,
+                error: error.message
+            });
+            return false;
+        }
+    },
+
+    /**
+     * 檢查 Cookie 是否存在
+     * @param {string} name - Cookie 名稱
+     * @returns {boolean} 是否存在
+     */
+    exists(name) {
+        return this.getCookie(name) !== null;
+    },
+
+    /**
+     * 取得所有 Cookie
+     * @returns {Object} 所有 Cookie 的鍵值對
+     */
+    getAllCookies() {
+        try {
+            const cookies = {};
+            const cookieArray = document.cookie.split(';');
+            
+            for (let cookie of cookieArray) {
+                cookie = cookie.trim();
+                const [name, value] = cookie.split('=');
+                if (name && value) {
+                    const decodedName = decodeURIComponent(name);
+                    const decodedValue = decodeURIComponent(value);
+                    
+                    try {
+                        cookies[decodedName] = JSON.parse(decodedValue);
+                    } catch (parseError) {
+                        cookies[decodedName] = decodedValue;
+                    }
+                }
+            }
+            
+            return cookies;
+        } catch (error) {
+            console.error('CookieUtils.getAllCookies: 取得所有 Cookie 失敗', error);
+            return {};
+        }
+    },
+
+    /**
+     * 清除所有 Cookie（僅限當前路徑）
+     * @param {string} [path] - 路徑（預設 '/'）
+     */
+    clearAll(path = '/') {
+        try {
+            const cookies = this.getAllCookies();
+            let clearedCount = 0;
+            
+            for (const name in cookies) {
+                if (this.deleteCookie(name, path)) {
+                    clearedCount++;
+                }
+            }
+            
+            console.log(`🧹 已清除 ${clearedCount} 個 Cookie`);
+            return clearedCount;
+        } catch (error) {
+            console.error('CookieUtils.clearAll: 清除所有 Cookie 失敗', error);
+            return 0;
+        }
+    }
+};
+
+/**
  * 本地儲存工具
  */
 const StorageUtils = {
@@ -1312,6 +1494,7 @@ window.Utils = {
     Animation: AnimationUtils,
     Game: GameUtils,
     Device: DeviceUtils,
+    Cookie: CookieUtils,
     Storage: StorageUtils
 };
 
@@ -1321,6 +1504,7 @@ window.DataUtils = DataUtils;
 window.AnimationUtils = AnimationUtils;
 window.GameUtils = GameUtils;
 window.DeviceUtils = DeviceUtils;
+window.CookieUtils = CookieUtils;
 window.StorageUtils = StorageUtils;
 
 // 輸出增強版本資訊
@@ -1331,5 +1515,6 @@ console.log('📊 模組統計:', {
     Animation: Object.keys(AnimationUtils).length + ' 個方法',
     Game: Object.keys(GameUtils).length + ' 個方法',
     Device: Object.keys(DeviceUtils).length + ' 個方法',
+    Cookie: Object.keys(CookieUtils).length + ' 個方法',
     Storage: Object.keys(StorageUtils).length + ' 個方法'
 });

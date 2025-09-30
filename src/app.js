@@ -218,35 +218,57 @@ class ScrumPokerApp {
     }
     
     /**
+     * 建構 Firebase 設定物件
+     * @param {Object} config - 原始設定物件
+     * @returns {Object} Firebase 設定物件
+     */
+    buildFirebaseConfig(config) {
+        if (!config || !config.projectId || !config.apiKey) {
+            return null;
+        }
+        
+        return {
+            projectId: config.projectId,
+            apiKey: config.apiKey,
+            authDomain: `${config.projectId}.firebaseapp.com`,
+            databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`,
+            storageBucket: `${config.projectId}.appspot.com`
+        };
+    }
+    
+    /**
      * 取得 Firebase 設定
      */
     async getFirebaseConfig() {
         try {
+            console.log('🔍 開始取得 Firebase 設定...');
+            
+            // 1. 優先從 StorageService 讀取（localStorage + 加密）
             if (this.storageService) {
                 const config = await this.storageService.getItem('firebaseConfig');
                 if (config && config.projectId && config.apiKey) {
-                    return {
-                        projectId: config.projectId,
-                        apiKey: config.apiKey,
-                        authDomain: `${config.projectId}.firebaseapp.com`,
-                        databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`,
-                        storageBucket: `${config.projectId}.appspot.com`
-                    };
+                    console.log('✅ 從 StorageService 取得 Firebase 設定');
+                    return this.buildFirebaseConfig(config);
                 }
             }
             
-            // 降級到舊的 Utils.Storage
+            // 2. 從舊版 Utils.Storage 讀取（localStorage）
             const legacyConfig = Utils.Storage.getItem('scrumPoker_firebaseConfig');
             if (legacyConfig && legacyConfig.projectId && legacyConfig.apiKey) {
-                return {
-                    projectId: legacyConfig.projectId,
-                    apiKey: legacyConfig.apiKey,
-                    authDomain: `${legacyConfig.projectId}.firebaseapp.com`,
-                    databaseURL: `https://${legacyConfig.projectId}-default-rtdb.firebaseio.com`,
-                    storageBucket: `${legacyConfig.projectId}.appspot.com`
-                };
+                console.log('✅ 從 Utils.Storage 取得 Firebase 設定');
+                return this.buildFirebaseConfig(legacyConfig);
             }
             
+            // 3. 從 Cookie 讀取（備用方案）
+            if (Utils.Cookie) {
+                const cookieConfig = Utils.Cookie.getCookie('scrumPoker_firebaseConfig');
+                if (cookieConfig && cookieConfig.projectId && cookieConfig.apiKey) {
+                    console.log('✅ 從 Cookie 取得 Firebase 設定');
+                    return this.buildFirebaseConfig(cookieConfig);
+                }
+            }
+            
+            console.log('ℹ️ 未找到有效的 Firebase 設定');
             return null;
         } catch (error) {
             console.error('❌ 取得 Firebase 設定失敗:', error);
@@ -561,19 +583,37 @@ class ScrumPokerApp {
      */
     async hasFirebaseConfig() {
         try {
+            console.log('🔍 檢查 Firebase 設定是否存在...');
+            
             // 檢查新版 StorageService
             if (this.storageService) {
                 const config = await this.storageService.getItem('firebaseConfig');
                 if (config && config.projectId && config.apiKey) {
+                    console.log('✅ StorageService 中存在有效設定');
                     return true;
                 }
             }
             
             // 檢查舊版 Utils.Storage
             const legacyConfig = Utils.Storage.getItem('scrumPoker_firebaseConfig');
-            return !!(legacyConfig && legacyConfig.projectId && legacyConfig.apiKey);
+            if (legacyConfig && legacyConfig.projectId && legacyConfig.apiKey) {
+                console.log('✅ Utils.Storage 中存在有效設定');
+                return true;
+            }
+            
+            // 檢查 Cookie
+            if (Utils.Cookie) {
+                const cookieConfig = Utils.Cookie.getCookie('scrumPoker_firebaseConfig');
+                if (cookieConfig && cookieConfig.projectId && cookieConfig.apiKey) {
+                    console.log('✅ Cookie 中存在有效設定');
+                    return true;
+                }
+            }
+            
+            console.log('ℹ️ 所有儲存位置都未找到有效的 Firebase 設定');
+            return false;
         } catch (error) {
-            console.error('檢查 Firebase 設定失敗:', error);
+            console.error('❌ 檢查 Firebase 設定失敗:', error);
             return false;
         }
     }
@@ -1051,6 +1091,11 @@ class ScrumPokerApp {
             return;
         }
         
+        console.log('💾 開始保存 Firebase 設定...', { 
+            projectId: projectId.substring(0, 10) + '...', 
+            apiKeyPreview: apiKey.substring(0, 10) + '...' 
+        });
+        
         // 驗證 Firebase 設定格式
         try {
             // 驗證 Project ID 格式
@@ -1095,10 +1140,39 @@ class ScrumPokerApp {
         };
         
         try {
+            // 多重儲存策略：localStorage + Cookie 雙重保險
+            let storageSuccess = false;
+            let cookieSuccess = false;
+            
+            // 1. 優先使用 StorageService (localStorage + 加密)
             if (this.storageService) {
-                await this.storageService.setItem('firebaseConfig', config);
+                storageSuccess = await this.storageService.setItem('firebaseConfig', config);
+                console.log('📦 StorageService 儲存結果:', storageSuccess);
             } else {
-                Utils.Storage.setItem('scrumPoker_firebaseConfig', config);
+                // 降級到 Utils.Storage
+                storageSuccess = Utils.Storage.setItem('scrumPoker_firebaseConfig', config);
+                console.log('📦 Utils.Storage 儲存結果:', storageSuccess);
+            }
+            
+            // 2. 同時使用 Cookie 作為備用（30天有效期）
+            cookieSuccess = Utils.Cookie.setCookie('scrumPoker_firebaseConfig', config, {
+                days: 30,
+                secure: window.location.protocol === 'https:',
+                sameSite: 'Lax'
+            });
+            console.log('🍪 Cookie 儲存結果:', cookieSuccess);
+            
+            // 檢查儲存結果
+            if (!storageSuccess && !cookieSuccess) {
+                throw new Error('所有儲存方式都失敗');
+            }
+            
+            if (storageSuccess && cookieSuccess) {
+                console.log('✅ Firebase 設定已成功儲存到 localStorage 和 Cookie');
+            } else if (storageSuccess) {
+                console.warn('⚠️ 僅 localStorage 儲存成功，Cookie 儲存失敗');
+            } else if (cookieSuccess) {
+                console.warn('⚠️ 僅 Cookie 儲存成功，localStorage 儲存失敗');
             }
             
             this.hideFirebaseConfig();
@@ -1393,6 +1467,68 @@ class ScrumPokerApp {
                 }
             }
         });
+    }
+    
+    /**
+     * 測試 Firebase 設定儲存和讀取功能
+     * @returns {Promise<Object>} 測試結果
+     */
+    async testFirebaseConfigStorage() {
+        console.log('🧪 開始測試 Firebase 設定儲存和讀取功能...');
+        
+        const testConfig = {
+            projectId: 'test-project-12345',
+            apiKey: 'AIzaTestKey1234567890123456789012345678'
+        };
+        
+        const results = {
+            localStorage: { write: false, read: false },
+            cookie: { write: false, read: false },
+            storageService: { write: false, read: false }
+        };
+        
+        try {
+            // 測試 localStorage
+            try {
+                Utils.Storage.setItem('test_firebaseConfig', testConfig);
+                results.localStorage.write = true;
+                const readConfig = Utils.Storage.getItem('test_firebaseConfig');
+                results.localStorage.read = !!(readConfig && readConfig.projectId === testConfig.projectId);
+                Utils.Storage.removeItem('test_firebaseConfig');
+            } catch (error) {
+                console.warn('localStorage 測試失敗:', error.message);
+            }
+            
+            // 測試 Cookie
+            try {
+                Utils.Cookie.setCookie('test_firebaseConfig', testConfig, { days: 1 });
+                results.cookie.write = true;
+                const readCookieConfig = Utils.Cookie.getCookie('test_firebaseConfig');
+                results.cookie.read = !!(readCookieConfig && readCookieConfig.projectId === testConfig.projectId);
+                Utils.Cookie.deleteCookie('test_firebaseConfig');
+            } catch (error) {
+                console.warn('Cookie 測試失敗:', error.message);
+            }
+            
+            // 測試 StorageService
+            if (this.storageService) {
+                try {
+                    await this.storageService.setItem('test_firebaseConfig', testConfig);
+                    results.storageService.write = true;
+                    const readStorageConfig = await this.storageService.getItem('test_firebaseConfig');
+                    results.storageService.read = !!(readStorageConfig && readStorageConfig.projectId === testConfig.projectId);
+                    await this.storageService.removeItem('test_firebaseConfig');
+                } catch (error) {
+                    console.warn('StorageService 測試失敗:', error.message);
+                }
+            }
+            
+            console.log('🧪 測試結果:', results);
+            return results;
+        } catch (error) {
+            console.error('❌ 測試過程中發生錯誤:', error);
+            return results;
+        }
     }
     
     /**
