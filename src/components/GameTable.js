@@ -470,12 +470,31 @@ class GameTable {
      * 開牌顯示結果
      */
     revealVotes() {
+        console.log('🎭 開始開牌流程...');
+        
         if (this.currentPhase === 'voting') {
             this.currentPhase = 'revealing';
         }
         
+        // 獲取所有玩家的投票狀態（開牌前）
+        const allPlayers = this.playerList.getAllPlayers();
+        const votedPlayers = allPlayers.filter(p => p.hasVoted);
+        
+        console.log(`📊 開牌前狀態 - 總玩家: ${allPlayers.length}, 已投票: ${votedPlayers.length}`);
+        votedPlayers.forEach(player => {
+            console.log(`  - ${player.name}: ${player.vote} (投票狀態: ${player.hasVoted}, 開牌狀態: ${player.isRevealed})`);
+        });
+        
         // 顯示所有投票
         this.playerList.revealAllVotes();
+        
+        // 驗證開牌結果
+        setTimeout(() => {
+            console.log('🔍 開牌後驗證:');
+            votedPlayers.forEach(player => {
+                console.log(`  - ${player.name}: ${player.vote} (投票狀態: ${player.hasVoted}, 開牌狀態: ${player.isRevealed})`);
+            });
+        }, 100);
         
         // 清除卡牌選擇
         this.cardDeck.clearSelection();
@@ -775,14 +794,24 @@ class GameTable {
                 try {
                     const player = this.playerList.getPlayer(playerId);
                     if (player && voteData) {
+                        // 保存當前的開牌狀態
+                        const wasRevealed = player.isRevealed;
+                        
                         if (typeof voteData === 'object' && voteData.value !== undefined) {
                             // 如果是物件格式 { value: ..., timestamp: ... }
-                            player.setVote(voteData.value, true);
-                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData.value}`);
+                            player.setVote(voteData.value, false); // 不播放動畫，避免干擾
+                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData.value} (開牌狀態: ${wasRevealed})`);
                         } else {
                             // 如果是直接的值
-                            player.setVote(voteData, true);
-                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData}`);
+                            player.setVote(voteData, false); // 不播放動畫，避免干擾
+                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData} (開牌狀態: ${wasRevealed})`);
+                        }
+                        
+                        // 恢復開牌狀態（如果之前已開牌）
+                        if (wasRevealed && !player.isRevealed) {
+                            console.log(`🔄 恢復玩家 ${player.name} 的開牌狀態`);
+                            player.isRevealed = true;
+                            player.updateDisplay();
                         }
                     }
                 } catch (error) {
