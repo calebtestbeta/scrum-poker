@@ -30,6 +30,9 @@ class ScrumPokerApp {
         this.lastAppProgressKey = null;
         this.lastAppProgressTime = null;
         
+        // 玩家清理定時器
+        this.playerCleanupTimer = null;
+        
         // DOM 元素引用
         this.elements = {
             loadingScreen: null,
@@ -413,6 +416,9 @@ class ScrumPokerApp {
         
         // 鍵盤快捷鍵
         this.setupKeyboardShortcuts();
+        
+        // 瀏覽器關閉時自動清理
+        this.setupBrowserCloseCleanup();
     }
     
     /**
@@ -835,7 +841,21 @@ class ScrumPokerApp {
             
         } catch (error) {
             console.error('登入失敗:', error);
-            this.showError('登入失敗，請重試');
+            
+            // 根據錯誤類型提供更友善的錯誤訊息
+            let errorMessage = '登入失敗，請重試';
+            
+            if (error.message && error.message.includes('房間已達到最大容量')) {
+                errorMessage = error.message;
+            } else if (error.message && error.message.includes('房間已被鎖定')) {
+                errorMessage = '該房間已被鎖定，無法加入。請聯繫房間創建者或嘗試其他房間。';
+            } else if (error.message && error.message.includes('Firebase')) {
+                errorMessage = '網路連線異常，請檢查網路狀態後重試。';
+            } else if (error.message && error.message.includes('格式錯誤')) {
+                errorMessage = error.message;
+            }
+            
+            this.showError(errorMessage);
         }
     }
     
@@ -892,6 +912,11 @@ class ScrumPokerApp {
             
             // 設置連線狀態
             this.updateConnectionStatus(this.firebaseService ? true : false);
+            
+            // 啟動定期清理超時玩家（每 2 分鐘執行一次）
+            if (this.firebaseService) {
+                this.startPlayerCleanupTimer(roomId);
+            }
             
             console.log(`🎮 遊戲開始 - 房間: ${roomId}, 玩家: ${this.currentPlayer.name}`);
             
@@ -1031,10 +1056,51 @@ class ScrumPokerApp {
     }
     
     /**
+     * 啟動玩家清理定時器
+     * @param {string} roomId - 房間 ID
+     */
+    startPlayerCleanupTimer(roomId) {
+        // 清除現有定時器
+        if (this.playerCleanupTimer) {
+            clearInterval(this.playerCleanupTimer);
+        }
+        
+        // 每 2 分鐘清理一次超時玩家
+        this.playerCleanupTimer = setInterval(async () => {
+            try {
+                if (this.firebaseService && this.currentState === 'game') {
+                    const cleanedCount = await this.firebaseService.cleanupInactivePlayers(roomId, 3); // 3分鐘超時
+                    if (cleanedCount > 0) {
+                        this.showToast('info', `已清理 ${cleanedCount} 個離線玩家`, 2000);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ 定期清理玩家失敗:', error);
+            }
+        }, 2 * 60 * 1000); // 2 分鐘間隔
+        
+        console.log('🕐 玩家清理定時器已啟動 (每 2 分鐘)');
+    }
+    
+    /**
+     * 停止玩家清理定時器
+     */
+    stopPlayerCleanupTimer() {
+        if (this.playerCleanupTimer) {
+            clearInterval(this.playerCleanupTimer);
+            this.playerCleanupTimer = null;
+            console.log('⏹️ 玩家清理定時器已停止');
+        }
+    }
+    
+    /**
      * 離開遊戲
      */
     async leaveGame() {
         try {
+            // 停止玩家清理定時器
+            this.stopPlayerCleanupTimer();
+            
             // 如果有 Firebase 服務，離開房間
             if (this.firebaseService && this.roomId && this.currentPlayer) {
                 await this.firebaseService.leaveRoom(this.roomId, this.currentPlayer.id);
@@ -1520,6 +1586,57 @@ class ScrumPokerApp {
         } catch (error) {
             console.error('清除效能指標失敗:', error);
         }
+    }
+    
+    /**
+     * 設置瀏覽器關閉時自動清理
+     */
+    setupBrowserCloseCleanup() {
+        const cleanup = async () => {
+            if (this.firebaseService && this.roomId && this.currentPlayer) {
+                try {
+                    console.log('🔄 瀏覽器關閉，正在清理玩家資料...');
+                    
+                    // 使用 sendBeacon 進行可靠的清理（非阻塞）
+                    if (navigator.sendBeacon) {
+                        const cleanupData = JSON.stringify({
+                            roomId: this.roomId,
+                            playerId: this.currentPlayer.id,
+                            timestamp: Date.now()
+                        });
+                        
+                        // 注意：這需要後端 API 支援，目前先用同步清理
+                        // navigator.sendBeacon('/api/cleanup', cleanupData);
+                    }
+                    
+                    // 同步清理（僅在頁面卸載時執行）
+                    await this.firebaseService.leaveRoom(this.roomId, this.currentPlayer.id, true);
+                    console.log('✅ 玩家資料清理完成');
+                } catch (error) {
+                    console.error('❌ 瀏覽器關閉清理失敗:', error);
+                }
+            }
+        };
+        
+        // 監聽頁面卸載事件
+        window.addEventListener('beforeunload', cleanup);
+        window.addEventListener('unload', cleanup);
+        
+        // 監聽頁面可見性變化（用於檢測標籤頁切換）
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // 頁面隱藏時更新最後活動時間
+                if (this.firebaseService && this.roomId && this.currentPlayer) {
+                    try {
+                        this.firebaseService.updatePlayerHeartbeat();
+                    } catch (error) {
+                        console.warn('⚠️ 更新心跳失敗:', error);
+                    }
+                }
+            }
+        });
+        
+        console.log('🛡️ 瀏覽器關閉自動清理機制已設置');
     }
     
     /**

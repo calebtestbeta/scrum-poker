@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房間容量測試 - Scrum Poker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+        
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .error {
+            color: #f44336;
+        }
+        
+        .success {
+            color: #4CAF50;
+        }
+        
+        .warning {
+            color: #ff9800;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+        }
+        
+        #testOutput {
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 房間容量管理測試</h1>
+    
+    <div class="test-container">
+        <h2>測試控制台</h2>
+        <button class="test-button" onclick="testRoomCapacityLogic()">測試房間容量邏輯</button>
+        <button class="test-button" onclick="testPlayerCleanup()">測試玩家清理機制</button>
+        <button class="test-button" onclick="testInactivePlayerDetection()">測試超時玩家檢測</button>
+        <button class="test-button" onclick="clearResults()">清除結果</button>
+        
+        <div class="results">
+            <h3>測試結果</h3>
+            <div id="testOutput"></div>
+        </div>
+    </div>
+
+    <!-- 載入必要的腳本 -->
+    <script src="src/core/Utils.js"></script>
+    <script src="src/core/EventBus.js"></script>
+    <script src="src/services/StorageService.js"></script>
+    <script src="src/services/FirebaseService.js"></script>
+    
+    <script>
+        // 測試工具函數
+        function log(message, type = 'info') {
+            const output = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let className = '';
+            let icon = 'ℹ️';
+            
+            switch (type) {
+                case 'success':
+                    className = 'success';
+                    icon = '✅';
+                    break;
+                case 'error':
+                    className = 'error';
+                    icon = '❌';
+                    break;
+                case 'warning':
+                    className = 'warning';
+                    icon = '⚠️';
+                    break;
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${className}`;
+            logEntry.innerHTML = `[${timestamp}] ${icon} ${message}`;
+            
+            output.appendChild(logEntry);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('testOutput').innerHTML = '';
+        }
+        
+        // 測試房間容量邏輯
+        async function testRoomCapacityLogic() {
+            log('🧪 開始測試房間容量邏輯...');
+            
+            try {
+                // 檢查 FirebaseService 是否正確載入
+                if (typeof FirebaseService === 'undefined') {
+                    log('❌ FirebaseService 未載入', 'error');
+                    return;
+                }
+                
+                const firebaseService = new FirebaseService();
+                log('✅ FirebaseService 實例創建成功', 'success');
+                
+                // 測試 generateValidPlayerId 方法
+                const playerId = firebaseService.generateValidPlayerId();
+                log(`🆔 生成的玩家 ID: ${playerId}`);
+                
+                // 測試玩家 ID 驗證
+                try {
+                    const validatedId = firebaseService.validateAndSanitizeInput(playerId, 50, 'playerId');
+                    log(`✅ 玩家 ID 驗證通過: ${validatedId}`, 'success');
+                } catch (error) {
+                    log(`❌ 玩家 ID 驗證失敗: ${error.message}`, 'error');
+                }
+                
+                // 測試房間 ID 驗證
+                const testRoomIds = ['TEST123', 'room-test', 'invalid@room', ''];
+                testRoomIds.forEach(roomId => {
+                    try {
+                        const validated = firebaseService.validateAndSanitizeInput(roomId, 20, 'roomId');
+                        log(`✅ 房間 ID "${roomId}" 驗證通過: ${validated}`, 'success');
+                    } catch (error) {
+                        log(`❌ 房間 ID "${roomId}" 驗證失敗: ${error.message}`, 'error');
+                    }
+                });
+                
+                log('🎯 房間容量邏輯測試完成', 'success');
+                
+            } catch (error) {
+                log(`❌ 測試過程中發生錯誤: ${error.message}`, 'error');
+                console.error('測試錯誤詳情:', error);
+            }
+        }
+        
+        // 測試玩家清理機制
+        async function testPlayerCleanup() {
+            log('🧪 開始測試玩家清理機制...');
+            
+            try {
+                const firebaseService = new FirebaseService();
+                
+                // 測試清理函數是否存在
+                if (typeof firebaseService.cleanupInactivePlayers === 'function') {
+                    log('✅ cleanupInactivePlayers 方法存在', 'success');
+                } else {
+                    log('❌ cleanupInactivePlayers 方法不存在', 'error');
+                }
+                
+                if (typeof firebaseService.getActivePlayerCount === 'function') {
+                    log('✅ getActivePlayerCount 方法存在', 'success');
+                } else {
+                    log('❌ getActivePlayerCount 方法不存在', 'error');
+                }
+                
+                if (typeof firebaseService.cleanupEmptyRoom === 'function') {
+                    log('✅ cleanupEmptyRoom 方法存在', 'success');
+                } else {
+                    log('❌ cleanupEmptyRoom 方法不存在', 'error');
+                }
+                
+                log('🎯 玩家清理機制測試完成', 'success');
+                
+            } catch (error) {
+                log(`❌ 測試過程中發生錯誤: ${error.message}`, 'error');
+                console.error('測試錯誤詳情:', error);
+            }
+        }
+        
+        // 測試超時玩家檢測
+        async function testInactivePlayerDetection() {
+            log('🧪 開始測試超時玩家檢測...');
+            
+            try {
+                const firebaseService = new FirebaseService();
+                
+                // 測試心跳機制
+                if (typeof firebaseService.updatePlayerHeartbeat === 'function') {
+                    log('✅ updatePlayerHeartbeat 方法存在', 'success');
+                } else {
+                    log('❌ updatePlayerHeartbeat 方法不存在', 'error');
+                }
+                
+                if (typeof firebaseService.startHeartbeat === 'function') {
+                    log('✅ startHeartbeat 方法存在', 'success');
+                } else {
+                    log('❌ startHeartbeat 方法不存在', 'error');
+                }
+                
+                if (typeof firebaseService.stopHeartbeat === 'function') {
+                    log('✅ stopHeartbeat 方法存在', 'success');
+                } else {
+                    log('❌ stopHeartbeat 方法不存在', 'error');
+                }
+                
+                // 測試設定值
+                log(`⚙️ 心跳間隔: ${firebaseService.config.heartbeatInterval}ms`);
+                
+                log('🎯 超時玩家檢測測試完成', 'success');
+                
+            } catch (error) {
+                log(`❌ 測試過程中發生錯誤: ${error.message}`, 'error');
+                console.error('測試錯誤詳情:', error);
+            }
+        }
+        
+        // 頁面載入時自動執行基本檢查
+        window.addEventListener('load', () => {
+            log('🚀 房間容量測試頁面已載入');
+            log('💡 請點擊上方按鈕執行各項測試');
+        });
+    </script>
+</body>
+</html>

@@ -493,14 +493,25 @@ class FirebaseService {
             } else {
                 // 檢查房間是否已滿或被鎖定
                 const roomData = roomSnapshot.val();
-                const playerCount = roomData.players ? Object.keys(roomData.players).length : 0;
                 
                 if (roomData.locked) {
                     throw new Error('房間已被鎖定');
                 }
                 
-                if (playerCount >= 10) { // 最大玩家數限制
-                    throw new Error('房間已滿');
+                // 獲取實際活躍玩家數量（包含清理超時玩家）
+                const activePlayerCount = await this.getActivePlayerCount(roomId);
+                console.log(`👥 房間 ${roomId} 當前活躍玩家數: ${activePlayerCount}/10`);
+                
+                if (activePlayerCount >= 10) { // 最大玩家數限制
+                    throw new Error(`房間已達到最大容量 (${activePlayerCount}/10 位玩家)。請等待其他玩家離開或建立新房間。`);
+                }
+                
+                // 檢查該玩家是否已經在房間中
+                if (roomData.players && roomData.players[player.id]) {
+                    console.log(`🔄 玩家 ${player.name} 重新加入房間`);
+                    // 更新現有玩家的心跳時間
+                    await roomRef.child(`players/${player.id}/lastHeartbeat`).set(Date.now());
+                    await roomRef.child(`players/${player.id}/online`).set(true);
                 }
             }
             
@@ -581,7 +592,17 @@ class FirebaseService {
             spectator: false
         };
         
-        await this.db.ref(`rooms/${roomId}/players/${player.id}`).set(playerData);
+        const playerRef = this.db.ref(`rooms/${roomId}/players/${player.id}`);
+        const voteRef = this.db.ref(`rooms/${roomId}/votes/${player.id}`);
+        
+        // 設置玩家數據
+        await playerRef.set(playerData);
+        
+        // 設置斷線自動清理
+        await playerRef.onDisconnect().remove();
+        await voteRef.onDisconnect().remove();
+        
+        console.log(`🔗 已為玩家 ${player.id} 設置斷線自動清理`);
         
         // 記錄玩家加入事件
         await this.addRoomEvent(roomId, {
@@ -833,55 +854,44 @@ class FirebaseService {
      * 離開房間
      * @param {string} roomId - 房間 ID
      * @param {string} playerId - 玩家 ID
+     * @param {boolean} forceCleanup - 強制清理（即使連線中斷）
      * @returns {Promise<void>}
      */
-    async leaveRoom(roomId, playerId) {
+    async leaveRoom(roomId, playerId, forceCleanup = false) {
         try {
             if (!roomId || !playerId) {
                 console.warn('⚠️ 房間 ID 或玩家 ID 不完整，跳過離開房間');
                 return;
             }
             
-            if (this.connectionState !== 'connected') {
-                console.warn('⚠️ Firebase 未連線，跳過離開房間');
-                return;
+            // 允許強制清理，即使連線中斷
+            if (this.connectionState !== 'connected' && !forceCleanup) {
+                console.warn('⚠️ Firebase 未連線，嘗試強制清理');
+                return this.leaveRoom(roomId, playerId, true);
             }
             
             const roomRef = this.db.ref(`rooms/${roomId}`);
             
-            // 移除玩家投票
-            await roomRef.child(`votes/${playerId}`).remove();
+            // 使用原子性事務移除玩家數據
+            const updates = {};
+            updates[`rooms/${roomId}/players/${playerId}`] = null;
+            updates[`rooms/${roomId}/votes/${playerId}`] = null;
             
-            // 移除玩家資料
-            await roomRef.child(`players/${playerId}`).remove();
+            await this.db.ref().update(updates);
             
             // 記錄離開事件
-            await this.addRoomEvent(roomId, {
-                type: 'player_left',
-                playerId: playerId,
-                timestamp: Date.now()
-            });
-            
-            // 檢查房間是否為空，如果是則清理房間
-            const playersSnapshot = await roomRef.child('players').once('value');
-            const remainingPlayers = playersSnapshot.val() || {};
-            
-            if (Object.keys(remainingPlayers).length === 0) {
-                // 房間為空，延遲清理以防玩家快速重新加入
-                setTimeout(async () => {
-                    try {
-                        const finalCheck = await roomRef.child('players').once('value');
-                        const finalPlayers = finalCheck.val() || {};
-                        
-                        if (Object.keys(finalPlayers).length === 0) {
-                            await roomRef.remove();
-                            console.log(`🗑️ 空房間 ${roomId} 已清理`);
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ 清理空房間失敗:', error);
-                    }
-                }, 30000); // 30秒後清理
+            try {
+                await this.addRoomEvent(roomId, {
+                    type: 'player_left',
+                    playerId: playerId,
+                    timestamp: Date.now()
+                });
+            } catch (eventError) {
+                console.warn('⚠️ 記錄離開事件失敗:', eventError);
             }
+            
+            // 使用事務檢查並清理空房間
+            await this.cleanupEmptyRoom(roomId);
             
             console.log(`👋 玩家 ${playerId} 已離開房間 ${roomId}`);
             this.emitEvent('room:left', { roomId, playerId });
@@ -1122,6 +1132,95 @@ class FirebaseService {
         this.currentPlayerId = null;
         
         console.log('🧹 FirebaseService 資源已清理');
+    }
+    
+    /**
+     * 清理空房間（使用事務確保原子性）
+     * @param {string} roomId - 房間 ID
+     */
+    async cleanupEmptyRoom(roomId) {
+        try {
+            const roomRef = this.db.ref(`rooms/${roomId}`);
+            
+            // 延遲檢查以防玩家快速重新加入
+            setTimeout(async () => {
+                try {
+                    await roomRef.transaction((roomData) => {
+                        if (!roomData || !roomData.players || Object.keys(roomData.players).length === 0) {
+                            console.log(`🗑️ 原子性清理空房間: ${roomId}`);
+                            return null; // 刪除房間
+                        }
+                        return roomData; // 保留房間
+                    });
+                } catch (error) {
+                    console.warn('⚠️ 清理空房間失敗:', error);
+                }
+            }, 30000); // 30秒後清理
+        } catch (error) {
+            console.error('❌ 清理空房間過程失敗:', error);
+        }
+    }
+    
+    /**
+     * 清理超時玩家
+     * @param {string} roomId - 房間 ID
+     * @param {number} timeoutMinutes - 超時分鐘數（預設 5 分鐘）
+     * @returns {Promise<number>} 清理的玩家數量
+     */
+    async cleanupInactivePlayers(roomId, timeoutMinutes = 5) {
+        try {
+            const HEARTBEAT_TIMEOUT = timeoutMinutes * 60 * 1000;
+            const cutoffTime = Date.now() - HEARTBEAT_TIMEOUT;
+            let cleanedCount = 0;
+            
+            console.log(`🧹 開始清理超時玩家（超過 ${timeoutMinutes} 分鐘）`);
+            
+            const playersRef = this.db.ref(`rooms/${roomId}/players`);
+            const snapshot = await playersRef.once('value');
+            const players = snapshot.val() || {};
+            
+            const cleanupPromises = [];
+            
+            for (const [playerId, playerData] of Object.entries(players)) {
+                if (!playerData.lastHeartbeat || playerData.lastHeartbeat < cutoffTime) {
+                    console.log(`🧹 清理超時玩家: ${playerData.name} (${playerId})`);
+                    cleanupPromises.push(this.leaveRoom(roomId, playerId, true));
+                    cleanedCount++;
+                }
+            }
+            
+            await Promise.all(cleanupPromises);
+            
+            if (cleanedCount > 0) {
+                console.log(`✅ 已清理 ${cleanedCount} 個超時玩家`);
+            }
+            
+            return cleanedCount;
+        } catch (error) {
+            console.error('❌ 清理超時玩家失敗:', error);
+            return 0;
+        }
+    }
+    
+    /**
+     * 獲取房間實際玩家數量（清理後）
+     * @param {string} roomId - 房間 ID
+     * @returns {Promise<number>} 實際玩家數量
+     */
+    async getActivePlayerCount(roomId) {
+        try {
+            // 先清理超時玩家
+            await this.cleanupInactivePlayers(roomId);
+            
+            // 獲取清理後的玩家數量
+            const playersSnapshot = await this.db.ref(`rooms/${roomId}/players`).once('value');
+            const players = playersSnapshot.val() || {};
+            
+            return Object.keys(players).length;
+        } catch (error) {
+            console.error('❌ 取得活躍玩家數量失敗:', error);
+            return 0;
+        }
     }
     
     /**
