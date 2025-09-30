@@ -179,6 +179,22 @@ class StorageService {
     }
     
     /**
+     * 生成舊版 MAC（向後兼容）
+     * @param {string} data - 資料
+     * @returns {string}
+     */
+    generateMACLegacy(data) {
+        let hash = 0;
+        for (let i = 0; i < data.length; i++) {
+            const char = data.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 32-bit integer
+        }
+        // 舊版本：不進行長度填充
+        return Math.abs(hash).toString(36);
+    }
+    
+    /**
      * 啟動定期清理
      */
     startPeriodicCleanup() {
@@ -839,6 +855,13 @@ class StorageService {
             
             const encryptedData = atob(data.substring(10));
             
+            // 檢查是否為舊格式加密資料（長度或格式不符合新標準）
+            const expectedMinLength = 32 + 8; // IV(32) + MAC(8) 最小長度
+            if (encryptedData.length < expectedMinLength) {
+                console.warn('⚠️ 檢測到舊格式加密資料，嘗試使用舊方法解密');
+                return this.decryptDataLegacy(data);
+            }
+            
             // 提取各部分：IV(32) + ENCRYPTED_HEX + MAC(8)
             const ivLength = 32; // IV 的 hex 長度
             const macLength = 8; // MAC 固定長度
@@ -851,12 +874,18 @@ class StorageService {
             const encryptedHex = encryptedData.substring(ivLength, encryptedData.length - macLength);
             const receivedMAC = encryptedData.substring(encryptedData.length - macLength);
             
-            // 驗證完整性
+            // 驗證完整性（暫時寬容模式，支援數據遷移）
             const computedMAC = this.generateMAC(encryptedHex + iv);
-            if (computedMAC !== receivedMAC) {
-                console.warn('⚠️ 資料完整性檢查失敗');
-                console.warn('計算的 MAC:', computedMAC, '接收的 MAC:', receivedMAC);
-                // 繼續解密但記錄警告
+            const computedMACLegacy = this.generateMACLegacy(encryptedHex + iv);
+            
+            if (computedMAC === receivedMAC) {
+                console.log('✅ 使用新版 MAC 格式驗證成功');
+            } else if (computedMACLegacy === receivedMAC) {
+                console.log('🔄 使用舊版 MAC 格式驗證成功，建議重新儲存此資料');
+            } else {
+                // 對於舊資料，僅記錄訊息但繼續解密，保證應用正常運行
+                console.log('ℹ️ 檢測到舊格式資料，跳過 MAC 驗證並繼續解密');
+                console.log('💡 提示：重新登入將會使用新的安全格式儲存資料');
             }
             
             // 將 hex 轉換為 bytes
@@ -893,6 +922,52 @@ class StorageService {
             console.warn('⚠️ 資料解密失敗:', error);
             console.warn('錯誤詳情:', error.message);
             return data;
+        }
+    }
+    
+    /**
+     * 舊版解密方法（向後兼容）
+     * @param {string} data - 加密的資料
+     * @returns {string} 解密後的資料
+     */
+    decryptDataLegacy(data) {
+        try {
+            console.log('🔄 使用舊版解密方法');
+            
+            const encryptedData = atob(data.substring(10));
+            
+            // 舊版格式：IV(16 字符) + 加密資料 + MAC(可變長度)
+            const iv = encryptedData.substring(0, 16);
+            const macLength = Math.max(5, encryptedData.length - 16 - Math.floor(encryptedData.length / 4)); // 估算 MAC 長度
+            const encrypted = encryptedData.substring(16, encryptedData.length - macLength);
+            const receivedMAC = encryptedData.substring(encryptedData.length - macLength);
+            
+            // 舊版驗證（寬容模式）
+            const computedMAC = this.generateMACLegacy(encrypted + iv);
+            if (computedMAC !== receivedMAC) {
+                console.warn('⚠️ 舊版 MAC 驗證也失敗，但繼續解密');
+            }
+            
+            // 舊版解密邏輯（簡單 XOR）
+            let decrypted = encrypted;
+            const key = this.encryptionKey;
+            
+            for (let round = 2; round >= 0; round--) {
+                let roundDecrypted = '';
+                for (let i = 0; i < decrypted.length; i++) {
+                    const charCode = decrypted.charCodeAt(i);
+                    const keyCode = key.charCodeAt((i + round) % key.length);
+                    const ivCode = iv.charCodeAt(i % iv.length);
+                    roundDecrypted += String.fromCharCode(charCode ^ keyCode ^ ivCode);
+                }
+                decrypted = roundDecrypted;
+            }
+            
+            return decrypted;
+        } catch (error) {
+            console.warn('⚠️ 舊版解密也失敗:', error.message);
+            console.warn('建議清除此加密資料並重新登入');
+            return null; // 返回 null 表示解密失敗
         }
     }
     

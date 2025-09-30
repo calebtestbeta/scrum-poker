@@ -1073,7 +1073,20 @@ const StorageUtils = {
                     // 如果存在 StorageService，使用它的解密方法
                     if (window.StorageService) {
                         const storageService = new window.StorageService();
-                        return storageService.decryptData(item);
+                        const decryptedData = storageService.decryptData(item);
+                        
+                        // 如果解密返回 null，表示資料損壞，清除它
+                        if (decryptedData === null) {
+                            console.warn(`StorageUtils.getItem: 加密資料損壞，清除鍵值 "${key}"`);
+                            try {
+                                localStorage.removeItem(key);
+                            } catch (removeError) {
+                                console.error('無法清除損壞的加密資料', removeError);
+                            }
+                            return defaultValue;
+                        }
+                        
+                        return decryptedData;
                     } else {
                         console.warn('StorageUtils.getItem: 發現加密資料但 StorageService 不可用');
                         return defaultValue;
@@ -1084,6 +1097,15 @@ const StorageUtils = {
                         error: decryptError.message,
                         stack: decryptError.stack
                     });
+                    
+                    // 解密失敗時也清除損壞的資料
+                    try {
+                        localStorage.removeItem(key);
+                        console.warn(`StorageUtils.getItem: 解密失敗，已清除損壞的鍵值 "${key}"`);
+                    } catch (removeError) {
+                        console.error('無法清除解密失敗的資料', removeError);
+                    }
+                    
                     return defaultValue;
                 }
             }
