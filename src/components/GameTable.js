@@ -169,7 +169,8 @@ class GameTable {
             textContent: '🎭 開牌',
             attributes: {
                 'id': 'revealBtn',
-                'aria-label': '開牌顯示所有投票結果'
+                'aria-label': '任何玩家都可以點擊開牌顯示所有投票結果',
+                'title': '任何玩家都可以點擊開牌'
             }
         });
         
@@ -246,32 +247,41 @@ class GameTable {
     }
     
     /**
-     * 提交投票
+     * 提交投票 - 支持重新投票
      * @param {*} value - 投票值
      */
     submitVote(value) {
         const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);
         if (!currentPlayer) return;
         
+        const isRevote = currentPlayer.hasVoted;
+        
         // 更新當前玩家的投票
         currentPlayer.setVote(value, true);
         
-        // 禁用卡牌選擇
-        this.cardDeck.setClickable(false);
+        // 保持卡牌可點擊狀態，允許重新投票
+        if (this.currentPhase === 'voting') {
+            this.cardDeck.setClickable(true);
+        }
         
         // 發送投票事件
         if (window.eventBus) {
             window.eventBus.emit('game:vote-submitted', {
                 playerId: this.currentPlayerId,
                 vote: value,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                isRevote: isRevote
             });
         }
         
         // 更新狀態
         this.updateGameStatus();
         
-        console.log(`✅ 玩家 ${currentPlayer.name} 投票: ${value}`);
+        if (isRevote) {
+            console.log(`🔄 玩家 ${currentPlayer.name} 重新投票: ${value}`);
+        } else {
+            console.log(`✅ 玩家 ${currentPlayer.name} 投票: ${value}`);
+        }
     }
     
     /**
@@ -334,13 +344,19 @@ class GameTable {
     }
     
     /**
-     * 啟用投票
+     * 啟用投票 - 允許重新出牌
      */
     enableVoting() {
-        if (this.currentPlayerId) {
+        if (this.currentPlayerId && this.currentPhase === 'voting') {
             const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);
-            if (currentPlayer && !currentPlayer.hasVoted) {
+            if (currentPlayer) {
+                // 允許所有玩家在投票階段重新選擇卡牌
                 this.cardDeck.setClickable(true);
+                
+                // 如果玩家已經投票過，提供視覺提示可以重新投票
+                if (currentPlayer.hasVoted) {
+                    console.log(`✨ 玩家 ${currentPlayer.name} 可以重新投票`);
+                }
             }
         }
     }
@@ -451,12 +467,17 @@ class GameTable {
         
         const progress = this.playerList.updateVotingProgress();
         
-        // 開牌按鈕
+        // 開牌按鈕 - 允許任何人在投票階段開牌
         if (this.buttons.reveal) {
             const canReveal = this.currentPhase === 'voting' && progress.voted > 0;
             this.buttons.reveal.disabled = !canReveal;
             this.buttons.reveal.classList.toggle('btn-pulse', 
                 canReveal && progress.percentage >= (this.options.autoRevealThreshold * 100));
+            
+            // 更新按鈕文字提示任何人都可以開牌
+            if (canReveal) {
+                this.buttons.reveal.title = '任何玩家都可以點擊開牌';
+            }
         }
         
         // 重新開始按鈕
@@ -494,10 +515,10 @@ class GameTable {
                     statusText = `請選擇卡牌進行投票 (${progress.total} 位玩家)`;
                     statusClass = 'status-voting';
                 } else if (progress.percentage < 100) {
-                    statusText = `投票進行中 ${progress.voted}/${progress.total} (${progress.percentage}%)`;
+                    statusText = `投票進行中 ${progress.voted}/${progress.total} (${progress.percentage}%) - 可重新選擇卡牌`;
                     statusClass = 'status-voting';
                 } else {
-                    statusText = `所有玩家已投票完成！點擊開牌查看結果`;
+                    statusText = `所有玩家已投票完成！任何人可點擊開牌查看結果`;
                     statusClass = 'status-ready';
                 }
                 break;

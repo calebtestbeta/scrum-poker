@@ -892,11 +892,12 @@ class ScrumPokerApp {
      * @param {Object} data - 投票數據
      */
     handleVoteSubmitted(data) {
-        if (Utils.Game && Utils.Game.formatPoints) {
-            this.showToast('success', `投票已提交: ${Utils.Game.formatPoints(data.vote)}`);
-        } else {
-            this.showToast('success', `投票已提交: ${data.vote}`);
-        }
+        // 根據是否為重新投票顯示不同訊息
+        const message = data.isRevote ? '投票已更新' : '投票已提交';
+        const formattedVote = Utils.Game && Utils.Game.formatPoints ? 
+            Utils.Game.formatPoints(data.vote) : data.vote;
+        
+        this.showToast('success', `${message}: ${formattedVote}`);
         
         // 如果有 Firebase 服務，同步投票（帶錯誤處理）
         if (this.firebaseService && this.roomId && this.currentPlayer) {
