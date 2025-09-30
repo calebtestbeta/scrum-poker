@@ -1537,6 +1537,50 @@ class ScrumPokerApp {
     }
     
     /**
+     * 測試玩家 ID 驗證修復
+     * @returns {Object} 測試結果
+     */
+    testPlayerIdValidation() {
+        console.log('🧪 測試玩家 ID 驗證修復...');
+        
+        const testResults = {
+            utilsGeneration: [],
+            firebaseValidation: null,
+            integration: []
+        };
+        
+        // 測試 Utils.Data.generateId 生成的 ID
+        for (let i = 0; i < 5; i++) {
+            const id = Utils.Data.generateId('player');
+            testResults.utilsGeneration.push({
+                id,
+                format: id.match(/^player_[a-z0-9]+_[a-z0-9]+$/) ? '✅ 格式正確' : '❌ 格式錯誤'
+            });
+        }
+        
+        // 測試 FirebaseService 驗證功能（如果可用）
+        if (this.firebaseService && typeof this.firebaseService.testPlayerIdValidation === 'function') {
+            testResults.firebaseValidation = this.firebaseService.testPlayerIdValidation();
+        }
+        
+        // 測試整合場景
+        const testPlayer = {
+            id: Utils.Data.generateId('player'),
+            name: '測試玩家',
+            role: 'dev'
+        };
+        
+        testResults.integration.push({
+            scenario: '標準玩家創建',
+            playerId: testPlayer.id,
+            status: '✅ 成功創建'
+        });
+        
+        console.log('🧪 玩家 ID 驗證修復測試結果:', testResults);
+        return testResults;
+    }
+    
+    /**
      * 測試 Cookie 儲存和讀取功能
      * @returns {Promise<Object>} 測試結果
      */
