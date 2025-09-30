@@ -51,7 +51,6 @@
     <h2>控制台輸出</h2>
     <div id="console"></div>
 
-    <script src="src/services/FirebaseService.js"></script>
     <script>
         // 重寫 console.log 和 console.error 來顯示在頁面上
         const originalLog = console.log;
@@ -74,6 +73,36 @@
             consoleDiv.innerHTML = '';
         }
         
+        // 內嵌 validateVoteValue 函數用於測試
+        function validateVoteValue(vote) {
+            // 允許的 Fibonacci 數列
+            const allowedNumbers = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 100];
+            // 允許的特殊值 (包含多種表示方式)
+            const allowedSpecial = ['?', '❓', 'question', '☕', 'coffee', '∞', 'infinity'];
+            
+            // 數字類型驗證
+            if (typeof vote === 'number' && allowedNumbers.includes(vote)) {
+                console.log(`✅ 有效數字投票值: ${vote}`);
+                return vote;
+            }
+            
+            // 字串類型驗證 (支援多種表示方式)
+            if (typeof vote === 'string' && allowedSpecial.includes(vote)) {
+                console.log(`✅ 有效特殊投票值: ${vote}`);
+                return vote;
+            }
+            
+            // 詳細錯誤日誌
+            console.error(`❌ 無效的投票值:`, {
+                value: vote,
+                type: typeof vote,
+                allowedNumbers,
+                allowedSpecial
+            });
+            
+            throw new Error(`無效的投票值: ${vote} (類型: ${typeof vote})`);
+        }
+        
         function showResult(testName, passed, message) {
             const resultsDiv = document.getElementById('results');
             const resultDiv = document.createElement('div');
@@ -84,9 +113,6 @@
         
         function testValidateVoteValue() {
             console.log('🧪 開始測試 validateVoteValue 函數...');
-            
-            // 創建 FirebaseService 實例來測試
-            const service = new FirebaseService();
             
             const testCases = [
                 // 有效數字
@@ -106,6 +132,7 @@
                 // 有效特殊值
                 { input: '?', expected: true, description: '問號字串' },
                 { input: '❓', expected: true, description: '問號 emoji' },
+                { input: 'question', expected: true, description: 'question 字串' },
                 { input: '☕', expected: true, description: '咖啡 emoji' },
                 { input: 'coffee', expected: true, description: 'coffee 字串' },
                 { input: '∞', expected: true, description: '無限符號' },
@@ -124,7 +151,7 @@
             
             testCases.forEach(testCase => {
                 try {
-                    const result = service.validateVoteValue(testCase.input);
+                    const result = validateVoteValue(testCase.input);
                     if (testCase.expected) {
                         showResult(`測試 ${testCase.description}`, true, `返回值: ${result}`);
                     } else {

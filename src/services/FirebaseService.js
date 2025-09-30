@@ -389,7 +389,7 @@ class FirebaseService {
         // 允許的 Fibonacci 數列
         const allowedNumbers = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 100];
         // 允許的特殊值 (包含多種表示方式)
-        const allowedSpecial = ['?', '❓', '☕', 'coffee', '∞', 'infinity'];
+        const allowedSpecial = ['?', '❓', 'question', '☕', 'coffee', '∞', 'infinity'];
         
         // 數字類型驗證
         if (typeof vote === 'number' && allowedNumbers.includes(vote)) {
@@ -398,9 +398,15 @@ class FirebaseService {
         }
         
         // 字串類型驗證 (支援多種表示方式)
-        if (typeof vote === 'string' && allowedSpecial.includes(vote)) {
-            console.log(`✅ 有效特殊投票值: ${vote}`);
-            return vote;
+        if (typeof vote === 'string') {
+            console.log(`🔍 檢查字串投票值: "${vote}" (Unicode: ${vote.charCodeAt(0)})`);
+            console.log(`🔍 允許的特殊值:`, allowedSpecial);
+            console.log(`🔍 包含檢查結果:`, allowedSpecial.includes(vote));
+            
+            if (allowedSpecial.includes(vote)) {
+                console.log(`✅ 有效特殊投票值: ${vote}`);
+                return vote;
+            }
         }
         
         // 詳細錯誤日誌
