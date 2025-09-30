@@ -427,20 +427,44 @@ class ScrumPokerApp {
         });
         
         this.firebaseService.on('room:players-updated', (data) => {
-            if (this.gameTable) {
-                this.gameTable.updatePlayers(data.players);
+            try {
+                if (this.gameTable && typeof this.gameTable.updatePlayers === 'function') {
+                    console.log('📢 收到玩家更新事件:', data);
+                    this.gameTable.updatePlayers(data.players);
+                } else {
+                    console.error('❌ GameTable 或 updatePlayers 方法不存在');
+                }
+            } catch (error) {
+                console.error('❌ 處理玩家更新事件失敗:', error);
+                this.showToast('error', '玩家數據更新失敗');
             }
         });
         
         this.firebaseService.on('room:votes-updated', (data) => {
-            if (this.gameTable) {
-                this.gameTable.updateVotes(data.votes);
+            try {
+                if (this.gameTable && typeof this.gameTable.updateVotes === 'function') {
+                    console.log('📢 收到投票更新事件:', data);
+                    this.gameTable.updateVotes(data.votes);
+                } else {
+                    console.error('❌ GameTable 或 updateVotes 方法不存在');
+                }
+            } catch (error) {
+                console.error('❌ 處理投票更新事件失敗:', error);
+                this.showToast('error', '投票數據更新失敗');
             }
         });
         
         this.firebaseService.on('room:phase-changed', (data) => {
-            if (this.gameTable) {
-                this.gameTable.updatePhase(data.phase);
+            try {
+                if (this.gameTable && typeof this.gameTable.updatePhase === 'function') {
+                    console.log('📢 收到階段更新事件:', data);
+                    this.gameTable.updatePhase(data.phase);
+                } else {
+                    console.error('❌ GameTable 或 updatePhase 方法不存在');
+                }
+            } catch (error) {
+                console.error('❌ 處理階段更新事件失敗:', error);
+                this.showToast('error', '遊戲階段更新失敗');
             }
         });
         

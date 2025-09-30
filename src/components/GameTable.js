@@ -596,6 +596,141 @@ class GameTable {
     }
     
     /**
+     * 批量更新玩家列表
+     * @param {Object} players - 玩家數據物件
+     */
+    updatePlayers(players) {
+        try {
+            if (!players || typeof players !== 'object') {
+                console.warn('⚠️ updatePlayers: 無效的玩家資料', players);
+                return;
+            }
+            
+            console.log('👥 正在更新玩家列表:', Object.keys(players));
+            
+            // 更新每個玩家的資料
+            Object.entries(players).forEach(([playerId, playerData]) => {
+                try {
+                    if (playerData && typeof playerData === 'object') {
+                        let player = this.playerList.getPlayer(playerId);
+                        
+                        if (!player) {
+                            // 如果玩家不存在，創建新玩家
+                            player = this.addPlayer(
+                                playerId,
+                                playerData.name || 'Unknown',
+                                playerData.role || 'other',
+                                playerData
+                            );
+                        } else {
+                            // 更新現有玩家
+                            player.updateFromData(playerData);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`❌ 更新玩家 ${playerId} 失敗:`, error);
+                }
+            });
+            
+            // 移除不在更新列表中的玩家
+            const currentPlayers = this.playerList.getAllPlayers();
+            const updatedPlayerIds = Object.keys(players);
+            
+            currentPlayers.forEach(player => {
+                if (!updatedPlayerIds.includes(player.id)) {
+                    console.log(`🚪 移除已離開的玩家: ${player.name}`);
+                    this.removePlayer(player.id);
+                }
+            });
+            
+            // 更新遊戲狀態
+            this.updateGameStatus();
+            this.updateButtonStates();
+            
+        } catch (error) {
+            console.error('❌ updatePlayers 執行失敗:', error);
+        }
+    }
+    
+    /**
+     * 批量更新投票數據
+     * @param {Object} votes - 投票數據物件
+     */
+    updateVotes(votes) {
+        try {
+            if (!votes || typeof votes !== 'object') {
+                console.warn('⚠️ updateVotes: 無效的投票資料', votes);
+                return;
+            }
+            
+            console.log('🗳️ 正在更新投票數據:', Object.keys(votes));
+            
+            // 更新每個玩家的投票
+            Object.entries(votes).forEach(([playerId, voteData]) => {
+                try {
+                    const player = this.playerList.getPlayer(playerId);
+                    if (player && voteData) {
+                        if (typeof voteData === 'object' && voteData.value !== undefined) {
+                            // 如果是物件格式 { value: ..., timestamp: ... }
+                            player.setVote(voteData.value, true);
+                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData.value}`);
+                        } else {
+                            // 如果是直接的值
+                            player.setVote(voteData, true);
+                            console.log(`✅ 更新玩家 ${player.name} 的投票: ${voteData}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`❌ 更新玩家 ${playerId} 的投票失敗:`, error);
+                }
+            });
+            
+            // 清除未在更新列表中的玩家投票
+            const currentPlayers = this.playerList.getAllPlayers();
+            const votedPlayerIds = Object.keys(votes);
+            
+            currentPlayers.forEach(player => {
+                if (!votedPlayerIds.includes(player.id) && player.hasVoted) {
+                    console.log(`🗳️ 清除玩家 ${player.name} 的投票`);
+                    player.clearVote();
+                }
+            });
+            
+            // 更新遊戲狀態
+            this.updateGameStatus();
+            this.updateButtonStates();
+            
+        } catch (error) {
+            console.error('❌ updateVotes 執行失敗:', error);
+        }
+    }
+    
+    /**
+     * 更新遊戲階段
+     * @param {string} newPhase - 新的遊戲階段
+     */
+    updatePhase(newPhase) {
+        try {
+            if (!newPhase || typeof newPhase !== 'string') {
+                console.warn('⚠️ updatePhase: 無效的階段參數', newPhase);
+                return;
+            }
+            
+            const oldPhase = this.currentPhase;
+            console.log(`🎮 階段更新: ${oldPhase} → ${newPhase}`);
+            
+            // 更新階段
+            this.currentPhase = newPhase;
+            
+            // 觸發階段變更處理
+            this.handlePhaseChange(newPhase, oldPhase);
+            
+        } catch (error) {
+            console.error('❌ updatePhase 執行失敗:', error);
+        }
+    }
+    
+    /**
      * 開始遊戲
      */
     startGame() {
