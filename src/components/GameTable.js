@@ -254,10 +254,26 @@ class GameTable {
                 return;
             }
             
-            // 投票值檢查
+            // 投票值檢查 - 特別處理 0 值
             if (value === undefined || value === null) {
-                console.error('❌ 無效的投票值:', value);
+                console.error('❌ 無效的投票值:', {
+                    value,
+                    type: typeof value,
+                    isZero: value === 0,
+                    isEmptyString: value === '',
+                    isFalsy: !value
+                });
                 return;
+            }
+            
+            // 額外的 0 值驗證日誌
+            if (value === 0) {
+                console.log('🎯 正在處理 0 值卡牌選擇:', {
+                    value,
+                    type: typeof value,
+                    isNumber: typeof value === 'number',
+                    isValidZero: value === 0 && typeof value === 'number'
+                });
             }
             
             // 檢查玩家是否存在
@@ -294,6 +310,9 @@ class GameTable {
         try {
             console.log(`📝 開始提交投票:`, {
                 value,
+                valueType: typeof value,
+                isZero: value === 0,
+                isValidNumber: typeof value === 'number' && !isNaN(value),
                 currentPlayerId: this.currentPlayerId,
                 currentPhase: this.currentPhase
             });

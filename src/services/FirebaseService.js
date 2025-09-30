@@ -393,6 +393,9 @@ class FirebaseService {
         
         // 數字類型驗證
         if (typeof vote === 'number' && allowedNumbers.includes(vote)) {
+            if (vote === 0) {
+                console.log(`✅ 特別驗證：0 值投票 - 類型: ${typeof vote}, 值: ${vote}, 在允許列表中: ${allowedNumbers.includes(vote)}`);
+            }
             console.log(`✅ 有效數字投票值: ${vote}`);
             return vote;
         }

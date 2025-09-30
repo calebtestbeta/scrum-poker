@@ -292,9 +292,19 @@ class ScrumPokerApp {
                 const card = target.closest('.card');
                 const value = card.dataset.value;
                 
-                if (value && window.eventBus) {
+                if (value !== undefined && value !== null && window.eventBus) {
+                    // 安全的數值轉換，保持特殊字符串不變
+                    let processedValue;
+                    if (!isNaN(value) && value !== '') {
+                        processedValue = parseInt(value);
+                    } else {
+                        processedValue = value; // 保持特殊值如 "☕", "❓", "∞"
+                    }
+                    
+                    console.log(`🎯 觸控手勢選擇卡牌: 原始值="${value}", 處理後值=${processedValue}`);
+                    
                     window.eventBus.emit('deck:card-selected', {
-                        value: parseInt(value),
+                        value: processedValue,
                         card: card
                     });
                 }
@@ -560,9 +570,19 @@ class ScrumPokerApp {
             if (event.key === 'Enter' && event.target.classList.contains('card')) {
                 event.preventDefault();
                 const value = event.target.dataset.value;
-                if (value && window.eventBus) {
+                if (value !== undefined && value !== null && window.eventBus) {
+                    // 安全的數值轉換，保持特殊字符串不變
+                    let processedValue;
+                    if (!isNaN(value) && value !== '') {
+                        processedValue = parseInt(value);
+                    } else {
+                        processedValue = value; // 保持特殊值如 "☕", "❓", "∞"
+                    }
+                    
+                    console.log(`⌨️ 鍵盤快捷鍵選擇卡牌: 原始值="${value}", 處理後值=${processedValue}`);
+                    
                     window.eventBus.emit('deck:card-selected', {
-                        value: parseInt(value),
+                        value: processedValue,
                         card: event.target
                     });
                 }

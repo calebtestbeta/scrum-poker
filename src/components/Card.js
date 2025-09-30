@@ -483,7 +483,7 @@ class CardDeck {
         if (window.eventBus) {
             window.eventBus.emit('deck:card-selected', {
                 card: this.selectedCard,
-                value: this.selectedCard?.value || null
+                value: this.selectedCard ? this.selectedCard.value : null
             });
         }
     }
