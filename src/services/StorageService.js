@@ -158,7 +158,8 @@ class StorageService {
                 array[i] = Math.floor(Math.random() * 256);
             }
         }
-        return Array.from(array, byte => String.fromCharCode(byte)).join('');
+        // 使用 hex 編碼確保穩定性
+        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
     }
     
     /**
@@ -173,7 +174,8 @@ class StorageService {
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash; // 32-bit integer
         }
-        return Math.abs(hash).toString(36);
+        // 確保 MAC 長度固定為 8 位
+        return Math.abs(hash).toString(36).padStart(8, '0').substring(0, 8);
     }
     
     /**
@@ -776,29 +778,43 @@ class StorageService {
                 return data;
             }
             
-            // 生成隨機 IV
+            // 將 UTF-8 字串轉換為 bytes
+            const utf8Bytes = new TextEncoder().encode(data);
+            const dataBytes = Array.from(utf8Bytes);
+            
+            // 生成隨機 IV (32 hex chars = 16 bytes)
             const iv = this.generateRandomIV();
-            
-            // 強化 XOR 加密（多輪次）
-            let encrypted = data;
-            const key = this.encryptionKey;
-            
-            // 多輪次加密
-            for (let round = 0; round < 3; round++) {
-                let roundEncrypted = '';
-                for (let i = 0; i < encrypted.length; i++) {
-                    const charCode = encrypted.charCodeAt(i);
-                    const keyCode = key.charCodeAt((i + round) % key.length);
-                    const ivCode = iv.charCodeAt(i % iv.length);
-                    roundEncrypted += String.fromCharCode(charCode ^ keyCode ^ ivCode);
-                }
-                encrypted = roundEncrypted;
+            const ivBytes = [];
+            for (let i = 0; i < iv.length; i += 2) {
+                ivBytes.push(parseInt(iv.substring(i, i + 2), 16));
             }
             
-            // 添加 HMAC-like 完整性檢查
-            const mac = this.generateMAC(encrypted + iv);
+            // 準備金鑰 bytes
+            const keyBytes = [];
+            for (let i = 0; i < this.encryptionKey.length; i += 2) {
+                keyBytes.push(parseInt(this.encryptionKey.substring(i, i + 2), 16));
+            }
             
-            return 'ENCRYPTED:' + btoa(iv + encrypted + mac);
+            // 多輪次加密
+            let encrypted = [...dataBytes];
+            for (let round = 0; round < 3; round++) {
+                for (let i = 0; i < encrypted.length; i++) {
+                    const keyByte = keyBytes[(i + round) % keyBytes.length];
+                    const ivByte = ivBytes[i % ivBytes.length];
+                    encrypted[i] = encrypted[i] ^ keyByte ^ ivByte ^ (round + 1);
+                }
+            }
+            
+            // 轉換為 hex
+            const encryptedHex = encrypted.map(byte => 
+                byte.toString(16).padStart(2, '0')
+            ).join('');
+            
+            // 添加完整性檢查
+            const mac = this.generateMAC(encryptedHex + iv);
+            
+            // 格式：IV(32) + ENCRYPTED_HEX + MAC(8)
+            return 'ENCRYPTED:' + btoa(iv + encryptedHex + mac);
         } catch (error) {
             console.warn('⚠️ 資料加密失敗:', error);
             return data;
@@ -823,37 +839,59 @@ class StorageService {
             
             const encryptedData = atob(data.substring(10));
             
-            // 提取 IV、加密資料和 MAC
-            const iv = encryptedData.substring(0, 16);
-            const macLength = 8; // MAC 長度估計
-            const encrypted = encryptedData.substring(16, -macLength);
-            const receivedMAC = encryptedData.substring(-macLength);
+            // 提取各部分：IV(32) + ENCRYPTED_HEX + MAC(8)
+            const ivLength = 32; // IV 的 hex 長度
+            const macLength = 8; // MAC 固定長度
+            
+            if (encryptedData.length < ivLength + macLength) {
+                throw new Error('加密資料格式錯誤：長度不足');
+            }
+            
+            const iv = encryptedData.substring(0, ivLength);
+            const encryptedHex = encryptedData.substring(ivLength, encryptedData.length - macLength);
+            const receivedMAC = encryptedData.substring(encryptedData.length - macLength);
             
             // 驗證完整性
-            const computedMAC = this.generateMAC(encrypted + iv);
+            const computedMAC = this.generateMAC(encryptedHex + iv);
             if (computedMAC !== receivedMAC) {
                 console.warn('⚠️ 資料完整性檢查失敗');
+                console.warn('計算的 MAC:', computedMAC, '接收的 MAC:', receivedMAC);
                 // 繼續解密但記錄警告
             }
             
-            // 多輪次解密（逆序）
-            let decrypted = encrypted;
-            const key = this.encryptionKey;
-            
-            for (let round = 2; round >= 0; round--) {
-                let roundDecrypted = '';
-                for (let i = 0; i < decrypted.length; i++) {
-                    const charCode = decrypted.charCodeAt(i);
-                    const keyCode = key.charCodeAt((i + round) % key.length);
-                    const ivCode = iv.charCodeAt(i % iv.length);
-                    roundDecrypted += String.fromCharCode(charCode ^ keyCode ^ ivCode);
-                }
-                decrypted = roundDecrypted;
+            // 將 hex 轉換為 bytes
+            const encryptedBytes = [];
+            for (let i = 0; i < encryptedHex.length; i += 2) {
+                encryptedBytes.push(parseInt(encryptedHex.substring(i, i + 2), 16));
             }
             
-            return decrypted;
+            // 準備 IV 和 key bytes
+            const ivBytes = [];
+            for (let i = 0; i < iv.length; i += 2) {
+                ivBytes.push(parseInt(iv.substring(i, i + 2), 16));
+            }
+            
+            const keyBytes = [];
+            for (let i = 0; i < this.encryptionKey.length; i += 2) {
+                keyBytes.push(parseInt(this.encryptionKey.substring(i, i + 2), 16));
+            }
+            
+            // 多輪次解密（逆序）
+            let decrypted = [...encryptedBytes];
+            for (let round = 2; round >= 0; round--) {
+                for (let i = 0; i < decrypted.length; i++) {
+                    const keyByte = keyBytes[(i + round) % keyBytes.length];
+                    const ivByte = ivBytes[i % ivBytes.length];
+                    decrypted[i] = decrypted[i] ^ keyByte ^ ivByte ^ (round + 1);
+                }
+            }
+            
+            // 將 bytes 轉換回 UTF-8 字串
+            const decryptedBytes = new Uint8Array(decrypted);
+            return new TextDecoder().decode(decryptedBytes);
         } catch (error) {
             console.warn('⚠️ 資料解密失敗:', error);
+            console.warn('錯誤詳情:', error.message);
             return data;
         }
     }
