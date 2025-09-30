@@ -448,7 +448,12 @@ class ScrumPokerApp {
                     console.log('📢 收到玩家更新事件:', data);
                     this.gameTable.updatePlayers(data.players);
                 } else {
-                    console.error('❌ GameTable 或 updatePlayers 方法不存在');
+                    console.warn('⚠️ GameTable 尚未初始化或 updatePlayers 方法不存在，跳過玩家更新');
+                    console.log('   GameTable 狀態:', {
+                        exists: !!this.gameTable,
+                        hasMethod: this.gameTable ? typeof this.gameTable.updatePlayers === 'function' : false,
+                        currentState: this.currentState
+                    });
                 }
             } catch (error) {
                 console.error('❌ 處理玩家更新事件失敗:', error);
@@ -462,7 +467,12 @@ class ScrumPokerApp {
                     console.log('📢 收到投票更新事件:', data);
                     this.gameTable.updateVotes(data.votes);
                 } else {
-                    console.error('❌ GameTable 或 updateVotes 方法不存在');
+                    console.warn('⚠️ GameTable 尚未初始化或 updateVotes 方法不存在，跳過投票更新');
+                    console.log('   GameTable 狀態:', {
+                        exists: !!this.gameTable,
+                        hasMethod: this.gameTable ? typeof this.gameTable.updateVotes === 'function' : false,
+                        currentState: this.currentState
+                    });
                 }
             } catch (error) {
                 console.error('❌ 處理投票更新事件失敗:', error);
@@ -476,7 +486,12 @@ class ScrumPokerApp {
                     console.log('📢 收到階段更新事件:', data);
                     this.gameTable.updatePhase(data.phase);
                 } else {
-                    console.error('❌ GameTable 或 updatePhase 方法不存在');
+                    console.warn('⚠️ GameTable 尚未初始化或 updatePhase 方法不存在，跳過階段更新');
+                    console.log('   GameTable 狀態:', {
+                        exists: !!this.gameTable,
+                        hasMethod: this.gameTable ? typeof this.gameTable.updatePhase === 'function' : false,
+                        currentState: this.currentState
+                    });
                 }
             } catch (error) {
                 console.error('❌ 處理階段更新事件失敗:', error);
@@ -901,12 +916,7 @@ class ScrumPokerApp {
             this.roomId = roomId;
             this.updateRoomIdDisplay(roomId);
             
-            // 如果有 Firebase 服務，加入房間
-            if (this.firebaseService) {
-                await this.firebaseService.joinRoom(roomId, this.currentPlayer);
-            }
-            
-            // 初始化遊戲桌面
+            // 先初始化遊戲桌面，再加入 Firebase 房間
             const gameArea = document.getElementById('gameArea');
             if (gameArea && window.GameTable) {
                 this.gameTable = new GameTable(gameArea);
@@ -922,6 +932,14 @@ class ScrumPokerApp {
                 
                 // 開始遊戲
                 this.gameTable.startGame();
+                
+                console.log('✅ GameTable 初始化完成，現在可以安全處理 Firebase 事件');
+            }
+            
+            // 在 GameTable 初始化完成後，才加入 Firebase 房間
+            if (this.firebaseService) {
+                console.log('🔄 GameTable 已就緒，正在加入 Firebase 房間...');
+                await this.firebaseService.joinRoom(roomId, this.currentPlayer);
             }
             
             // 更新狀態

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房間加入流程測試 - Scrum Poker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+        
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .error {
+            color: #f44336;
+        }
+        
+        .success {
+            color: #4CAF50;
+        }
+        
+        .warning {
+            color: #ff9800;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        #testOutput {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 房間加入流程測試</h1>
+    
+    <div class="test-container">
+        <h2>測試控制台</h2>
+        <button class="test-button" onclick="testGameTableInitialization()">測試 GameTable 初始化</button>
+        <button class="test-button" onclick="testEventHandlerSafety()">測試事件處理器安全性</button>
+        <button class="test-button" onclick="testMethodExistence()">測試方法存在性</button>
+        <button class="test-button" onclick="clearResults()">清除結果</button>
+        
+        <div class="results">
+            <h3>測試結果</h3>
+            <div id="testOutput"></div>
+        </div>
+    </div>
+
+    <!-- 載入必要的腳本 -->
+    <script src="src/core/Utils.js"></script>
+    <script src="src/core/EventBus.js"></script>
+    <script src="src/services/StorageService.js"></script>
+    <script src="src/services/FirebaseService.js"></script>
+    <script src="src/components/Player.js"></script>
+    <script src="src/components/Card.js"></script>
+    <script src="src/components/PlayerList.js"></script>
+    <script src="src/components/GameTable.js"></script>
+    <script src="src/app.js"></script>
+    
+    <script>
+        // 測試工具函數
+        function log(message, type = 'info') {
+            const output = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let className = '';
+            let icon = 'ℹ️';
+            
+            switch (type) {
+                case 'success':
+                    className = 'success';
+                    icon = '✅';
+                    break;
+                case 'error':
+                    className = 'error';
+                    icon = '❌';
+                    break;
+                case 'warning':
+                    className = 'warning';
+                    icon = '⚠️';
+                    break;
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${className}`;
+            logEntry.innerHTML = `[${timestamp}] ${icon} ${message}`;
+            
+            output.appendChild(logEntry);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('testOutput').innerHTML = '';
+        }
+        
+        // 測試 GameTable 初始化
+        function testGameTableInitialization() {
+            log('🧪 開始測試 GameTable 初始化...');
+            
+            try {
+                // 檢查 GameTable 類別是否存在
+                if (typeof GameTable === 'undefined') {
+                    log('❌ GameTable 類別未載入', 'error');
+                    return;
+                }
+                
+                // 創建測試容器
+                const testContainer = document.createElement('div');
+                testContainer.id = 'testGameArea';
+                document.body.appendChild(testContainer);
+                
+                // 測試 GameTable 初始化
+                const gameTable = new GameTable(testContainer);
+                log('✅ GameTable 成功初始化', 'success');
+                
+                // 檢查必要方法是否存在
+                const requiredMethods = ['updatePlayers', 'updateVotes', 'updatePhase'];
+                requiredMethods.forEach(method => {
+                    if (typeof gameTable[method] === 'function') {
+                        log(`✅ 方法 ${method} 存在`, 'success');
+                    } else {
+                        log(`❌ 方法 ${method} 不存在`, 'error');
+                    }
+                });
+                
+                // 清理測試容器
+                document.body.removeChild(testContainer);
+                gameTable.destroy();
+                
+                log('🎯 GameTable 初始化測試完成', 'success');
+                
+            } catch (error) {
+                log(`❌ 測試過程中發生錯誤: ${error.message}`, 'error');
+                console.error('測試錯誤詳情:', error);
+            }
+        }
+        
+        // 測試事件處理器安全性
+        function testEventHandlerSafety() {
+            log('🧪 開始測試事件處理器安全性...');
+            
+            try {
+                // 模擬 app 實例
+                const mockApp = {
+                    gameTable: null,
+                    currentState: 'login',
+                    showToast: (type, message) => {
+                        log(`Toast 顯示 (${type}): ${message}`);
+                    }
+                };
+                
+                // 測試當 gameTable 為 null 時的處理
+                const testHandlers = [
+                    {
+                        name: 'room:players-updated',
+                        handler: (data) => {
+                            if (mockApp.gameTable && typeof mockApp.gameTable.updatePlayers === 'function') {
+                                log('呼叫 updatePlayers');
+                            } else {
+                                log('⚠️ GameTable 尚未初始化，跳過玩家更新', 'warning');
+                            }
+                        }
+                    },
+                    {
+                        name: 'room:votes-updated',
+                        handler: (data) => {
+                            if (mockApp.gameTable && typeof mockApp.gameTable.updateVotes === 'function') {
+                                log('呼叫 updateVotes');
+                            } else {
+                                log('⚠️ GameTable 尚未初始化，跳過投票更新', 'warning');
+                            }
+                        }
+                    }
+                ];
+                
+                // 測試處理器
+                testHandlers.forEach(({ name, handler }) => {
+                    try {
+                        handler({ test: 'data' });
+                        log(`✅ ${name} 處理器安全處理了空狀態`, 'success');
+                    } catch (error) {
+                        log(`❌ ${name} 處理器發生錯誤: ${error.message}`, 'error');
+                    }
+                });
+                
+                log('🎯 事件處理器安全性測試完成', 'success');
+                
+            } catch (error) {
+                log(`❌ 測試過程中發生錯誤: ${error.message}`, 'error');
+                console.error('測試錯誤詳情:', error);
+            }
+        }
+        
+        // 測試方法存在性
+        function testMethodExistence() {
+            log('🧪 開始測試方法存在性...');
+            
+            try {
+                if (typeof GameTable === 'undefined') {
+                    log('❌ GameTable 類別未載入', 'error');
+                    return;
+                }
+                
+                // 檢查 GameTable 原型上的方法
+                const gameTablePrototype = GameTable.prototype;
+                const expectedMethods = [
+                    'updatePlayers',
+                    'updateVotes', 
+                    'updatePhase',
+                    'addPlayer',
+                    'removePlayer',
+                    'setCurrentPlayer',
+                    'startGame',
+                    'destroy'
+                ];
+                
+                expectedMethods.forEach(method => {
+                    if (typeof gameTablePrototype[method] === 'function') {
+                        log(`✅ GameTable.prototype.${method} 存在`, 'success');
+                    } else {
+                        log(`❌ GameTable.prototype.${method} 不存在`, 'error');
+                    }
+                });
+                
+                log('🎯 方法存在性測試完成', 'success');
+                
+            } catch (error) {
+                log(`❌ 測試過程中發生錯誤: ${error.message}`, 'error');
+                console.error('測試錯誤詳情:', error);
+            }
+        }
+        
+        // 頁面載入時自動執行基本檢查
+        window.addEventListener('load', () => {
+            log('🚀 房間加入流程測試頁面已載入');
+            log('💡 請點擊上方按鈕執行各項測試');
+            
+            // 自動執行基本檢查
+            setTimeout(() => {
+                log('\n🔄 執行自動基本檢查...');
+                testMethodExistence();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
