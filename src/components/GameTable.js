@@ -137,7 +137,12 @@ class GameTable {
         if (window.eventBus) {
             // 卡牌選擇事件
             window.eventBus.on('deck:card-selected', (data) => {
-                this.handleCardSelection(data.card, data.value);
+                try {
+                    console.log('📢 收到 deck:card-selected 事件:', data);
+                    this.handleCardSelection(data.card, data.value);
+                } catch (error) {
+                    console.error('❌ 處理 deck:card-selected 事件失敗:', error);
+                }
             });
             
             // 玩家投票進度事件
@@ -224,63 +229,144 @@ class GameTable {
     }
     
     /**
-     * 處理卡牌選擇
+     * 處理卡牌選擇 - 增強錯誤處理
      * @param {Card} card - 選中的卡牌
      * @param {*} value - 卡牌值
      */
     handleCardSelection(card, value) {
-        if (this.currentPhase !== 'voting') {
-            console.warn('當前階段不允許投票');
-            return;
+        try {
+            console.log(`🎯 處理卡牌選擇:`, {
+                value,
+                currentPhase: this.currentPhase,
+                currentPlayerId: this.currentPlayerId,
+                card: card ? 'defined' : 'undefined'
+            });
+            
+            // 階段檢查
+            if (this.currentPhase !== 'voting') {
+                console.warn(`⚠️ 當前階段不允許投票: ${this.currentPhase}`);
+                return;
+            }
+            
+            // 玩家檢查
+            if (!this.currentPlayerId) {
+                console.error('❌ 未設置當前玩家 ID');
+                return;
+            }
+            
+            // 投票值檢查
+            if (value === undefined || value === null) {
+                console.error('❌ 無效的投票值:', value);
+                return;
+            }
+            
+            // 檢查玩家是否存在
+            const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);
+            if (!currentPlayer) {
+                console.error(`❌ 找不到玩家: ${this.currentPlayerId}`);
+                return;
+            }
+            
+            console.log(`🎯 玩家 ${currentPlayer.name} 選擇卡牌值: ${value}`);
+            
+            // 提交投票
+            this.submitVote(value);
+            
+            // 播放選擇反饋
+            this.playVoteFeedback();
+            
+        } catch (error) {
+            console.error('❌ handleCardSelection 執行失敗:', error);
+            console.error('錯誤詳情:', {
+                value,
+                currentPhase: this.currentPhase,
+                currentPlayerId: this.currentPlayerId,
+                stack: error.stack
+            });
         }
-        
-        if (!this.currentPlayerId) {
-            console.warn('未設置當前玩家');
-            return;
-        }
-        
-        // 提交投票
-        this.submitVote(value);
-        
-        // 播放選擇反饋
-        this.playVoteFeedback();
     }
     
     /**
-     * 提交投票 - 支持重新投票
+     * 提交投票 - 支持重新投票（增強錯誤處理）
      * @param {*} value - 投票值
      */
     submitVote(value) {
-        const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);
-        if (!currentPlayer) return;
-        
-        const isRevote = currentPlayer.hasVoted;
-        
-        // 更新當前玩家的投票
-        currentPlayer.setVote(value, true);
-        
-        // 保持卡牌可點擊狀態，允許重新投票
-        if (this.currentPhase === 'voting') {
-            this.cardDeck.setClickable(true);
-        }
-        
-        // 發送投票事件
-        if (window.eventBus) {
-            window.eventBus.emit('game:vote-submitted', {
-                playerId: this.currentPlayerId,
-                vote: value,
-                timestamp: Date.now(),
-                isRevote: isRevote
+        try {
+            console.log(`📝 開始提交投票:`, {
+                value,
+                currentPlayerId: this.currentPlayerId,
+                currentPhase: this.currentPhase
             });
-        }
-        
-        // 更新狀態
-        this.updateGameStatus();
-        
-        if (isRevote) {
-            console.log(`🔄 玩家 ${currentPlayer.name} 重新投票: ${value}`);
-        } else {
-            console.log(`✅ 玩家 ${currentPlayer.name} 投票: ${value}`);
+            
+            const currentPlayer = this.playerList.getPlayer(this.currentPlayerId);
+            if (!currentPlayer) {
+                console.error('❌ submitVote: 找不到當前玩家');
+                return;
+            }
+            
+            const isRevote = currentPlayer.hasVoted;
+            console.log(`📊 投票狀態: ${isRevote ? '重新投票' : '首次投票'}`);
+            
+            // 更新當前玩家的投票
+            try {
+                currentPlayer.setVote(value, true);
+                console.log(`✅ 玩家投票已更新: ${currentPlayer.name} -> ${value}`);
+            } catch (error) {
+                console.error('❌ 更新玩家投票失敗:', error);
+                return;
+            }
+            
+            // 保持卡牌可點擊狀態，允許重新投票
+            if (this.currentPhase === 'voting') {
+                try {
+                    this.cardDeck.setClickable(true);
+                    console.log('🎴 卡牌保持可點擊狀態');
+                } catch (error) {
+                    console.error('❌ 設置卡牌可點擊狀態失敗:', error);
+                }
+            }
+            
+            // 發送投票事件
+            if (window.eventBus) {
+                try {
+                    const eventData = {
+                        playerId: this.currentPlayerId,
+                        vote: value,
+                        timestamp: Date.now(),
+                        isRevote: isRevote
+                    };
+                    
+                    console.log('📢 發送投票事件:', eventData);
+                    window.eventBus.emit('game:vote-submitted', eventData);
+                } catch (error) {
+                    console.error('❌ 發送投票事件失敗:', error);
+                }
+            } else {
+                console.warn('⚠️ eventBus 不存在，無法發送投票事件');
+            }
+            
+            // 更新狀態
+            try {
+                this.updateGameStatus();
+                console.log('🔄 遊戲狀態已更新');
+            } catch (error) {
+                console.error('❌ 更新遊戲狀態失敗:', error);
+            }
+            
+            if (isRevote) {
+                console.log(`🔄 玩家 ${currentPlayer.name} 重新投票: ${value}`);
+            } else {
+                console.log(`✅ 玩家 ${currentPlayer.name} 投票: ${value}`);
+            }
+            
+        } catch (error) {
+            console.error('❌ submitVote 執行失敗:', error);
+            console.error('錯誤詳情:', {
+                value,
+                currentPlayerId: this.currentPlayerId,
+                currentPhase: this.currentPhase,
+                stack: error.stack
+            });
         }
     }
     

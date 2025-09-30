@@ -481,7 +481,13 @@ class ScrumPokerApp {
     setupGameEventListeners() {
         // 遊戲狀態變更
         window.eventBus.on('game:vote-submitted', (data) => {
-            this.handleVoteSubmitted(data);
+            try {
+                console.log('📢 收到 game:vote-submitted 事件:', data);
+                this.handleVoteSubmitted(data);
+            } catch (error) {
+                console.error('❌ 處理 game:vote-submitted 事件失敗:', error);
+                this.showToast('error', '投票處理失敗');
+            }
         });
         
         window.eventBus.on('game:votes-revealed', (data) => {
@@ -912,29 +918,78 @@ class ScrumPokerApp {
     }
     
     /**
-     * 處理投票提交
+     * 處理投票提交 - 增強錯誤處理
      * @param {Object} data - 投票數據
      */
     handleVoteSubmitted(data) {
-        // 根據是否為重新投票顯示不同訊息
-        const message = data.isRevote ? '投票已更新' : '投票已提交';
-        const formattedVote = Utils.Game && Utils.Game.formatPoints ? 
-            Utils.Game.formatPoints(data.vote) : data.vote;
-        
-        this.showToast('success', `${message}: ${formattedVote}`);
-        
-        // 如果有 Firebase 服務，同步投票（帶錯誤處理）
-        if (this.firebaseService && this.roomId && this.currentPlayer) {
-            this.firebaseService.submitVote(this.roomId, this.currentPlayer.id, data.vote)
-                .catch(error => {
-                    console.error('❌ Firebase 投票同步失敗:', error);
-                    this.showToast('error', error.message || '投票同步失敗，請重試');
-                    
-                    // 如果 Firebase 投票失敗，允許用戶重新選擇
-                    if (this.gameTable && this.gameTable.cardDeck) {
-                        this.gameTable.cardDeck.setClickable(true);
-                    }
+        try {
+            console.log('🎯 處理投票提交事件:', data);
+            
+            // 驗證數據完整性
+            if (!data || typeof data !== 'object') {
+                console.error('❌ 無效的投票數據:', data);
+                this.showToast('error', '投票數據無效');
+                return;
+            }
+            
+            if (data.vote === undefined || data.vote === null) {
+                console.error('❌ 投票值無效:', data.vote);
+                this.showToast('error', '投票值無效');
+                return;
+            }
+            
+            // 根據是否為重新投票顯示不同訊息
+            const message = data.isRevote ? '投票已更新' : '投票已提交';
+            let formattedVote;
+            
+            try {
+                formattedVote = Utils.Game && Utils.Game.formatPoints ? 
+                    Utils.Game.formatPoints(data.vote) : data.vote;
+            } catch (error) {
+                console.warn('⚠️ 格式化投票值失敗:', error);
+                formattedVote = data.vote;
+            }
+            
+            this.showToast('success', `${message}: ${formattedVote}`);
+            console.log(`✅ 投票提示已顯示: ${message}: ${formattedVote}`);
+            
+            // 如果有 Firebase 服務，同步投票（帶錯誤處理）
+            if (this.firebaseService && this.roomId && this.currentPlayer) {
+                console.log('🔄 開始 Firebase 投票同步...');
+                
+                this.firebaseService.submitVote(this.roomId, this.currentPlayer.id, data.vote)
+                    .then(() => {
+                        console.log('✅ Firebase 投票同步成功');
+                    })
+                    .catch(error => {
+                        console.error('❌ Firebase 投票同步失敗:', error);
+                        this.showToast('error', error.message || '投票同步失敗，請重試');
+                        
+                        // 如果 Firebase 投票失敗，允許用戶重新選擇
+                        if (this.gameTable && this.gameTable.cardDeck) {
+                            try {
+                                this.gameTable.cardDeck.setClickable(true);
+                                console.log('🎴 已重新啟用卡牌選擇');
+                            } catch (deckError) {
+                                console.error('❌ 重新啟用卡牌失敗:', deckError);
+                            }
+                        }
+                    });
+            } else {
+                console.warn('⚠️ Firebase 服務或必要參數缺失，跳過同步', {
+                    firebaseService: !!this.firebaseService,
+                    roomId: !!this.roomId,
+                    currentPlayer: !!this.currentPlayer
                 });
+            }
+            
+        } catch (error) {
+            console.error('❌ handleVoteSubmitted 執行失敗:', error);
+            console.error('錯誤詳情:', {
+                data,
+                stack: error.stack
+            });
+            this.showToast('error', '投票處理發生錯誤');
         }
     }
     
