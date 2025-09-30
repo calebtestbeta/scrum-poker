@@ -388,18 +388,30 @@ class FirebaseService {
     validateVoteValue(vote) {
         // 允許的 Fibonacci 數列
         const allowedNumbers = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 100];
-        // 允許的特殊值
-        const allowedSpecial = ['?', '☕', '∞'];
+        // 允許的特殊值 (包含多種表示方式)
+        const allowedSpecial = ['?', '❓', '☕', 'coffee', '∞', 'infinity'];
         
+        // 數字類型驗證
         if (typeof vote === 'number' && allowedNumbers.includes(vote)) {
+            console.log(`✅ 有效數字投票值: ${vote}`);
             return vote;
         }
         
+        // 字串類型驗證 (支援多種表示方式)
         if (typeof vote === 'string' && allowedSpecial.includes(vote)) {
+            console.log(`✅ 有效特殊投票值: ${vote}`);
             return vote;
         }
         
-        throw new Error('無效的投票值');
+        // 詳細錯誤日誌
+        console.error(`❌ 無效的投票值:`, {
+            value: vote,
+            type: typeof vote,
+            allowedNumbers,
+            allowedSpecial
+        });
+        
+        throw new Error(`無效的投票值: ${vote} (類型: ${typeof vote})`);
     }
 
     /**
@@ -654,7 +666,21 @@ class FirebaseService {
                 throw new Error(`玩家 ID 格式錯誤：${error.message}。請重新加入房間以獲取新的玩家 ID。`);
             }
             
-            vote = this.validateVoteValue(vote);
+            // 投票值驗證（帶詳細日誌）
+            console.log(`🎯 正在處理投票:`, {
+                roomId,
+                playerId,
+                rawVote: vote,
+                voteType: typeof vote
+            });
+            
+            try {
+                vote = this.validateVoteValue(vote);
+                console.log(`✅ 投票值驗證成功:`, vote);
+            } catch (error) {
+                console.error('❌ 投票值驗證失敗:', error.message);
+                throw new Error(`投票值驗證失敗: ${error.message}`);
+            }
             
             const roomRef = this.db.ref(`rooms/${roomId}`);
             
@@ -683,9 +709,36 @@ class FirebaseService {
             this.emitEvent('vote:submitted', { roomId, playerId, vote });
             
         } catch (error) {
-            console.error('❌ 提交投票失敗:', error);
-            this.emitEvent('vote:error', { roomId, playerId, vote, error });
-            throw error;
+            // 詳細錯誤日誌記錄
+            console.error('❌ 提交投票失敗:', {
+                error: error.message,
+                roomId,
+                playerId,
+                vote,
+                voteType: typeof vote,
+                connectionState: this.connectionState,
+                stack: error.stack
+            });
+            
+            // 發送錯誤事件
+            this.emitEvent('vote:error', { 
+                roomId, 
+                playerId, 
+                vote, 
+                error: error.message,
+                timestamp: Date.now()
+            });
+            
+            // 根據錯誤類型提供更友善的錯誤訊息
+            if (error.message.includes('無效的投票值')) {
+                throw new Error(`投票失敗：選擇的卡牌值無效 (${vote})。請重新選擇有效的卡牌。`);
+            } else if (error.message.includes('Firebase 未連線')) {
+                throw new Error('投票失敗：網路連線中斷。請檢查網路連線後重試。');
+            } else if (error.message.includes('投票過於頻繁')) {
+                throw new Error('投票失敗：操作過於頻繁。請稍等片刻後重試。');
+            } else {
+                throw new Error(`投票失敗：${error.message}`);
+            }
         }
     }
     

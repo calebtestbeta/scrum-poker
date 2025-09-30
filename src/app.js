@@ -898,9 +898,18 @@ class ScrumPokerApp {
             this.showToast('success', `投票已提交: ${data.vote}`);
         }
         
-        // 如果有 Firebase 服務，同步投票
+        // 如果有 Firebase 服務，同步投票（帶錯誤處理）
         if (this.firebaseService && this.roomId && this.currentPlayer) {
-            this.firebaseService.submitVote(this.roomId, this.currentPlayer.id, data.vote);
+            this.firebaseService.submitVote(this.roomId, this.currentPlayer.id, data.vote)
+                .catch(error => {
+                    console.error('❌ Firebase 投票同步失敗:', error);
+                    this.showToast('error', error.message || '投票同步失敗，請重試');
+                    
+                    // 如果 Firebase 投票失敗，允許用戶重新選擇
+                    if (this.gameTable && this.gameTable.cardDeck) {
+                        this.gameTable.cardDeck.setClickable(true);
+                    }
+                });
         }
     }
     
