@@ -187,10 +187,7 @@ class ScrumPokerApp {
                     this.showError('Firebase 連線異常，請檢查網路狀態');
                 });
                 
-                // 設置 Firebase 事件監聽器
-                this.setupFirebaseEventListeners();
-                
-                // 初始化 Firebase
+                // 初始化 Firebase - 暫不設置事件監聽器
                 const initialized = await this.firebaseService.initialize(firebaseConfig);
                 if (initialized) {
                     console.log('✅ FirebaseService 已初始化');
@@ -451,11 +448,20 @@ class ScrumPokerApp {
         
         this.firebaseService.on('room:players-updated', (data) => {
             try {
+                const { roomId, players } = data;
+                const playerCount = Object.keys(players).length;
+                console.log(`📢 [${roomId}] App 收到玩家更新事件:`, {
+                    玩家數: playerCount,
+                    GameTable狀態: !!this.gameTable,
+                    有updatePlayers方法: this.gameTable ? typeof this.gameTable.updatePlayers === 'function' : false
+                });
+                
                 if (this.gameTable && typeof this.gameTable.updatePlayers === 'function') {
-                    console.log('📢 收到玩家更新事件:', data);
+                    console.log(`🔄 [${roomId}] 調用 GameTable.updatePlayers`);
                     this.gameTable.updatePlayers(data.players);
+                    console.log(`✅ [${roomId}] GameTable.updatePlayers 完成`);
                 } else {
-                    console.warn('⚠️ GameTable 尚未初始化或 updatePlayers 方法不存在，跳過玩家更新');
+                    console.warn(`⚠️ [${roomId}] GameTable 尚未初始化或 updatePlayers 方法不存在，跳過玩家更新`);
                     console.log('   GameTable 狀態:', {
                         exists: !!this.gameTable,
                         hasMethod: this.gameTable ? typeof this.gameTable.updatePlayers === 'function' : false,
@@ -957,8 +963,11 @@ class ScrumPokerApp {
                 console.log('✅ GameTable 初始化完成，現在可以安全處理 Firebase 事件');
             }
             
-            // 在 GameTable 初始化完成後，才加入 Firebase 房間
+            // 現在 GameTable 已就緒，設置 Firebase 事件監聽器
             if (this.firebaseService) {
+                console.log('🔄 正在設置 Firebase 事件監聽器...');
+                this.setupFirebaseEventListeners();
+                
                 console.log('🔄 GameTable 已就緒，正在加入 Firebase 房間...');
                 await this.firebaseService.joinRoom(roomId, this.currentPlayer);
             }

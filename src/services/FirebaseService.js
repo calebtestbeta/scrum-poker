@@ -595,17 +595,26 @@ class FirebaseService {
             spectator: false
         };
         
+        console.log(`🔄 [${roomId}] [${player.id}] 正在添加玩家到房間: ${player.name}`);
+        
         const playerRef = this.db.ref(`rooms/${roomId}/players/${player.id}`);
         const voteRef = this.db.ref(`rooms/${roomId}/votes/${player.id}`);
         
-        // 設置玩家數據
-        await playerRef.set(playerData);
+        // 批次更新，確保原子性
+        const updates = {};
+        updates[`rooms/${roomId}/players/${player.id}`] = playerData;
+        updates[`rooms/${roomId}/lastActivity`] = Date.now();
         
-        // 設置斷線自動清理
-        await playerRef.onDisconnect().remove();
+        await this.db.ref().update(updates);
+        
+        // 設置斷線自動清理 - 改為更新 online 狀態而不是直接刪除
+        await playerRef.onDisconnect().update({
+            online: false,
+            lastSeen: Date.now()
+        });
         await voteRef.onDisconnect().remove();
         
-        console.log(`🔗 已為玩家 ${player.id} 設置斷線自動清理`);
+        console.log(`🔗 [${roomId}] [${player.id}] 已設置斷線自動清理 (標記離線+清理投票)`);
         
         // 記錄玩家加入事件
         await this.addRoomEvent(roomId, {
@@ -867,6 +876,8 @@ class FirebaseService {
                 return;
             }
             
+            console.log(`🚪 [${roomId}] [${playerId}] 玩家正在離開房間 (forceCleanup: ${forceCleanup})`);
+            
             // 允許強制清理，即使連線中斷
             if (this.connectionState !== 'connected' && !forceCleanup) {
                 console.warn('⚠️ Firebase 未連線，嘗試強制清理');
@@ -875,10 +886,25 @@ class FirebaseService {
             
             const roomRef = this.db.ref(`rooms/${roomId}`);
             
+            // 速率限制檢查
+            if (!forceCleanup && !this.checkRateLimit('leaveRoom', playerId)) {
+                console.warn('⚠️ 離開房間操作過於頻繁，跳過');
+                return;
+            }
+            
+            // 清理 onDisconnect 處理器，避免重複清理
+            try {
+                await this.db.ref(`rooms/${roomId}/players/${playerId}`).onDisconnect().cancel();
+                await this.db.ref(`rooms/${roomId}/votes/${playerId}`).onDisconnect().cancel();
+            } catch (error) {
+                console.warn('⚠️ 取消 onDisconnect 處理器失敗:', error);
+            }
+            
             // 使用原子性事務移除玩家數據
             const updates = {};
             updates[`rooms/${roomId}/players/${playerId}`] = null;
             updates[`rooms/${roomId}/votes/${playerId}`] = null;
+            updates[`rooms/${roomId}/lastActivity`] = Date.now();
             
             await this.db.ref().update(updates);
             
@@ -955,11 +981,20 @@ class FirebaseService {
      * @param {Object} players - 玩家資料
      */
     handlePlayersUpdate(roomId, players) {
+        const playerCount = Object.keys(players).length;
+        const playerIds = Object.keys(players);
+        
+        console.log(`👥 [${roomId}] Firebase 玩家更新事件:`, {
+            總玩家數: playerCount,
+            玩家ID列表: playerIds,
+            玩家詳情: Object.entries(players).map(([id, p]) => `${id}(${p.name || 'Unknown'}, online: ${p.online})`).join(', ')
+        });
+        
         // 檢測新加入的玩家
         Object.keys(players).forEach(playerId => {
             const player = players[playerId];
             if (player.joinedAt && Date.now() - player.joinedAt < 5000) {
-                // 5秒內加入的玩家視為新玩家
+                console.log(`🆕 [${roomId}] [${playerId}] 檢測到新玩家加入: ${player.name}`);
                 this.emitEvent('players:player-added', {
                     roomId,
                     player,
@@ -968,6 +1003,7 @@ class FirebaseService {
             }
         });
         
+        console.log(`📢 [${roomId}] 發送 room:players-updated 事件到應用層`);
         this.emitEvent('room:players-updated', { roomId, players });
     }
     

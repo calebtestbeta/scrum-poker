@@ -1924,8 +1924,9 @@ option {
 /* 卡列穩定置中（不改寬度） */
 .game-cards-area, .cards-area { align-items: center; }
 
-/* 卡片底色/邊圓/陰影，強制不是白底；限定在卡區，避免影響通用 .card */
-.cards-area .card{
+/* 遊戲區內的卡片統一樣式，更高 specificity 避免被通用 .card 覆蓋 */
+.game-container .cards-area .card,
+.game-container .game-cards-area .card {
   background: var(--card-surface, rgba(255,255,255,0.08)) !important;
   color: var(--text-inverse, #fff);
   border-radius: var(--radius-xl, 16px);
@@ -1934,20 +1935,37 @@ option {
   transition: transform .12s ease-out, background .12s ease-out;
 }
 
-/* 若 card-front 被其他樣式覆蓋導致洗白，這裡補回質感層 */
-.cards-area .card .card-front{
+/* 卡面內容保持繼承顏色，避免被全域樣式洗白 */
+.game-container .cards-area .card .card-front,
+.game-container .cards-area .card .card-back,
+.game-container .game-cards-area .card .card-front,
+.game-container .game-cards-area .card .card-back {
   background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
   border-radius: inherit;
+  color: inherit;
 }
 
 /* 互動狀態 */
-.cards-area .card:hover{ background: var(--card-surface-hover); transform: translateY(-1px); }
-.cards-area .card:active{ background: var(--card-surface-active); transform: translateY(0); }
-.cards-area .card[aria-pressed="true"],
-.cards-area .card.card-selected{ background: var(--card-selected); }
+.game-container .cards-area .card:hover,
+.game-container .game-cards-area .card:hover { 
+  background: var(--card-surface-hover, rgba(255,255,255,0.12)) !important; 
+  transform: translateY(-1px); 
+}
+.game-container .cards-area .card:active,
+.game-container .game-cards-area .card:active { 
+  background: var(--card-surface-active, rgba(255,255,255,0.16)) !important; 
+  transform: translateY(0); 
+}
+.game-container .cards-area .card[aria-pressed="true"],
+.game-container .cards-area .card.card-selected,
+.game-container .game-cards-area .card[aria-pressed="true"],
+.game-container .game-cards-area .card.card-selected { 
+  background: var(--card-selected, rgba(59,130,246,0.22)) !important; 
+}
 
-/* 卡面數字對比提升 */
-.cards-area .card .card-value{
-  color: var(--text-inverse, #fff);
+/* 卡面數字對比提升，確保在任何背景下都可讀 */
+.game-container .cards-area .card .card-value,
+.game-container .game-cards-area .card .card-value {
+  color: var(--text-inverse, #fff) !important;
   text-shadow: 0 1px 2px rgba(0,0,0,.35);
 }
