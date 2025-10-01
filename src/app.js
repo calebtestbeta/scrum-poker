@@ -1221,6 +1221,9 @@ class ScrumPokerApp {
             
         } catch (error) {
             console.error('離開遊戲失敗:', error);
+        } finally {
+            // 確保事件監聽器被清理
+            this.destroy();
         }
     }
     
@@ -2012,6 +2015,57 @@ class ScrumPokerApp {
         
         console.log('🧪 玩家 ID 驗證修復測試結果:', testResults);
         return testResults;
+    }
+    
+    /**
+     * 銷毀應用並清理所有資源
+     */
+    destroy() {
+        try {
+            // 中斷所有 AbortController 管理的事件監聽器
+            if (this.abortController) {
+                this.abortController.abort();
+                this.abortController = null;
+                this.signal = null;
+            }
+            
+            // 停止定時器
+            this.stopPlayerCleanupTimer();
+            
+            // 銷毀遊戲桌面
+            if (this.gameTable) {
+                this.gameTable.destroy();
+                this.gameTable = null;
+            }
+            
+            // 銷毀服務實例
+            if (this.firebaseService) {
+                this.firebaseService.destroy();
+                this.firebaseService = null;
+            }
+            
+            if (this.storageService) {
+                this.storageService = null;
+            }
+            
+            if (this.touchManager) {
+                this.touchManager = null;
+            }
+            
+            // 清空主要 DOM 元素引用
+            this.elements = {};
+            
+            // 重置狀態
+            this.currentState = 'destroyed';
+            this.currentPlayer = null;
+            this.roomId = null;
+            this.isInitialized = false;
+            
+            console.log('🧹 ScrumPokerApp 已銷毀所有監聽器與資源');
+            
+        } catch (error) {
+            console.error('❌ 銷毀應用時發生錯誤:', error);
+        }
     }
     
     /**
