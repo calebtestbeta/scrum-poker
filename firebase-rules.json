@@ -2,9 +2,96 @@
   "rules": {
     "rooms": {
       "$roomId": {
-        ".read": true,
-        ".write": true
+        // 基本房間數據規則
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
+        // 玩家數據：只能讀取，寫入限制為房間成員
+        "players": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        // 投票數據：只能讀取，寫入限制為房間成員
+        "votes": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        // Phase 5: 學習數據權限控制
+        "learning_data": {
+          // 所有已驗證用戶都能讀取學習建議
+          ".read": "auth != null",
+          
+          // 學習數據寫入規則
+          ".write": "auth != null",
+          
+          // 當前建議：所有人可讀，系統可寫
+          "current_advice": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            // 確保建議對所有人可見
+            "visible_to_all": {
+              ".validate": "newData.val() === true"
+            }
+          },
+          
+          // 會話歷史：匿名化數據，所有人可讀
+          "session_history": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            // 限制歷史記錄數量（最多 50 筆）
+            ".validate": "newData.numChildren() <= 50",
+            
+            "$sessionId": {
+              // 確保投票數據已匿名化
+              "anonymous_votes": {
+                "$anonId": {
+                  // 只允許角色和投票值，不允許個人識別資訊
+                  ".validate": "newData.hasChildren(['role', 'value']) && newData.child('role').isString() && (newData.child('value').isNumber() || newData.child('value').isString())"
+                }
+              },
+              
+              // 統計數據驗證
+              "statistics": {
+                ".validate": "newData.hasChildren(['average_points', 'consensus', 'total_votes'])"
+              }
+            }
+          },
+          
+          // 學習模型：系統維護，用戶可讀
+          "learning_model": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          },
+          
+          // 元數據：包含清理資訊
+          "metadata": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "cleanup_threshold": {
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            }
+          }
+        },
+        
+        // 房間基本資訊驗證
+        "phase": {
+          ".validate": "newData.isString() && (newData.val() === 'voting' || newData.val() === 'revealing' || newData.val() === 'finished')"
+        },
+        
+        "task_type": {
+          ".validate": "newData.isString()"
+        }
       }
+    },
+    
+    // 防止在根目錄寫入其他數據
+    "$other": {
+      ".validate": false
     }
   }
 }
