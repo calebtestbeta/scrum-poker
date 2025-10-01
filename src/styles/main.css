@@ -1845,3 +1845,50 @@ option {
     background: rgba(0, 0, 0, 0.05);
     border-radius: var(--border-radius-base);
 }
+
+/* =============================
+   卡牌對齊最小修補（低風險）
+   ============================= */
+
+/* 讓數字固定寬度、垂直水平置中、避免 baseline 漂移 */
+.card-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  line-height: 1;                  /* 鎖行高避免上下浮動 */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1; /* 等寬數字＋ lining figures */
+  text-align: center;
+}
+
+/* emoji 卡（☕/❓/∞）容易 baseline 不齊，額外做一致置中與微調 */
+.card-value.card-value-emoji {
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(0); /* 視覺需要可改為 1px/-1px 微調 */
+}
+
+/* 保險：特殊卡保持一致行高 */
+.card-special-coffee .card-value,
+.card-special-question .card-value,
+.card-special-infinity .card-value {
+  line-height: 1;
+}
+
+/* 卡牌列：不論舊的 .cards-area 或新的 .game-cards-area 都置中 */
+.cards-area,
+.game-cards-area {
+  align-items: center; /* 若偏好卡片下緣對齊可改 flex-end */
+}
+
+/* 保險：卡面前後維持置中（不影響現有） */
+.card-front,
+.card-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

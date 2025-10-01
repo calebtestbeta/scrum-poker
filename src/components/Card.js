@@ -84,7 +84,12 @@ class Card {
             className: 'card-value',
             textContent: this.displayValue
         });
-        
+
+        // 針對特殊卡（emoji）加上辨識用的 class，方便做 baseline 校正
+        if (this.displayValue === '☕' || this.displayValue === '❓' || this.displayValue === '∞') {
+            valueElement.classList.add('card-value-emoji');
+        }
+
         front.appendChild(valueElement);
         
         // 卡牌背面
