@@ -5,13 +5,13 @@
 const firebaseConfig = {
     // 請替換為你的 Firebase 專案設定
     // 如果未設定，將自動回退到本地模擬模式
-    apiKey: "your-api-key-here",
-    authDomain: "your-project-id.firebaseapp.com",
-    databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
-    projectId: "your-project-id",
-    storageBucket: "your-project-id.appspot.com",
-    messagingSenderId: "your-sender-id",
-    appId: "your-app-id"
+    apiKey: "AIzaSyCSlvwoDZ1Qpt7bvLJSsRwUDXkfDiCRWpE",
+    authDomain: "scrum-poker-eb66e.firebaseapp.com",
+    databaseURL: "https://scrum-poker-eb66e-default-rtdb.firebaseio.com/",
+    projectId: "scrum-poker-eb66e",
+    storageBucket: "scrum-poker-eb66e.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:demo-app-id"
 };
 
 // 本地開發環境設定
@@ -28,12 +28,12 @@ const firebaseConfigLocal = {
 // 檢測本地環境
 function isLocalEnvironment() {
     const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || 
-           hostname === '127.0.0.1' || 
-           hostname.startsWith('192.168.') ||
-           hostname.startsWith('10.') ||
-           hostname.startsWith('172.');
-    
+    const isLocal = hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.');
+
     console.log(`🌐 環境檢測: hostname="${hostname}", isLocal=${isLocal}`);
     return isLocal;
 }
@@ -64,26 +64,19 @@ async function initializeFirebaseApp(customConfig = null) {
 
         // 自動選擇適當的設定
         const config = customConfig || getFirebaseConfig();
-        
+
         // 本地環境特殊處理
         if (isLocalEnvironment()) {
-            // 連接到 Firebase 模擬器
-            try {
-                app = firebase.initializeApp(config);
-                database = firebase.database();
-                
-                console.log('🔥 Firebase 模擬器連接成功（無身份驗證模式）');
-                console.log('📡 Database URL:', config.databaseURL);
-                return { app, database };
-            } catch (error) {
-                console.warn('Firebase 模擬器連接失敗，回退到模擬模式:', error);
-                return {
-                    app: null,
-                    database: createMockDatabase()
-                };
-            }
+            // 直接使用本地模擬模式，不嘗試連接模擬器
+            console.log('🏠 本地環境檢測到，使用內建模擬模式');
+            console.log('🔧 跳過 Firebase 模擬器連接，直接使用記憶體模擬');
+            return {
+                app: null,
+                database: createMockDatabase(),
+                auth: createMockAuth()
+            };
         }
-        
+
         // 雲端環境處理
         if (!config.apiKey || !config.projectId || config.apiKey === 'your-api-key-here') {
             console.warn('⚠️ 雲端 Firebase 設定未配置，自動回退到本地模擬模式');
@@ -98,12 +91,12 @@ async function initializeFirebaseApp(customConfig = null) {
         // 初始化雲端 Firebase
         app = firebase.initializeApp(config);
         database = firebase.database();
-        
+
         console.log('☁️ Firebase 雲端服務初始化成功（無身份驗證模式）');
         return { app, database };
     } catch (error) {
         console.error('Firebase 初始化失敗:', error);
-        
+
         // 最後的回退：使用本地模擬模式
         console.log('🔧 使用本地模擬模式');
         return {
@@ -117,28 +110,28 @@ async function initializeFirebaseApp(customConfig = null) {
 // 建立模擬資料庫（用於開發和測試）
 function createMockDatabase() {
     const mockData = {};
-    
+
     return {
         ref: (path) => ({
             set: async (data) => {
                 console.log(`模擬設定 ${path}:`, data);
                 setNestedProperty(mockData, path, data);
-                
+
                 // 觸發監聽器
                 setTimeout(() => {
                     triggerListeners(path, data);
                 }, 100);
-                
+
                 return Promise.resolve();
             },
-            
+
             child: (childPath) => {
                 const fullPath = `${path}/${childPath}`;
                 return {
                     set: async (data) => {
                         console.log(`模擬設定 ${fullPath}:`, data);
                         setNestedProperty(mockData, fullPath, data);
-                        
+
                         // 觸發父級監聽器
                         setTimeout(() => {
                             const parentData = getNestedProperty(mockData, path);
@@ -146,36 +139,36 @@ function createMockDatabase() {
                                 triggerListeners(path, parentData);
                             }
                         }, 100);
-                        
+
                         return Promise.resolve();
                     },
-                    
+
                     update: async (updates) => {
                         console.log(`模擬更新 ${fullPath}:`, updates);
                         Object.entries(updates).forEach(([key, value]) => {
                             setNestedProperty(mockData, `${fullPath}/${key}`, value);
                         });
-                        
+
                         setTimeout(() => {
                             const parentData = getNestedProperty(mockData, path);
                             if (parentData) {
                                 triggerListeners(path, parentData);
                             }
                         }, 100);
-                        
+
                         return Promise.resolve();
                     }
                 };
             },
-            
+
             on: (event, callback) => {
                 console.log(`模擬監聽 ${path} 的 ${event} 事件`);
-                
+
                 // 註冊監聽器
                 if (!window.mockListeners) window.mockListeners = {};
                 if (!window.mockListeners[path]) window.mockListeners[path] = [];
                 window.mockListeners[path].push(callback);
-                
+
                 // 立即觸發一次
                 setTimeout(() => {
                     const data = getNestedProperty(mockData, path);
@@ -184,7 +177,7 @@ function createMockDatabase() {
                     });
                 }, 50);
             },
-            
+
             off: (event, callback) => {
                 console.log(`移除 ${path} 的監聽器`);
                 if (window.mockListeners && window.mockListeners[path]) {
@@ -194,7 +187,7 @@ function createMockDatabase() {
                     }
                 }
             },
-            
+
             once: async (event) => {
                 const data = getNestedProperty(mockData, path);
                 return Promise.resolve({
@@ -209,14 +202,14 @@ function createMockDatabase() {
 function setNestedProperty(obj, path, value) {
     const keys = path.split('/').filter(key => key);
     let current = obj;
-    
+
     for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) {
             current[keys[i]] = {};
         }
         current = current[keys[i]];
     }
-    
+
     if (keys.length > 0) {
         current[keys[keys.length - 1]] = value;
     }
@@ -226,7 +219,7 @@ function setNestedProperty(obj, path, value) {
 function getNestedProperty(obj, path) {
     const keys = path.split('/').filter(key => key);
     let current = obj;
-    
+
     for (const key of keys) {
         if (current && typeof current === 'object' && key in current) {
             current = current[key];
@@ -234,19 +227,19 @@ function getNestedProperty(obj, path) {
             return null;
         }
     }
-    
+
     return current;
 }
 
 // 觸發所有相關監聽器
 function triggerListeners(path, data) {
     if (!window.mockListeners) return;
-    
+
     Object.keys(window.mockListeners).forEach(listenerPath => {
         if (path.startsWith(listenerPath) || listenerPath.startsWith(path)) {
             const listeners = window.mockListeners[listenerPath];
             const relevantData = listenerPath === path ? data : getNestedProperty({ [path]: data }, listenerPath);
-            
+
             listeners.forEach(callback => {
                 callback({
                     val: () => relevantData
@@ -268,7 +261,7 @@ function createMockAuth() {
                 }
             });
         },
-        
+
         onAuthStateChanged: (callback) => {
             console.log('模擬 Auth 狀態監聽');
             // 模擬用戶已登入
@@ -279,7 +272,7 @@ function createMockAuth() {
                 });
             }, 100);
         },
-        
+
         signOut: async () => {
             console.log('模擬登出');
             return Promise.resolve();
@@ -290,29 +283,29 @@ function createMockAuth() {
 // Firebase 診斷工具
 function diagnoseFirebaseConfig() {
     console.group('🔍 Firebase 設定診斷');
-    
+
     // 環境檢測
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
     const port = window.location.port;
     const isLocal = isLocalEnvironment();
-    
+
     console.log(`📍 當前位置: ${protocol}//${hostname}${port ? ':' + port : ''}`);
     console.log(`🏠 本地環境: ${isLocal ? '是' : '否'}`);
-    
+
     // Firebase SDK 檢測
     const hasFirebaseSDK = typeof firebase !== 'undefined';
     console.log(`📚 Firebase SDK: ${hasFirebaseSDK ? '已載入' : '❌ 未載入'}`);
-    
+
     // 設定檢測
     const config = getFirebaseConfig();
     console.log('⚙️ 使用的設定:', isLocal ? '本地模擬器' : '雲端 Firebase');
-    
+
     if (!isLocal) {
-        const hasValidConfig = config.apiKey !== 'your-api-key-here' && 
-                              config.projectId !== 'your-project-id';
+        const hasValidConfig = config.apiKey !== 'your-api-key-here' &&
+            config.projectId !== 'your-project-id';
         console.log(`🔑 雲端設定狀態: ${hasValidConfig ? '✅ 已配置' : '❌ 未配置（使用範例值）'}`);
-        
+
         if (!hasValidConfig) {
             console.warn('💡 解決方案:');
             console.warn('1. 如果要測試，請使用 http://localhost:xxxx 訪問');
@@ -320,9 +313,9 @@ function diagnoseFirebaseConfig() {
             console.warn('3. 系統將自動回退到本地模擬模式');
         }
     }
-    
+
     console.groupEnd();
-    
+
     return {
         hostname,
         isLocal,

@@ -368,6 +368,100 @@
             }
         }
         
+        // 創建模擬的 FirebaseService
+        function createMockFirebaseService(mockDatabase) {
+            const service = {
+                db: mockDatabase,
+                
+                getConnectionState: () => '模擬連線',
+                
+                // 模擬學習會話保存
+                saveLearningSession: async (roomId, sessionData) => {
+                    console.log('🔧 模擬保存學習會話:', roomId, sessionData);
+                    
+                    // 匿名化數據
+                    const anonymizedData = {
+                        task_type: sessionData.taskType,
+                        anonymous_votes: service.anonymizeVotes(sessionData.votes),
+                        statistics: sessionData.statistics,
+                        timestamp: Date.now()
+                    };
+                    
+                    await mockDatabase.ref(`rooms/${roomId}/learning_data/session_history`).child(Date.now().toString()).set(anonymizedData);
+                    return true;
+                },
+                
+                // 模擬學習建議保存
+                saveLearningAdvice: async (roomId, advice) => {
+                    console.log('🔧 模擬保存學習建議:', roomId, advice);
+                    
+                    const adviceData = {
+                        title: advice.title,
+                        content: advice.content,
+                        keywords: advice.keywords,
+                        visible_to_all: true,
+                        stored_at: Date.now(),
+                        metadata: advice.metadata
+                    };
+                    
+                    await mockDatabase.ref(`rooms/${roomId}/learning_data/current_advice`).set(adviceData);
+                    return true;
+                },
+                
+                // 模擬監聽學習建議
+                listenToLearningAdvice: (roomId, callback) => {
+                    console.log('🔧 模擬監聽學習建議:', roomId);
+                    mockDatabase.ref(`rooms/${roomId}/learning_data/current_advice`).on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            callback(data);
+                        }
+                    });
+                },
+                
+                // 模擬匿名化投票
+                anonymizeVotes: (votes) => {
+                    const anonymizedVotes = {};
+                    Object.entries(votes || {}).forEach(([playerId, voteData], index) => {
+                        const anonId = `anon_${index + 1}`;
+                        anonymizedVotes[anonId] = {
+                            role: voteData.player_role || 'other',
+                            value: voteData.value,
+                            timestamp: voteData.timestamp
+                        };
+                    });
+                    return anonymizedVotes;
+                },
+                
+                // 模擬取得學習歷史摘要
+                getLearningHistorySummary: async (roomId) => {
+                    console.log('🔧 模擬取得學習歷史摘要:', roomId);
+                    const snapshot = await mockDatabase.ref(`rooms/${roomId}/learning_data/session_history`).once('value');
+                    const sessions = snapshot.val() || {};
+                    
+                    return {
+                        totalSessions: Object.keys(sessions).length,
+                        latestSession: Object.keys(sessions).length > 0 ? 
+                            new Date(Math.max(...Object.keys(sessions).map(k => parseInt(k)))).toLocaleString() : 
+                            '無',
+                        roomId: roomId
+                    };
+                },
+                
+                // 模擬觸發資料清理
+                triggerLearningDataCleanup: async (roomId) => {
+                    console.log('🔧 模擬觸發資料清理:', roomId);
+                    return {
+                        cleaned: true,
+                        message: '模擬清理完成',
+                        timestamp: new Date().toLocaleString()
+                    };
+                }
+            };
+            
+            return service;
+        }
+        
         // 診斷 Firebase 設定
         function diagnoseFirebase() {
             try {
@@ -421,33 +515,38 @@ ${!diagnosis.isLocal && !diagnosis.hasValidCloudConfig ? `
                 // 使用 firebase-config.js 中的初始化函數
                 const { app, database, auth } = await window.initializeFirebaseApp();
                 
-                // 初始化 FirebaseService
-                firebaseService = new FirebaseService();
-                let initialized;
-                
                 if (app) {
                     // 使用真實 Firebase 實例
+                    firebaseService = new FirebaseService();
                     const config = window.getFirebaseConfig();
-                    initialized = await firebaseService.initialize(config);
+                    const initialized = await firebaseService.initialize(config);
+                    
+                    if (initialized) {
+                        updateConnectionStatus('connected');
+                        updateInfo('connectionInfo', 'connectionInfo', {
+                            status: '已連線',
+                            mode: '真實 Firebase',
+                            projectId: config.projectId,
+                            connectionState: firebaseService.getConnectionState(),
+                            timestamp: new Date().toLocaleString()
+                        });
+                    }
                 } else {
-                    // 使用模擬模式
-                    console.log('🔧 使用模擬模式初始化 FirebaseService');
-                    const mockConfig = window.getFirebaseConfig();
-                    initialized = await firebaseService.initialize(mockConfig);
-                }
-                
-                if (initialized) {
+                    // 使用模擬模式 - 創建模擬的 FirebaseService
+                    console.log('🔧 使用模擬模式，不初始化真實 FirebaseService');
+                    
+                    // 創建模擬的服務物件
+                    firebaseService = createMockFirebaseService(database);
+                    
                     updateConnectionStatus('connected');
                     const config = window.getFirebaseConfig();
                     updateInfo('connectionInfo', 'connectionInfo', {
                         status: '已連線',
-                        mode: app ? '真實 Firebase' : '本地模擬模式',
+                        mode: '本地模擬模式',
                         projectId: config.projectId,
-                        connectionState: firebaseService.getConnectionState ? firebaseService.getConnectionState() : '已連線',
+                        connectionState: '模擬連線',
                         timestamp: new Date().toLocaleString()
                     });
-                } else {
-                    throw new Error('Firebase 初始化失敗');
                 }
                 
             } catch (error) {
