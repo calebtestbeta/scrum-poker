@@ -359,9 +359,16 @@ class Player {
     
     /**
      * 隱藏投票（重新開始）
+     * @param {boolean} force - 是否強制隱藏，即使處於開牌狀態
      */
-    hideVote() {
-        console.log(`🙈 隱藏投票 - 玩家 ${this.name}`);
+    hideVote(force = false) {
+        // 如果不是強制隱藏，且玩家處於開牌狀態，跳過隱藏操作
+        if (!force && this.isRevealed) {
+            console.log(`🛡️ 跳過隱藏投票 - ${this.name} 處於開牌狀態，需要明確的重新開始操作`);
+            return;
+        }
+        
+        console.log(`🙈 隱藏投票 - 玩家 ${this.name}${force ? ' (強制)' : ''}`);
         
         // 重置開牌狀態
         this.isRevealed = false;
@@ -377,7 +384,8 @@ class Player {
         // 發送事件
         if (window.eventBus) {
             window.eventBus.emit('player:vote-hidden', {
-                player: this
+                player: this,
+                forced: force
             });
         }
     }
@@ -731,10 +739,13 @@ class PlayerList {
     clearAllVotes() {
         this.players.forEach(player => {
             player.clearVote();
-            player.hideVote();
+            // 移除 hideVote() 調用 - 這是造成開牌狀態重置的根本原因
+            // 開牌狀態應該由明確的用戶操作（如重新開始遊戲）來控制
+            // player.hideVote(); // <- 已移除，避免不當重置開牌狀態
         });
         
         this.updateVotingProgress();
+        console.log('🧹 所有投票已清除，開牌狀態保持不變');
     }
     
     /**
