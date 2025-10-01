@@ -379,52 +379,52 @@ class ScrumPokerApp {
      * 設置事件監聽器
      */
     setupEventListeners() {
-        // 登入表單
+        // 登入表單 - 使用 AbortController 管理
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleLogin();
-            });
+            }, { signal: this.signal });
         }
         
-        // 角色選擇變更（顯示/隱藏任務類型）
+        // 角色選擇變更（顯示/隱藏任務類型） - 使用 AbortController 管理
         const playerRole = document.getElementById('playerRole');
         if (playerRole) {
             playerRole.addEventListener('change', () => {
                 this.handleRoleChange();
-            });
+            }, { signal: this.signal });
         }
         
-        // Firebase 設定按鈕
+        // Firebase 設定按鈕 - 使用 AbortController 管理
         const saveConfigBtn = document.getElementById('saveConfigBtn');
         if (saveConfigBtn) {
             saveConfigBtn.addEventListener('click', () => {
                 this.saveFirebaseConfig();
-            });
+            }, { signal: this.signal });
         }
         
         const localModeBtn = document.getElementById('localModeBtn');
         if (localModeBtn) {
             localModeBtn.addEventListener('click', () => {
                 this.enableLocalMode();
-            });
+            }, { signal: this.signal });
         }
         
-        // 快速開始按鈕
+        // 快速開始按鈕 - 使用 AbortController 管理
         const quickStartBtn = document.getElementById('quickStartBtn');
         if (quickStartBtn) {
             quickStartBtn.addEventListener('click', () => {
                 this.handleQuickStart();
-            });
+            }, { signal: this.signal });
         }
         
-        // 複製房間 ID 按鈕
+        // 複製房間 ID 按鈕 - 使用 AbortController 管理
         const copyRoomBtn = document.getElementById('copyRoomBtn');
         if (copyRoomBtn) {
             copyRoomBtn.addEventListener('click', () => {
                 this.copyRoomId();
-            });
+            }, { signal: this.signal });
         }
         
         // 全域事件監聽器
@@ -1578,12 +1578,12 @@ class ScrumPokerApp {
             `;
         }
         
-        // 關閉按鈕事件
+        // 關閉按鈕事件 - 使用 AbortController 管理
         const closeBtn = toast.querySelector('.toast-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 this.hideToast(toast);
-            });
+            }, { signal: this.signal });
         }
         
         // 添加到容器
