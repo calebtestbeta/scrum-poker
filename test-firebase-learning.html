@@ -176,6 +176,7 @@
                 <input type="text" id="roomId" value="test_learning_room" placeholder="輸入房間 ID">
             </div>
             <div class="test-controls">
+                <button class="btn-test" id="diagnoseFirebase">🔍 診斷 Firebase 設定</button>
                 <button class="btn-test" id="connectFirebase">連線 Firebase</button>
                 <button class="btn-test secondary" id="disconnectFirebase">斷線</button>
                 <button class="btn-test" id="joinRoom">加入房間</button>
@@ -183,7 +184,7 @@
             </div>
             <div class="status-display" id="connectionInfo">
                 <h4>🔗 連線資訊</h4>
-                <pre>點擊「連線 Firebase」開始測試</pre>
+                <pre>點擊「🔍 診斷 Firebase 設定」檢查環境設定</pre>
             </div>
         </div>
         
@@ -289,7 +290,13 @@
                 await adviceUI.initialize();
                 
                 console.log('✅ 測試環境初始化成功');
-                updateConnectionStatus('disconnected');
+                
+                // 不立即設定連線狀態，讓用戶先進行診斷
+                const statusElement = document.getElementById('connectionStatus');
+                if (statusElement) {
+                    statusElement.className = 'connection-status disconnected';
+                    statusElement.textContent = '等待診斷';
+                }
                 
                 setupEventListeners();
                 
@@ -302,6 +309,7 @@
         // 設定事件監聽
         function setupEventListeners() {
             // Firebase 連線
+            document.getElementById('diagnoseFirebase').addEventListener('click', diagnoseFirebase);
             document.getElementById('connectFirebase').addEventListener('click', connectFirebase);
             document.getElementById('disconnectFirebase').addEventListener('click', disconnectFirebase);
             document.getElementById('joinRoom').addEventListener('click', joinRoom);
@@ -354,6 +362,50 @@
                     pre.textContent = typeof content === 'object' ? 
                         JSON.stringify(content, null, 2) : content;
                 }
+            }
+        }
+        
+        // 診斷 Firebase 設定
+        function diagnoseFirebase() {
+            try {
+                console.log('🔍 開始診斷 Firebase 設定...');
+                
+                // 呼叫診斷工具
+                const diagnosis = window.diagnoseFirebaseConfig();
+                
+                // 顯示診斷結果
+                const resultText = `
+診斷結果:
+━━━━━━━━━━━━━━━━━━━━
+📍 當前位置: ${diagnosis.config ? (diagnosis.isLocal ? '本地環境' : '非本地環境') : '未知'}
+🌐 主機名稱: ${diagnosis.hostname || window.location.hostname}
+🏠 本地環境: ${diagnosis.isLocal ? '是' : '否'}
+📚 Firebase SDK: ${diagnosis.hasFirebaseSDK ? '已載入' : '❌ 未載入'}
+⚙️ 設定類型: ${diagnosis.isLocal ? '本地模擬器' : '雲端 Firebase'}
+🔑 雲端設定: ${diagnosis.hasValidCloudConfig ? '✅ 已配置' : '❌ 未配置'}
+
+${!diagnosis.isLocal && !diagnosis.hasValidCloudConfig ? `
+💡 解決方案:
+1. 使用 http://localhost:xxxx 訪問此頁面
+2. 或配置真實的 Firebase 專案設定
+3. 系統將自動使用本地模擬模式
+` : ''}
+
+請查看瀏覽器控制台獲取詳細資訊。
+                `.trim();
+                
+                updateInfo('connectionInfo', 'connectionInfo', resultText);
+                
+                // 根據診斷結果更新連線狀態
+                if (diagnosis.isLocal || !diagnosis.hasValidCloudConfig) {
+                    updateConnectionStatus('disconnected');
+                } else {
+                    updateConnectionStatus('connecting');
+                }
+                
+            } catch (error) {
+                console.error('❌ 診斷失敗:', error);
+                updateInfo('connectionInfo', 'connectionInfo', `診斷失敗: ${error.message}`);
             }
         }
         

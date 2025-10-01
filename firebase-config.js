@@ -4,6 +4,7 @@
 // 雲端 Firebase 設定
 const firebaseConfig = {
     // 請替換為你的 Firebase 專案設定
+    // 如果未設定，將自動回退到本地模擬模式
     apiKey: "your-api-key-here",
     authDomain: "your-project-id.firebaseapp.com",
     databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
@@ -27,11 +28,14 @@ const firebaseConfigLocal = {
 // 檢測本地環境
 function isLocalEnvironment() {
     const hostname = window.location.hostname;
-    return hostname === 'localhost' || 
+    const isLocal = hostname === 'localhost' || 
            hostname === '127.0.0.1' || 
            hostname.startsWith('192.168.') ||
            hostname.startsWith('10.') ||
            hostname.startsWith('172.');
+    
+    console.log(`🌐 環境檢測: hostname="${hostname}", isLocal=${isLocal}`);
+    return isLocal;
 }
 
 // 獲取適當的 Firebase 設定
@@ -82,7 +86,13 @@ async function initializeFirebaseApp(customConfig = null) {
         
         // 雲端環境處理
         if (!config.apiKey || !config.projectId || config.apiKey === 'your-api-key-here') {
-            throw new Error('無效的 Firebase 設定 - 請配置正確的雲端 Firebase 設定');
+            console.warn('⚠️ 雲端 Firebase 設定未配置，自動回退到本地模擬模式');
+            console.log('🔧 使用本地模擬模式（無需 Firebase 專案）');
+            return {
+                app: null,
+                database: createMockDatabase(),
+                auth: createMockAuth()
+            };
         }
 
         // 初始化雲端 Firebase
@@ -277,10 +287,56 @@ function createMockAuth() {
     };
 }
 
+// Firebase 診斷工具
+function diagnoseFirebaseConfig() {
+    console.group('🔍 Firebase 設定診斷');
+    
+    // 環境檢測
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    const port = window.location.port;
+    const isLocal = isLocalEnvironment();
+    
+    console.log(`📍 當前位置: ${protocol}//${hostname}${port ? ':' + port : ''}`);
+    console.log(`🏠 本地環境: ${isLocal ? '是' : '否'}`);
+    
+    // Firebase SDK 檢測
+    const hasFirebaseSDK = typeof firebase !== 'undefined';
+    console.log(`📚 Firebase SDK: ${hasFirebaseSDK ? '已載入' : '❌ 未載入'}`);
+    
+    // 設定檢測
+    const config = getFirebaseConfig();
+    console.log('⚙️ 使用的設定:', isLocal ? '本地模擬器' : '雲端 Firebase');
+    
+    if (!isLocal) {
+        const hasValidConfig = config.apiKey !== 'your-api-key-here' && 
+                              config.projectId !== 'your-project-id';
+        console.log(`🔑 雲端設定狀態: ${hasValidConfig ? '✅ 已配置' : '❌ 未配置（使用範例值）'}`);
+        
+        if (!hasValidConfig) {
+            console.warn('💡 解決方案:');
+            console.warn('1. 如果要測試，請使用 http://localhost:xxxx 訪問');
+            console.warn('2. 或者配置真實的 Firebase 專案設定');
+            console.warn('3. 系統將自動回退到本地模擬模式');
+        }
+    }
+    
+    console.groupEnd();
+    
+    return {
+        hostname,
+        isLocal,
+        hasFirebaseSDK,
+        config,
+        hasValidCloudConfig: !isLocal && config.apiKey !== 'your-api-key-here'
+    };
+}
+
 // 匯出設定和函數
 window.initializeFirebaseApp = initializeFirebaseApp;
 window.getFirebaseConfig = getFirebaseConfig;
 window.isLocalEnvironment = isLocalEnvironment;
+window.diagnoseFirebaseConfig = diagnoseFirebaseConfig;
 
 // 自動初始化（可選）
 if (typeof window.AUTO_INIT_FIREBASE !== 'undefined' && window.AUTO_INIT_FIREBASE) {
