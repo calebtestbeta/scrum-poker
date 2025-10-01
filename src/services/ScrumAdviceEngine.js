@@ -622,7 +622,8 @@ class ScrumAdviceEngine {
             return { 
                 hasStackData: false, 
                 message: '無對應技術堆疊資料',
-                suggestedFocus: ['需求分析', '架構設計', '風險評估']
+                suggestedFocus: ['需求分析', '架構設計', '風險評估'],
+                estimationGuidance: this.getEstimationGuidance('general', analysis.averagePoints)
             };
         }
         
@@ -772,7 +773,13 @@ class ScrumAdviceEngine {
                 focusAreas: techStackAnalysis.complexityFocus,
                 challenges: techStackAnalysis.commonChallenges,
                 guidance: techStackAnalysis.estimationGuidance
-            } : null,
+            } : (techStackAnalysis.estimationGuidance ? {
+                category: 'general',
+                technologies: [],
+                focusAreas: [],
+                challenges: [],
+                guidance: techStackAnalysis.estimationGuidance
+            } : null),
             
             metadata: {
                 category,
@@ -841,18 +848,20 @@ class ScrumAdviceEngine {
         }
         
         // 添加技術堆疊指導
-        if (techStackAnalysis.hasStackData) {
+        if (techStackAnalysis.hasStackData || techStackAnalysis.estimationGuidance) {
             enhancedContent += '\n\n🔧 技術重點關注：';
-            enhancedContent += `\n• 估點等級：${techStackAnalysis.guidance.level} - ${techStackAnalysis.guidance.suggestion}`;
+            if (techStackAnalysis.estimationGuidance) {
+                enhancedContent += `\n• 估點等級：${techStackAnalysis.estimationGuidance.level} - ${techStackAnalysis.estimationGuidance.suggestion}`;
+            }
             
-            if (techStackAnalysis.focusAreas.length > 0) {
+            if (techStackAnalysis.focusAreas && techStackAnalysis.focusAreas.length > 0) {
                 enhancedContent += '\n• 複雜度關注領域：';
                 techStackAnalysis.focusAreas.forEach(area => {
                     enhancedContent += `\n  - ${area.area} (權重 ${Math.round(area.weight * 100)}%): ${area.factors.join('、')}`;
                 });
             }
             
-            if (techStackAnalysis.challenges.length > 0) {
+            if (techStackAnalysis.challenges && techStackAnalysis.challenges.length > 0) {
                 enhancedContent += '\n• 常見挑戰：';
                 techStackAnalysis.challenges.forEach(challenge => {
                     enhancedContent += `\n  - ${challenge}`;
@@ -896,12 +905,16 @@ class ScrumAdviceEngine {
         // 添加技術堆疊關鍵字
         if (techStackAnalysis.hasStackData) {
             // 添加主要技術
-            enhancedKeywords.push(...techStackAnalysis.technologies.slice(0, 3));
+            if (techStackAnalysis.technologies) {
+                enhancedKeywords.push(...techStackAnalysis.technologies.slice(0, 3));
+            }
             
             // 添加複雜度領域
-            techStackAnalysis.focusAreas.forEach(area => {
-                enhancedKeywords.push(area.area);
-            });
+            if (techStackAnalysis.focusAreas) {
+                techStackAnalysis.focusAreas.forEach(area => {
+                    enhancedKeywords.push(area.area);
+                });
+            }
         }
         
         // 去重並限制數量
