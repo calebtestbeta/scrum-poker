@@ -1346,6 +1346,63 @@ class ScrumAdviceEngine {
     }
     
     /**
+     * Phase 5: 計算投票統計數據
+     * @param {Object} votes - 投票資料 (格式: {playerId: {value, timestamp}})
+     * @returns {Object} 統計資料
+     */
+    calculateVotingStatistics(votes) {
+        try {
+            const voteValues = Object.values(votes || {});
+            const numericVotes = voteValues
+                .map(vote => typeof vote.value === 'number' ? vote.value : null)
+                .filter(value => value !== null);
+                
+            if (numericVotes.length === 0) {
+                return {
+                    averagePoints: 0,
+                    consensus: 0,
+                    totalVotes: 0,
+                    min: 0,
+                    max: 0,
+                    variance: 0
+                };
+            }
+            
+            // 計算統計數據
+            const total = numericVotes.reduce((sum, vote) => sum + vote, 0);
+            const averagePoints = total / numericVotes.length;
+            const min = Math.min(...numericVotes);
+            const max = Math.max(...numericVotes);
+            
+            // 計算共識度（變異係數的反向）
+            const mean = averagePoints;
+            const variance = numericVotes.reduce((sum, vote) => sum + Math.pow(vote - mean, 2), 0) / numericVotes.length;
+            const stdDev = Math.sqrt(variance);
+            const coefficientOfVariation = mean > 0 ? stdDev / mean : 0;
+            const consensus = Math.max(0, Math.min(100, (1 - coefficientOfVariation) * 100));
+            
+            return {
+                averagePoints: Math.round(averagePoints * 10) / 10,
+                consensus: Math.round(consensus),
+                totalVotes: numericVotes.length,
+                min,
+                max,
+                variance: Math.round(variance * 100) / 100
+            };
+        } catch (error) {
+            console.error('❌ 計算投票統計失敗:', error);
+            return {
+                averagePoints: 0,
+                consensus: 0,
+                totalVotes: 0,
+                min: 0,
+                max: 0,
+                variance: 0
+            };
+        }
+    }
+    
+    /**
      * Phase 5: 學習機制 - 記錄和分析投票歷史
      * @param {Object} gameData - 遊戲資料
      * @param {Object} votingHistory - 投票歷史
