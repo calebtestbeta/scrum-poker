@@ -57,6 +57,14 @@
   --text-tertiary: var(--color-gray-400);
   --text-inverse: var(--color-white);
   --text-muted: var(--color-gray-500);
+  --text-on-panel: var(--color-gray-800); /* 面板上的文字，確保高對比度 */
+  
+  /* 面板系統顏色 */
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --chip-bg: var(--color-gray-800);
+  --chip-fg: var(--color-white);
+  --chip-border: var(--color-gray-600);
   
   /* === 尺寸系統 === */
   
