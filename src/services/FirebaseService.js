@@ -1303,6 +1303,309 @@ class FirebaseService {
         this.connectionState = 'disconnected';
         console.log('🔥 FirebaseService 已銷毀');
     }
+    
+    // ============================================
+    // Phase 5: Firebase 學習數據管理
+    // ============================================
+    
+    /**
+     * 儲存智慧建議到 Firebase（房間獨立）
+     * @param {string} roomId - 房間 ID
+     * @param {Object} adviceData - 建議數據
+     * @returns {Promise<boolean>} 儲存是否成功
+     */
+    async saveLearningAdvice(roomId, adviceData) {
+        try {
+            if (!this.db || !roomId || !adviceData) {
+                throw new Error('Missing required parameters for saving advice');
+            }
+            
+            console.log('💾 儲存智慧建議到 Firebase:', roomId);
+            
+            // 匿名化處理
+            const anonymizedAdvice = this.anonymizeLearningData(adviceData);
+            
+            const adviceRef = this.db.ref(`rooms/${roomId}/learning_data/current_advice`);
+            
+            const firebaseAdvice = {
+                ...anonymizedAdvice,
+                visible_to_all: true,
+                stored_at: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            await adviceRef.set(firebaseAdvice);
+            
+            console.log('✅ 智慧建議已儲存到 Firebase');
+            
+            // 觸發事件讓所有客戶端更新
+            this.emit('learning:advice-updated', {
+                roomId,
+                advice: firebaseAdvice
+            });
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ 儲存智慧建議到 Firebase 失敗:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * 儲存會話記錄到 Firebase（匿名化處理）
+     * @param {string} roomId - 房間 ID
+     * @param {Object} sessionData - 會話數據
+     * @returns {Promise<boolean>} 儲存是否成功
+     */
+    async saveLearningSession(roomId, sessionData) {
+        try {
+            if (!this.db || !roomId || !sessionData) {
+                throw new Error('Missing required parameters for saving session');
+            }
+            
+            console.log('📚 儲存學習會話到 Firebase:', roomId);
+            
+            // 完全匿名化處理
+            const anonymizedSession = {
+                timestamp: Date.now(),
+                task_type: sessionData.taskType || 'general',
+                anonymous_votes: this.anonymizeVotes(sessionData.votes || {}),
+                statistics: sessionData.statistics || {}
+            };
+            
+            const sessionRef = this.db.ref(`rooms/${roomId}/learning_data/session_history`);
+            
+            // 生成匿名會話 ID
+            const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            
+            await sessionRef.child(sessionId).set(anonymizedSession);
+            
+            // 檢查並清理過期會話（保持 50 筆限制）
+            await this.cleanupOldSessions(roomId);
+            
+            console.log('✅ 學習會話已儲存到 Firebase');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ 儲存學習會話到 Firebase 失敗:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * 完全匿名化投票數據
+     * @param {Object} votes - 原始投票數據
+     * @returns {Object} 匿名化後的投票數據
+     */
+    anonymizeVotes(votes) {
+        const anonymizedVotes = {};
+        let anonCounter = 1;
+        
+        Object.entries(votes).forEach(([playerId, vote]) => {
+            const anonId = `anon_${anonCounter++}`;
+            anonymizedVotes[anonId] = {
+                role: vote.player_role || vote.role || 'other',
+                value: vote.value,
+                // 完全移除個人識別資訊
+                // 不包含：姓名、真實ID、時間戳記等
+            };
+        });
+        
+        return anonymizedVotes;
+    }
+    
+    /**
+     * 匿名化學習建議數據
+     * @param {Object} adviceData - 原始建議數據
+     * @returns {Object} 匿名化後的建議數據
+     */
+    anonymizeLearningData(adviceData) {
+        // 移除任何可能的個人識別資訊
+        const cleanAdvice = {
+            title: adviceData.title || '',
+            content: adviceData.content || '',
+            keywords: adviceData.keywords || [],
+            metadata: {
+                type: adviceData.metadata?.type || 'general',
+                generated_at: Date.now(),
+                based_on_sessions: adviceData.metadata?.modelInfo?.totalSessions || 0,
+                analysis_depth: adviceData.metadata?.analysisDepth || 'basic'
+            }
+        };
+        
+        // 如果有學習洞察，也要匿名化
+        if (adviceData.learningInsights) {
+            cleanAdvice.learning_insights = {
+                task_type_insight: adviceData.learningInsights.taskTypeInsight || null,
+                // 角色洞察只保留角色類型，不保留具體數值以避免推斷個人
+                role_insights_summary: this.anonymizeRoleInsights(adviceData.learningInsights.roleInsights)
+            };
+        }
+        
+        return cleanAdvice;
+    }
+    
+    /**
+     * 匿名化角色洞察
+     * @param {Object} roleInsights - 角色洞察數據
+     * @returns {Object} 匿名化後的角色洞察
+     */
+    anonymizeRoleInsights(roleInsights) {
+        if (!roleInsights) return null;
+        
+        const summary = {};
+        Object.entries(roleInsights).forEach(([role, insight]) => {
+            summary[role] = {
+                has_historical_data: insight.sessionCount > 0,
+                deviation_level: Math.abs(insight.deviation) > 2 ? 'high' : 'low'
+                // 不包含具體數值，避免個人識別
+            };
+        });
+        
+        return summary;
+    }
+    
+    /**
+     * 監聽房間學習建議更新
+     * @param {string} roomId - 房間 ID
+     * @param {Function} callback - 回調函數
+     */
+    listenToLearningAdvice(roomId, callback) {
+        if (!this.db || !roomId) return;
+        
+        const adviceRef = this.db.ref(`rooms/${roomId}/learning_data/current_advice`);
+        
+        const listener = adviceRef.on('value', (snapshot) => {
+            const advice = snapshot.val();
+            if (advice && advice.visible_to_all) {
+                console.log('📢 收到 Firebase 學習建議更新:', advice);
+                callback(advice);
+            }
+        });
+        
+        // 追蹤監聽器以便清理
+        this.listeners.set(`learning_advice_${roomId}`, {
+            ref: adviceRef,
+            listener
+        });
+    }
+    
+    /**
+     * 獲取房間學習歷史摘要
+     * @param {string} roomId - 房間 ID
+     * @returns {Promise<Object>} 學習歷史摘要
+     */
+    async getLearningHistorySummary(roomId) {
+        try {
+            if (!this.db || !roomId) {
+                throw new Error('Missing database or room ID');
+            }
+            
+            const historyRef = this.db.ref(`rooms/${roomId}/learning_data/session_history`);
+            const snapshot = await historyRef.once('value');
+            const sessions = snapshot.val() || {};
+            
+            const sessionList = Object.values(sessions);
+            const taskTypes = [...new Set(sessionList.map(s => s.task_type))];
+            const roles = [...new Set(
+                sessionList.flatMap(s => 
+                    Object.values(s.anonymous_votes || {}).map(v => v.role)
+                )
+            )];
+            
+            return {
+                available: sessionList.length > 0,
+                total_sessions: sessionList.length,
+                task_types: taskTypes,
+                roles: roles,
+                date_range: sessionList.length > 0 ? {
+                    oldest: Math.min(...sessionList.map(s => s.timestamp)),
+                    newest: Math.max(...sessionList.map(s => s.timestamp))
+                } : null
+            };
+            
+        } catch (error) {
+            console.error('❌ 獲取學習歷史摘要失敗:', error);
+            return { available: false, error: error.message };
+        }
+    }
+    
+    /**
+     * 清理過期的學習會話（50天 + 50筆限制）
+     * @param {string} roomId - 房間 ID
+     * @returns {Promise<void>}
+     */
+    async cleanupOldSessions(roomId) {
+        try {
+            const historyRef = this.db.ref(`rooms/${roomId}/learning_data/session_history`);
+            const snapshot = await historyRef.once('value');
+            const sessions = snapshot.val() || {};
+            
+            const sessionEntries = Object.entries(sessions);
+            const now = Date.now();
+            const fiftyDaysMs = 50 * 24 * 60 * 60 * 1000; // 50天
+            
+            // 按時間排序，最新的在前
+            sessionEntries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+            
+            const toDelete = [];
+            
+            sessionEntries.forEach(([sessionId, session], index) => {
+                // 刪除條件：超過50天 OR 超過50筆記錄
+                if (now - session.timestamp > fiftyDaysMs || index >= 50) {
+                    toDelete.push(sessionId);
+                }
+            });
+            
+            if (toDelete.length > 0) {
+                console.log(`🧹 清理 ${toDelete.length} 筆過期學習會話`);
+                
+                const updates = {};
+                toDelete.forEach(sessionId => {
+                    updates[`rooms/${roomId}/learning_data/session_history/${sessionId}`] = null;
+                });
+                
+                // 更新清理時間
+                updates[`rooms/${roomId}/learning_data/metadata/last_cleanup`] = firebase.database.ServerValue.TIMESTAMP;
+                
+                await this.db.ref().update(updates);
+                
+                console.log('✅ 學習會話清理完成');
+            }
+            
+        } catch (error) {
+            console.error('❌ 清理學習會話失敗:', error);
+        }
+    }
+    
+    /**
+     * 手動觸發房間學習數據清理（客戶端發動）
+     * @param {string} roomId - 房間 ID
+     * @returns {Promise<Object>} 清理結果
+     */
+    async triggerLearningDataCleanup(roomId) {
+        try {
+            console.log('🧹 手動觸發學習數據清理:', roomId);
+            
+            await this.cleanupOldSessions(roomId);
+            
+            // 獲取清理後的狀態
+            const summary = await this.getLearningHistorySummary(roomId);
+            
+            return {
+                success: true,
+                message: `清理完成，保留 ${summary.total_sessions} 筆會話記錄`,
+                summary
+            };
+            
+        } catch (error) {
+            console.error('❌ 手動清理失敗:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
 }
 
 // 匯出 FirebaseService

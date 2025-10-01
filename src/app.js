@@ -235,6 +235,11 @@ class ScrumPokerApp {
                     this.adviceUI = new ScrumAdviceUI();
                     await this.adviceUI.initialize();
                     console.log('✅ ScrumAdviceUI 已初始化（延遲載入）');
+                    
+                    // Phase 5: 如果已經在房間中且有 Firebase 服務，立即設置學習建議監聽
+                    if (this.roomId && this.firebaseService) {
+                        this.setupFirebaseLearningAdviceListener();
+                    }
                 } catch (error) {
                     console.warn('⚠️ ScrumAdviceUI 初始化失敗:', error);
                     this.adviceUI = null;
@@ -521,6 +526,59 @@ class ScrumPokerApp {
         });
         
         console.log('📡 Firebase 事件監聽器已設置');
+    }
+    
+    /**
+     * Phase 5: 設置 Firebase 學習建議監聽器
+     */
+    setupFirebaseLearningAdviceListener() {
+        if (!this.firebaseService || !this.adviceUI || !this.roomId) {
+            console.warn('⚠️ 無法設置學習建議監聽器: 服務未初始化或房間未設置');
+            return;
+        }
+        
+        console.log('📚 設置 Firebase 學習建議監聽器...');
+        
+        // 監聽 Firebase 學習建議更新
+        this.firebaseService.listenToLearningAdvice(this.roomId, (advice) => {
+            try {
+                console.log('📢 收到 Firebase 學習建議更新:', advice);
+                
+                if (!advice || !advice.visible_to_all) {
+                    console.log('⚠️ 建議不可見或無效，跳過顯示');
+                    return;
+                }
+                
+                // 將 Firebase 建議數據轉換為 UI 格式
+                const uiAdvice = {
+                    title: advice.title || '智慧建議',
+                    content: advice.content || '',
+                    keywords: advice.keywords || [],
+                    metadata: {
+                        ...advice.metadata,
+                        source: 'firebase',
+                        generatedAt: new Date(advice.stored_at).toISOString()
+                    },
+                    learningInsights: advice.learning_insights || null
+                };
+                
+                // 更新 ScrumAdviceUI 的當前建議
+                this.adviceUI.currentAdvice = uiAdvice;
+                
+                // 自動顯示建議（按照用戶需求：開牌後自動顯示）
+                this.adviceUI.showFullAdvice();
+                
+                // 更新建議預覽（如果有）
+                this.adviceUI.updateAdvicePreview();
+                
+                console.log('✅ Firebase 學習建議已自動顯示給所有玩家');
+                
+            } catch (error) {
+                console.error('❌ 處理 Firebase 學習建議失敗:', error);
+            }
+        });
+        
+        console.log('✅ Firebase 學習建議監聽器已設置');
     }
     
     /**
@@ -959,6 +1017,11 @@ class ScrumPokerApp {
                 
                 console.log('🔄 GameTable 已就緒，正在加入 Firebase 房間...');
                 await this.firebaseService.joinRoom(roomId, this.currentPlayer);
+                
+                // Phase 5: 設置 Firebase 學習建議監聽
+                if (this.adviceUI) {
+                    this.setupFirebaseLearningAdviceListener();
+                }
             }
             
             // 更新狀態
@@ -2240,11 +2303,37 @@ class ScrumPokerApp {
             // 觸發建議生成
             await this.adviceUI.generateAdviceFromVotes(votesData, adviceContext);
             
+            // Phase 5: Firebase 學習數據整合
+            if (this.firebaseService && this.roomId) {
+                try {
+                    // 儲存學習會話到 Firebase（匿名化處理）
+                    const sessionData = {
+                        taskType: taskType,
+                        votes: votesData.votes,
+                        statistics: data.statistics,
+                        sessionInfo: adviceContext.sessionInfo
+                    };
+                    
+                    await this.firebaseService.saveLearningSession(this.roomId, sessionData);
+                    console.log('📚 學習會話已保存到 Firebase');
+                    
+                    // 如果有生成的建議，也保存到 Firebase 供所有玩家查看
+                    if (this.adviceUI.currentAdvice) {
+                        await this.firebaseService.saveLearningAdvice(this.roomId, this.adviceUI.currentAdvice);
+                        console.log('💡 智慧建議已保存到 Firebase，所有玩家可見');
+                    }
+                    
+                } catch (firebaseError) {
+                    console.warn('⚠️ Firebase 學習數據保存失敗:', firebaseError);
+                    // 不影響主要流程，繼續執行
+                }
+            }
+            
             console.log('✅ 智慧建議自動生成完成');
             
         } catch (error) {
             console.error('❌ 自動建議生成失敗:', error);
-            // 不影響主要遊戲流程，只記錄錯誤
+            // 不影響主要遊戏流程，只記錄錯誤
         }
     }
     
