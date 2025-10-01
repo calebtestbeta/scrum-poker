@@ -32,6 +32,7 @@ class ScrumPokerApp {
         // UI 管理器
         this.shortcutHintsManager = shortcutHintsManager;
         this.panelManager = panelManager;
+        this.adviceUI = null; // ScrumAdviceUI 管理器
         
         // 事件監聽器統一管理 - AbortController 模式
         this.abortController = new AbortController();
@@ -226,6 +227,20 @@ class ScrumPokerApp {
                 console.log('✅ TouchManager 已初始化（延遲載入）');
             }
         }, 100); // 100ms 延遲，避免阻塞主執行緒
+        
+        // 延遲初始化 ScrumAdviceUI - Phase 4 整合
+        setTimeout(async () => {
+            if (window.ScrumAdviceUI) {
+                try {
+                    this.adviceUI = new ScrumAdviceUI();
+                    await this.adviceUI.initialize();
+                    console.log('✅ ScrumAdviceUI 已初始化（延遲載入）');
+                } catch (error) {
+                    console.warn('⚠️ ScrumAdviceUI 初始化失敗:', error);
+                    this.adviceUI = null;
+                }
+            }
+        }, 200); // 200ms 延遲，讓 DOM 完全準備好
     }
     
     /**
@@ -1076,6 +1091,9 @@ class ScrumPokerApp {
         
         // 更新統計面板
         this.updateStatisticsPanel(stats);
+        
+        // Phase 4: 自動觸發智慧建議生成
+        this.generateSmartAdvice(data);
         
         // 如果有 Firebase 服務，同步結果
         if (this.firebaseService && this.roomId) {
@@ -2167,6 +2185,155 @@ class ScrumPokerApp {
                 } : null
             }
         };
+    }
+    
+    /**
+     * Phase 4: 自動觸發智慧建議生成
+     * @param {Object} data - 投票結果數據
+     */
+    async generateSmartAdvice(data) {
+        try {
+            console.log('🧠 自動觸發智慧建議生成...', data);
+            
+            // 檢查前置條件
+            if (!this.adviceUI) {
+                console.warn('⚠️ ScrumAdviceUI 未初始化，跳過建議生成');
+                return;
+            }
+            
+            if (!data || !data.statistics) {
+                console.warn('⚠️ 缺少投票統計數據，跳過建議生成');
+                return;
+            }
+            
+            // 收集投票數據
+            const votesData = this.collectVotesData();
+            if (!votesData) {
+                console.warn('⚠️ 無法收集投票數據，跳過建議生成');
+                return;
+            }
+            
+            // 收集玩家角色資訊
+            const playersData = this.collectPlayersData();
+            
+            // 取得任務類型
+            const taskType = this.getTaskType();
+            
+            // 組合建議生成所需的資料
+            const adviceContext = {
+                taskType: taskType,
+                players: playersData,
+                sessionInfo: {
+                    roomId: this.roomId,
+                    timestamp: Date.now(),
+                    gamePhase: 'finished'
+                }
+            };
+            
+            console.log('📊 建議生成資料:', {
+                votesData: Object.keys(votesData.votes || {}).length,
+                playersCount: Object.keys(playersData || {}).length,
+                taskType,
+                statistics: data.statistics
+            });
+            
+            // 觸發建議生成
+            await this.adviceUI.generateAdviceFromVotes(votesData, adviceContext);
+            
+            console.log('✅ 智慧建議自動生成完成');
+            
+        } catch (error) {
+            console.error('❌ 自動建議生成失敗:', error);
+            // 不影響主要遊戲流程，只記錄錯誤
+        }
+    }
+    
+    /**
+     * 收集當前投票數據
+     * @returns {Object|null} 投票數據
+     */
+    collectVotesData() {
+        try {
+            if (!this.gameTable || !this.gameTable.playerList) {
+                return null;
+            }
+            
+            const players = this.gameTable.playerList.getAllPlayers();
+            const votes = {};
+            
+            players.forEach(player => {
+                if (player.hasVoted && player.vote !== undefined && player.vote !== null) {
+                    votes[player.id] = {
+                        value: player.vote,
+                        timestamp: Date.now(),
+                        player_role: player.role || 'other'
+                    };
+                }
+            });
+            
+            return { votes };
+        } catch (error) {
+            console.error('❌ 收集投票數據失敗:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * 收集玩家角色資訊
+     * @returns {Object} 玩家資料
+     */
+    collectPlayersData() {
+        try {
+            if (!this.gameTable || !this.gameTable.playerList) {
+                return {};
+            }
+            
+            const players = this.gameTable.playerList.getAllPlayers();
+            const playersData = {};
+            
+            players.forEach(player => {
+                playersData[player.id] = {
+                    name: player.name || 'Unknown',
+                    role: player.role || 'other'
+                };
+            });
+            
+            return playersData;
+        } catch (error) {
+            console.error('❌ 收集玩家資料失敗:', error);
+            return {};
+        }
+    }
+    
+    /**
+     * 取得任務類型
+     * @returns {string} 任務類型
+     */
+    getTaskType() {
+        try {
+            // 優先從當前玩家的任務類型取得
+            if (this.currentPlayer && this.currentPlayer.taskType) {
+                return this.currentPlayer.taskType;
+            }
+            
+            // 從所有玩家中找到 Scrum Master 或 PO 的任務類型
+            if (this.gameTable && this.gameTable.playerList) {
+                const players = this.gameTable.playerList.getAllPlayers();
+                const leaderPlayer = players.find(p => 
+                    p.role === 'scrum_master' || p.role === 'po'
+                );
+                
+                if (leaderPlayer && leaderPlayer.taskType) {
+                    return leaderPlayer.taskType;
+                }
+            }
+            
+            // 預設值
+            return 'general';
+        } catch (error) {
+            console.error('❌ 取得任務類型失敗:', error);
+            return 'general';
+        }
     }
 }
 
