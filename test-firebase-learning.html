@@ -456,6 +456,45 @@
                         message: '模擬清理完成',
                         timestamp: new Date().toLocaleString()
                     };
+                },
+                
+                // 模擬加入房間
+                joinRoom: async (roomId, player) => {
+                    console.log('🔧 模擬加入房間:', roomId, player);
+                    
+                    // 模擬房間數據
+                    const roomData = {
+                        created_at: Date.now(),
+                        phase: 'voting',
+                        players: {
+                            [player.id]: {
+                                name: player.name,
+                                role: player.role,
+                                joined_at: Date.now(),
+                                last_active: Date.now()
+                            }
+                        }
+                    };
+                    
+                    await mockDatabase.ref(`rooms/${roomId}`).set(roomData);
+                    
+                    return {
+                        isNewRoom: true,
+                        playerCount: 1,
+                        roomId: roomId
+                    };
+                },
+                
+                // 模擬離開房間
+                leaveRoom: async (roomId, playerId) => {
+                    console.log('🔧 模擬離開房間:', roomId, playerId);
+                    await mockDatabase.ref(`rooms/${roomId}/players/${playerId}`).set(null);
+                    return true;
+                },
+                
+                // 模擬獲取當前玩家 ID
+                getCurrentPlayerId: () => {
+                    return 'mock_player_' + Math.random().toString(36).substr(2, 9);
                 }
             };
             
