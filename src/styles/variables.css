@@ -1,64 +1,222 @@
-/* ======= Scrum Poker 遊戲卡片範圍化修復（最小覆寫） ======= */
-/* 1) 只在遊戲的卡片列裡，還原 UI .card 帶來的 padding/陰影覆蓋 */
-.game-cards-area .card,
-.cards-area .card {
-  /* 外框大小維持用既有變數，移除通用 UI 的內距 */
-  width: var(--card-width);
-  height: var(--card-height);
-  padding: 0;
+/**
+ * CSS 變數定義 - Scrum Poker 設計系統
+ * 統一色彩、字體、間距、動畫等設計 token
+ * @version 3.0.0-enhanced
+ */
 
-  /* 用遊戲卡片自己的樣式，而不是 UI .card 的卡片樣式 */
-  background: var(--card-bg);
-  border: var(--border-width-base) solid var(--card-border);
-  box-shadow: var(--card-shadow);
+:root {
+  /* === 色彩系統 === */
+  
+  /* 主要色彩 */
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-dark: #1d4ed8;
+  --color-secondary: #10b981;
+  --color-secondary-light: #34d399;
+  --color-secondary-dark: #059669;
+  
+  /* 狀態色彩 */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+  
+  /* 中性色彩 */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  
+  /* === 背景系統 === */
+  
+  /* 主要背景 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  
+  /* 遊戲背景 */
+  --bg-game: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  
+  /* === 文字系統 === */
+  
+  /* 文字色彩 */
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --text-muted: #d1d5db;
+  --text-inverse: #ffffff;
+  --text-on-panel: rgba(255, 255, 255, 0.9);
+  
+  /* 字體大小 */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+  
+  /* 字重 */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  
+  /* 行高 */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* === 間距系統 === */
+  
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 0.75rem;   /* 12px */
+  --spacing-lg: 1rem;      /* 16px */
+  --spacing-xl: 1.5rem;    /* 24px */
+  --spacing-2xl: 2rem;     /* 32px */
+  --spacing-3xl: 3rem;     /* 48px */
+  --spacing-4xl: 4rem;     /* 64px */
+  
+  /* === 邊框系統 === */
+  
+  /* 邊框寬度 */
+  --border-width-base: 1px;
+  --border-width-thick: 2px;
+  --border-width-thicker: 3px;
+  
+  /* 圓角半徑 */
+  --border-radius-sm: 0.25rem;   /* 4px */
+  --border-radius-base: 0.375rem; /* 6px */
+  --border-radius-md: 0.5rem;    /* 8px */
+  --border-radius-lg: 0.75rem;   /* 12px */
+  --border-radius-xl: 1rem;      /* 16px */
+  --border-radius-full: 9999px;
+  
+  /* === 陰影系統 === */
+  
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  
+  /* === 漸層系統 === */
+  
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  --gradient-secondary: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-light) 100%);
+  
+  /* === 動畫系統 === */
+  
+  /* 持續時間 */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  
+  /* 緩動函數 */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0.0, 1, 1);
+  --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* 過渡效果 */
+  --transition-fast: all var(--duration-fast) var(--ease-out);
+  --transition-base: all var(--duration-base) var(--ease-out);
+  --transition-slow: all var(--duration-slow) var(--ease-out);
+  
+  /* === Z-index 層級 === */
+  
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+  --z-top: 9999;
+  
+  /* === 卡牌系統 === */
+  
+  /* 卡牌尺寸 */
+  --card-width: 80px;
+  --card-height: 120px;
+  --card-width-sm: 60px;
+  --card-height-sm: 90px;
+  --card-width-lg: 100px;
+  --card-height-lg: 150px;
+  
+  /* 卡牌樣式 */
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --card-bg-selected: var(--gradient-primary);
+  --card-border: rgba(255, 255, 255, 0.3);
+  --card-border-selected: var(--color-primary);
+  --card-shadow: var(--shadow-md);
+  --card-shadow-hover: var(--shadow-lg);
+  --card-shadow-selected: 0 8px 25px rgba(59, 130, 246, 0.3);
+  
+  /* === 玩家系統 === */
+  
+  /* 玩家頭像 */
+  --player-avatar-size: 60px;
+  
+  /* 角色色彩 */
+  --role-dev: #3b82f6;
+  --role-qa: #10b981;
+  --role-scrum-master: #f59e0b;
+  --role-po: #8b5cf6;
+  --role-other: #6b7280;
+  
+  /* === 面板系統 === */
+  
+  /* 面板背景 */
+  --panel-bg: rgba(30, 35, 42, 0.8);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --stats-panel-bg: rgba(30, 35, 42, 0.8);
+  --stats-panel-border: rgba(255, 255, 255, 0.1);
+  
+  /* 籌碼/按鈕樣式 */
+  --chip-bg: rgba(55, 65, 81, 0.9);
+  --chip-border: rgba(156, 163, 175, 0.3);
+  --chip-fg: rgba(255, 255, 255, 0.9);
 }
 
-/* 2) 確保卡面內容本身有舒適的內距與置中（外層卡片不再用 padding） */
-.game-cards-area .card-front,
-.game-cards-area .card-back,
-.cards-area .card-front,
-.cards-area .card-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* 給卡面少量內距，視覺不會太擠 */
-  padding: var(--spacing-md);
+/* === 深色模式支援 === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1f2937;
+    --bg-secondary: #111827;
+    --bg-tertiary: #0f172a;
+    
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-tertiary: #9ca3af;
+    --text-muted: #6b7280;
+  }
 }
 
-/* 3) 讓整排卡在交叉軸置中；有 flex 就不需要 !important 了 */
-.game-cards-area,
-.cards-area {
-  display: flex;
-  align-items: center;
-}
-
-/* 4) 數字與 emoji 的垂直微調（可保留/可調） */
-.card-value {
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card-value-number {
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  transform: translateY(1px);
-}
-
-.card-value-emoji {
-  transform: translateY(-1px);
-}
-
-/* （若你有 small/large 尺寸，這裡也順便還原寬高） */
-.game-cards-area .card.card-small,
-.cards-area .card.card-small {
-  width: var(--card-width-sm);
-  height: var(--card-height-sm);
-}
-
-.game-cards-area .card.card-large,
-.cards-area .card.card-large {
-  width: var(--card-width-lg);
-  height: var(--card-height-lg);
+/* === 高對比模式支援 === */
+@media (prefers-contrast: high) {
+  :root {
+    --color-primary: #0066cc;
+    --color-secondary: #00aa55;
+    --color-error: #cc0000;
+    --color-warning: #cc8800;
+    
+    --border-width-base: 2px;
+    --border-width-thick: 3px;
+  }
 }

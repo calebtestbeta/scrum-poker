@@ -26,11 +26,13 @@
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
     <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <!-- 確保 CSS 變數檔先載入 -->
+    <link rel="stylesheet" href="src/styles/variables.css">
     <link rel="preload" href="src/styles/variables.css" as="style">
     <link rel="preload" href="src/styles/main.css" as="style">
-    <!-- 預載入關鍵 JavaScript -->
-    <link rel="preload" href="src/core/EventBus.js" as="script">
-    <link rel="preload" href="src/app.js" as="script">
+    <!-- 預載入關鍵 JavaScript - 使用 modulepreload 避免警告 -->
+    <link rel="modulepreload" href="src/core/EventBus.js" crossorigin="anonymous">
+    <link rel="modulepreload" href="src/app.js" crossorigin="anonymous">
     
     <!-- Firebase SDK - 效能優化載入 -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
@@ -456,7 +458,7 @@
     <script>
         updateLoadingProgress(5, '初始化應用程式');
     </script>
-    <script type="module" src="src/app.js" defer></script>
+    <script type="module" src="src/app.js"></script>
     
     <!-- Service Worker 註冊 -->
     <script>
