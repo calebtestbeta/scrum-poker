@@ -600,12 +600,14 @@ input[type="radio"] {
 .player-card-front {
   background: var(--color-primary);
   color: var(--text-inverse);
+  /* 🔧 修復：正面預設就是翻轉的，這樣開牌後顯示正面 */
+  transform: rotateY(180deg);
 }
 
 .player-card-back {
   background: var(--bg-primary);
   color: var(--text-primary);
-  transform: rotateY(180deg);
+  /* 🔧 修復：背面在未開牌時顯示（移除翻轉） */
 }
 
 .player-vote-display {

@@ -475,6 +475,7 @@ class Player {
         // 更新卡牌顯示
         if (this.cardElement) {
             const voteDisplay = this.cardElement.querySelector('.player-vote-display');
+            
             if (voteDisplay) {
                 if (this.hasVoted) {
                     // 優先使用 isRevealed 狀態，CSS 類別作為備援
