@@ -201,22 +201,42 @@ input[type="radio"] {
 /* === 遊戲區域佈局 === */
 
 .game-layout {
-  display: grid;
-  grid-template-areas: 
-    "header header"
-    "players players"
-    "game-area notifications"
-    "controls controls";
-  grid-template-rows: auto auto 1fr auto;
-  grid-template-columns: 1fr 320px;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   gap: clamp(12px, 2vw, 24px);
   padding: clamp(12px, 2vw, 24px);
-  align-items: start;
+}
+
+.game-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.main-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2vw, 24px);
+}
+
+.right-rail {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 .game-header {
-  grid-area: header;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -245,7 +265,6 @@ input[type="radio"] {
 }
 
 .players-area {
-  grid-area: players;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -255,7 +274,6 @@ input[type="radio"] {
 }
 
 .stats-panel {
-  grid-area: stats;
   /* 降級背景 */
   background: rgba(30, 35, 42, 0.95);
   border: 1px solid var(--stats-panel-border);
@@ -281,23 +299,22 @@ input[type="radio"] {
 }
 
 .game-area {
-  grid-area: game-area;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   position: relative;
+  flex: 1;
+  min-height: 300px;
 }
 
 .notifications-panel {
-  grid-area: notifications;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
 }
 
 .game-controls {
-  grid-area: controls;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1254,58 +1271,34 @@ option {
 
 /* === 響應式設計 === */
 
-/* 平板樣式 (768px - 1024px) */
+/* 平板/手機樣式 (窄螢幕抽屜模式) */
 @media (max-width: 1024px) {
-  .game-layout {
-    grid-template-areas: 
-      "header header"
-      "players players"
-      "game-area game-area"
-      "controls controls";
-    grid-template-columns: 1fr;
-    gap: var(--spacing-md);
+  .game-content {
+    flex-direction: column;
   }
   
-  /* 通知面板轉為抽屜模式 */
-  .notifications-panel {
+  /* 隱藏桌面版右側欄 */
+  .right-rail {
+    display: none;
+  }
+  
+  /* 抽屜模式右側欄 */
+  .right-rail.is-open {
+    display: block;
     position: fixed;
-    top: 0;
-    right: -320px;
-    width: 320px;
-    height: 100vh;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-height: 60dvh;
     background: var(--panel-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border-left: 1px solid var(--panel-border);
-    box-shadow: var(--shadow-2xl);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    padding: 16px;
     z-index: var(--z-modal);
-    transition: right var(--duration-slow) var(--ease-out);
     overflow-y: auto;
-    padding: var(--spacing-lg);
-  }
-  
-  .notifications-panel.panel-open {
-    right: 0;
-  }
-  
-  /* 抽屜遮罩 */
-  .notifications-panel::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: -100vw;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--duration-slow) var(--ease-out);
-    z-index: -1;
-  }
-  
-  .notifications-panel.panel-open::before {
-    opacity: 1;
-    pointer-events: auto;
+    /* 抽屜動畫 */
+    animation: drawerSlideUp 0.3s var(--ease-out);
   }
   
   /* 抽屜切換按鈕 */
@@ -1339,38 +1332,37 @@ option {
     transform: scale(0.95);
   }
   
-  /* 隱藏桌面版的通知面板 */
-  .notifications-panel:not(.panel-open) {
-    display: none;
-  }
-  
   .cards-area {
     bottom: 140px; /* 為控制按鈕留出更多空間 */
+  }
+}
+
+/* 抽屜滑入動畫 */
+@keyframes drawerSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 /* 手機樣式 (≤ 768px) */
 @media (max-width: 768px) {
   .game-layout {
-    grid-template-areas: 
-      "header"
-      "players"
-      "game-area"
-      "controls";
-    grid-template-columns: 1fr;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
   }
   
-  /* 手機版抽屜全寬顯示 */
-  .notifications-panel {
-    width: 100vw;
-    right: -100vw;
-    padding: var(--spacing-md);
-  }
-  
-  .notifications-panel.panel-open {
-    right: 0;
+  /* 手機版抽屜全螢幕顯示 */
+  .right-rail.is-open {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-height: 70dvh;
+    padding: 12px;
   }
   
   /* 手機版按鈕調整 */
@@ -1830,15 +1822,13 @@ option {
 
 .shortcut-desc {
     flex: 1;
-    color: var(--text-on-panel);
+    color: var(--text-primary);
     font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-normal);
+    font-weight: 500;
     text-align: right;
     line-height: var(--line-height-normal);
     /* 強化描述文字對比度 - WCAG AA 合規 */
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
-    /* 確保文字在不同背景上都可讀 */
-    opacity: 0.95;
+    opacity: 1;
 }
 
 .shortcut-empty {

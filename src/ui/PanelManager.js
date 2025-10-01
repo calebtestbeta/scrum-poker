@@ -53,25 +53,29 @@ export class PanelManager {
      * 處理模式變化
      */
     handleModeChange() {
-        const panel = document.getElementById('notificationsPanel');
+        const panel = document.querySelector('.right-rail') || 
+                     document.getElementById('notificationsPanel');
         if (!panel) return;
         
         if (this.isResponsiveMode) {
             // 切換到響應式模式（抽屜模式）
             panel.classList.remove('hidden');
-            panel.classList.remove('panel-open');
+            panel.classList.remove('is-open');
             panel.setAttribute('aria-hidden', 'true');
             this.ensureToggleButtonExists();
         } else {
             // 切換到桌面模式
-            panel.classList.remove('panel-open');
+            panel.classList.remove('is-open');
             panel.classList.remove('hidden');
             panel.setAttribute('aria-hidden', 'false');
             this.removeToggleButton();
+            // 恢復背景滾動
+            document.body.style.overflow = '';
         }
         
         // 更新狀態記錄
-        this.panelStates.set('notificationsPanel', !this.isResponsiveMode);
+        const panelId = panel.id || 'right-rail';
+        this.panelStates.set(panelId, !this.isResponsiveMode);
     }
     
     /**
@@ -97,9 +101,10 @@ export class PanelManager {
         // 監聽 ESC 鍵關閉抽屜
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && this.isResponsiveMode) {
-                const panel = document.getElementById('notificationsPanel');
-                if (panel && panel.classList.contains('panel-open')) {
-                    this.togglePanel('notificationsPanel', 'escape-key');
+                const panel = document.querySelector('.right-rail') || 
+                            document.getElementById('notificationsPanel');
+                if (panel && panel.classList.contains('is-open')) {
+                    this.togglePanel(panel.id || 'right-rail', 'escape-key');
                 }
             }
         });
@@ -117,11 +122,16 @@ export class PanelManager {
             toggleBtn.className = 'panel-toggle';
             toggleBtn.innerHTML = 'H';
             toggleBtn.setAttribute('aria-label', '切換快捷鍵面板');
-            toggleBtn.setAttribute('title', '切換通知面板 (H)');
+            toggleBtn.setAttribute('title', '切換右側面板 (H)');
             
-            // 點擊事件
+            // 點擊事件 - 查找正確的面板 ID
             toggleBtn.addEventListener('click', () => {
-                this.togglePanel('notificationsPanel', 'button-click');
+                // 尋找右側面板元素
+                const rightRail = document.querySelector('.right-rail') || 
+                                document.getElementById('notificationsPanel');
+                if (rightRail) {
+                    this.togglePanel(rightRail.id || 'right-rail', 'button-click');
+                }
             });
             
             // 添加到頁面
@@ -147,7 +157,7 @@ export class PanelManager {
      * @param {string} reason - 觸發原因 ('keyboard' | 'manual' | 'button-click' | 'overlay-click' | 'escape-key')
      * @returns {boolean} 切換後的狀態 (true=開啟, false=關閉)
      */
-    togglePanel(panelId = 'notificationsPanel', reason = 'manual') {
+    togglePanel(panelId = 'rightRail', reason = 'manual') {
         try {
             const panel = document.getElementById(panelId);
             if (!panel) {
@@ -198,19 +208,19 @@ export class PanelManager {
      * 切換抽屜模式面板
      */
     toggleDrawerPanel(panel, panelId, reason) {
-        // 在響應式模式下，使用 panel-open 類別控制
-        const isCurrentlyOpen = panel.classList.contains('panel-open');
+        // 在響應式模式下，使用 is-open 類別控制抽屜
+        const isCurrentlyOpen = panel.classList.contains('is-open');
         const newState = !isCurrentlyOpen;
         
         if (newState) {
             // 開啟抽屜
-            panel.classList.add('panel-open');
+            panel.classList.add('is-open');
             panel.setAttribute('aria-hidden', 'false');
             // 防止背景滾動
             document.body.style.overflow = 'hidden';
         } else {
             // 關閉抽屜
-            panel.classList.remove('panel-open');
+            panel.classList.remove('is-open');
             panel.setAttribute('aria-hidden', 'true');
             // 恢復背景滾動
             document.body.style.overflow = '';
@@ -229,7 +239,7 @@ export class PanelManager {
         console.log(`${newState ? '📖' : '📕'} PanelManager: 面板 #${panelId} ${newState ? '開啟' : '關閉'} (${reason}) [${this.isResponsiveMode ? '響應式' : '桌面'}模式]`);
         
         // 面板開啟時，觸發快捷鍵更新
-        if (newState && panelId === 'notificationsPanel') {
+        if (newState && (panelId === 'rightRail' || panelId === 'notificationsPanel')) {
             // 延遲執行確保 DOM 更新完成
             setTimeout(() => {
                 if (window.shortcutHintsManager) {

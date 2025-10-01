@@ -266,40 +266,48 @@
                     <!-- 玩家動態生成在這裡 -->
                 </section>
                 
-                <!-- 統計面板 -->
-                <aside class="stats-panel" id="statsPanel" aria-label="遊戲統計">
-                    <h3 class="text-inverse font-bold mb-4">📊 估點統計</h3>
-                    <div class="stats-content" id="statsContent">
-                        <p class="text-muted">等待遊戲開始...</p>
-                    </div>
-                </aside>
-                
-                <!-- 主遊戲區域 -->
-                <section class="game-area" id="gameArea" aria-label="遊戲主區域">
-                    <div class="game-status" id="gameStatus">
-                        <h2 class="text-inverse text-center">等待玩家加入...</h2>
+                <!-- 主內容區域與右側欄 -->
+                <div class="game-content">
+                    <!-- 左側主要內容 -->
+                    <div class="main-area">
+                        <!-- 主遊戲區域 -->
+                        <section class="game-area" id="gameArea" aria-label="遊戲主區域">
+                            <div class="game-status" id="gameStatus">
+                                <h2 class="text-inverse text-center">等待玩家加入...</h2>
+                            </div>
+                            
+                            <!-- 螢幕報讀器即時狀態播報 -->
+                            <div aria-live="polite" aria-atomic="true" class="sr-only" id="gameStatusAnnouncer">
+                                遊戲開始，等待玩家加入
+                            </div>
+                            
+                            <div class="game-actions" id="gameActions">
+                                <!-- 中央按鈕動態生成在這裡 -->
+                            </div>
+                        </section>
                     </div>
                     
-                    <!-- 螢幕報讀器即時狀態播報 -->
-                    <div aria-live="polite" aria-atomic="true" class="sr-only" id="gameStatusAnnouncer">
-                        遊戲開始，等待玩家加入
-                    </div>
-                    
-                    <div class="game-actions" id="gameActions">
-                        <!-- 中央按鈕動態生成在這裡 -->
-                    </div>
-                </section>
-                
-                <!-- 通知面板 -->
-                <aside class="notifications-panel" id="notificationsPanel" aria-label="通知訊息">
-                    <!-- 快捷鍵提示 -->
-                    <div class="shortcut-hints" id="shortcutHints">
-                        <h4 class="text-inverse font-medium mb-2">⌨️ 快捷鍵</h4>
-                        <div class="shortcuts-list">
-                            <!-- 快捷鍵動態生成在這裡 -->
+                    <!-- 右側欄 -->
+                    <aside class="right-rail" id="rightRail" aria-label="右側面板">
+                        <!-- 連線狀態在桌面版顯示在這裡 -->
+                        
+                        <!-- 統計面板 -->
+                        <div class="stats-panel" id="statsPanel" aria-label="遊戲統計">
+                            <h3 class="text-inverse font-bold mb-4">📊 估點統計</h3>
+                            <div class="stats-content" id="statsContent">
+                                <p class="text-muted">等待遊戲開始...</p>
+                            </div>
                         </div>
-                    </div>
-                </aside>
+                        
+                        <!-- 快捷鍵提示面板 -->
+                        <div class="shortcut-hints" id="shortcutHints">
+                            <h4 class="text-inverse font-medium mb-2">⌨️ 快捷鍵</h4>
+                            <div class="shortcuts-list">
+                                <!-- 快捷鍵動態生成在這裡 -->
+                            </div>
+                        </div>
+                    </aside>
+                </div>
                 
                 <!-- 遊戲控制 -->
                 <div class="game-controls" id="gameControls">
