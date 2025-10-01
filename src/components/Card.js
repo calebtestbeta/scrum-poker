@@ -85,9 +85,13 @@ class Card {
             textContent: this.displayValue
         });
 
-        // 針對特殊卡（emoji）加上辨識用的 class，方便做 baseline 校正
-        if (this.displayValue === '☕' || this.displayValue === '❓' || this.displayValue === '∞') {
+        // 針對 emoji / 特殊符號加上辨識 class，供 baseline 微調
+        if (this.displayValue === '☕' ||
+            this.displayValue === '❓' ||
+            this.displayValue === '∞') {
             valueElement.classList.add('card-value-emoji');
+        } else {
+            valueElement.classList.add('card-value-number');
         }
 
         front.appendChild(valueElement);
