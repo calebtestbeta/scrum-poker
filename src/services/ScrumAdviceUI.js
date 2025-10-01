@@ -427,6 +427,13 @@ class ScrumAdviceUI {
             if (advice.metadata.hasTechStack) {
                 html += ` | 包含技術建議`;
             }
+            // Phase 5: 學習機制資訊
+            if (advice.metadata.modelInfo) {
+                html += ` | 基於 ${advice.metadata.modelInfo.totalSessions} 次歷史投票`;
+            }
+            if (advice.metadata.analysisDepth === 'personalized') {
+                html += ` | 個人化建議`;
+            }
             html += `</div>`;
         }
         
@@ -511,9 +518,57 @@ class ScrumAdviceUI {
         
         console.log('🎨 ScrumAdviceUI 已銷毀');
     }
+    
+    /**
+     * Phase 5: 取得學習模型摘要資訊
+     * @returns {Object} 學習模型資訊
+     */
+    getLearningModelSummary() {
+        if (!this.adviceEngine) {
+            return { available: false, reason: 'engine_not_initialized' };
+        }
+        
+        return this.adviceEngine.getVotingHistorySummary();
+    }
+    
+    /**
+     * Phase 5: 清除學習模型資料
+     * @returns {boolean} 清除是否成功
+     */
+    clearLearningData() {
+        try {
+            localStorage.removeItem('scrumPoker_votingHistory');
+            localStorage.removeItem('scrumPoker_learningModel');
+            console.log('🧹 學習模型資料已清除');
+            return true;
+        } catch (error) {
+            console.error('❌ 清除學習模型資料失敗:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Phase 5: 取得增強的引擎資訊（包含學習機制）
+     * @returns {Object} 增強的引擎資訊
+     */
+    getEnhancedEngineInfo() {
+        const basicInfo = this.getEngineInfo();
+        const learningInfo = this.getLearningModelSummary();
+        
+        return {
+            ...basicInfo,
+            learning: {
+                available: learningInfo.available,
+                totalSessions: learningInfo.totalSessions || 0,
+                taskTypes: learningInfo.taskTypes || [],
+                roles: learningInfo.roles || [],
+                lastUpdated: learningInfo.lastUpdated || 'never'
+            }
+        };
+    }
 }
 
 // 匯出到全域
 window.ScrumAdviceUI = ScrumAdviceUI;
 
-console.log('🎨 ScrumAdviceUI 模組已載入 - Phase 3 UI Integration');
+console.log('🎨 ScrumAdviceUI 模組已載入 - Phase 5 Enhanced with Learning');

@@ -342,6 +342,16 @@ class ScrumAdviceEngine {
             const techStackAnalysis = this.analyzeTechStack(taskType, analysis);
             console.log('🔧 技術堆疊分析:', techStackAnalysis);
             
+            // Phase 5: 應用學習模型增強建議
+            const gameData = { 
+                votes: options.votes || {}, 
+                taskType, 
+                players: options.players || {},
+                sessionInfo: options.sessionInfo || {}
+            };
+            const learningEnhancement = this.applyLearningModel(gameData);
+            console.log('📚 學習模型增強:', learningEnhancement);
+            
             // 選擇適當的建議模板
             const adviceCategory = this.selectAdviceCategory(taskType);
             const adviceType = this.determineAdviceType(analysis, roleAnalysis);
@@ -349,7 +359,42 @@ class ScrumAdviceEngine {
             // 產生增強建議 (Phase 2)
             const advice = this.buildEnhancedAdvice(adviceCategory, adviceType, analysis, roleAnalysis, techStackAnalysis);
             
-            console.log('💡 產生的增強建議:', advice);
+            // Phase 5: 整合學習洞察到建議內容
+            if (learningEnhancement.enhanced) {
+                advice.learningInsights = learningEnhancement.data;
+                advice.metadata.modelInfo = learningEnhancement.modelInfo;
+                advice.metadata.analysisDepth = 'personalized';
+                
+                // 將學習洞察融入主要內容
+                if (learningEnhancement.data.learningAdvice) {
+                    advice.content += `\n\n## 📚 基於團隊歷史的洞察\n${learningEnhancement.data.learningAdvice}`;
+                }
+                
+                // 添加角色洞察
+                if (learningEnhancement.data.roleInsights && Object.keys(learningEnhancement.data.roleInsights).length > 0) {
+                    advice.content += `\n\n## 👤 角色投票模式分析\n`;
+                    Object.entries(learningEnhancement.data.roleInsights).forEach(([role, insight]) => {
+                        const roleName = this.getRoleDisplayName(role);
+                        advice.content += `**${roleName}**: 歷史平均 ${insight.historicalAverage} 點，本次 ${insight.currentVote} 點`;
+                        if (insight.deviation > 2) {
+                            advice.content += ` (偏差較大，可能需要討論)`;
+                        }
+                        advice.content += `\n`;
+                    });
+                }
+                
+                // 添加歷史比較關鍵字
+                advice.keywords.push('歷史分析', '個人化建議', '學習洞察');
+            }
+            
+            // Phase 5: 記錄此次投票會話到學習模型
+            try {
+                this.recordVotingSession(gameData);
+            } catch (error) {
+                console.warn('⚠️ 記錄投票會話失敗:', error);
+            }
+            
+            console.log('💡 產生的增強建議 (Phase 5):', advice);
             return advice;
             
         } catch (error) {
@@ -1299,9 +1344,364 @@ class ScrumAdviceEngine {
             };
         }
     }
+    
+    /**
+     * Phase 5: 學習機制 - 記錄和分析投票歷史
+     * @param {Object} gameData - 遊戲資料
+     * @param {Object} votingHistory - 投票歷史
+     */
+    recordVotingSession(gameData, votingHistory = null) {
+        try {
+            if (!gameData || !gameData.votes) return;
+            
+            const sessionRecord = {
+                timestamp: Date.now(),
+                roomId: gameData.sessionInfo?.roomId || 'unknown',
+                taskType: gameData.taskType || 'general',
+                votes: gameData.votes,
+                players: gameData.players || {},
+                statistics: this.calculateVotingStatistics(gameData.votes),
+                sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            };
+            
+            // 儲存到本地歷史記錄
+            this.saveToVotingHistory(sessionRecord);
+            
+            // 更新學習模型
+            this.updateLearningModel(sessionRecord);
+            
+            console.log('📚 投票歷史已記錄:', sessionRecord.sessionId);
+            
+        } catch (error) {
+            console.error('❌ 記錄投票歷史失敗:', error);
+        }
+    }
+    
+    /**
+     * Phase 5: 儲存投票歷史到本地存儲
+     * @param {Object} sessionRecord - 會話記錄
+     */
+    saveToVotingHistory(sessionRecord) {
+        try {
+            const storageKey = 'scrumPoker_votingHistory';
+            let history = [];
+            
+            try {
+                const existingHistory = localStorage.getItem(storageKey);
+                if (existingHistory) {
+                    history = JSON.parse(existingHistory);
+                }
+            } catch (parseError) {
+                console.warn('解析歷史記錄失敗，使用空陣列:', parseError);
+                history = [];
+            }
+            
+            // 添加新記錄
+            history.unshift(sessionRecord);
+            
+            // 只保留最近 50 筆記錄，避免存儲過大
+            if (history.length > 50) {
+                history = history.slice(0, 50);
+            }
+            
+            localStorage.setItem(storageKey, JSON.stringify(history));
+            console.log(`💾 投票歷史已儲存 (${history.length} 筆記錄)`);
+            
+        } catch (error) {
+            console.error('❌ 儲存投票歷史失敗:', error);
+        }
+    }
+    
+    /**
+     * Phase 5: 更新學習模型
+     * @param {Object} sessionRecord - 會話記錄
+     */
+    updateLearningModel(sessionRecord) {
+        try {
+            const modelKey = 'scrumPoker_learningModel';
+            let model = this.getDefaultLearningModel();
+            
+            try {
+                const existingModel = localStorage.getItem(modelKey);
+                if (existingModel) {
+                    model = { ...model, ...JSON.parse(existingModel) };
+                }
+            } catch (parseError) {
+                console.warn('解析學習模型失敗，使用預設模型:', parseError);
+            }
+            
+            // 更新任務類型模式
+            this.updateTaskTypePatterns(model, sessionRecord);
+            
+            // 更新角色投票模式
+            this.updateRoleVotingPatterns(model, sessionRecord);
+            
+            // 更新共識度模式
+            this.updateConsensusPatterns(model, sessionRecord);
+            
+            // 更新使用次數
+            model.metadata.totalSessions++;
+            model.metadata.lastUpdated = Date.now();
+            
+            localStorage.setItem(modelKey, JSON.stringify(model));
+            console.log('🧠 學習模型已更新');
+            
+        } catch (error) {
+            console.error('❌ 更新學習模型失敗:', error);
+        }
+    }
+    
+    /**
+     * Phase 5: 取得預設學習模型
+     * @returns {Object} 預設學習模型
+     */
+    getDefaultLearningModel() {
+        return {
+            taskTypePatterns: {},
+            roleVotingPatterns: {},
+            consensusPatterns: {
+                low: { threshold: 30, count: 0, avgRange: 0 },
+                medium: { threshold: 70, count: 0, avgRange: 0 },
+                high: { threshold: 100, count: 0, avgRange: 0 }
+            },
+            metadata: {
+                version: '1.0',
+                totalSessions: 0,
+                createdAt: Date.now(),
+                lastUpdated: Date.now()
+            }
+        };
+    }
+    
+    /**
+     * Phase 5: 更新任務類型模式
+     * @param {Object} model - 學習模型
+     * @param {Object} sessionRecord - 會話記錄
+     */
+    updateTaskTypePatterns(model, sessionRecord) {
+        const taskType = sessionRecord.taskType;
+        const stats = sessionRecord.statistics;
+        
+        if (!model.taskTypePatterns[taskType]) {
+            model.taskTypePatterns[taskType] = {
+                count: 0,
+                avgPoints: [],
+                avgConsensus: [],
+                commonRanges: {}
+            };
+        }
+        
+        const pattern = model.taskTypePatterns[taskType];
+        pattern.count++;
+        pattern.avgPoints.push(stats.averagePoints);
+        pattern.avgConsensus.push(stats.consensus);
+        
+        // 記錄常見範圍
+        const range = `${stats.min}-${stats.max}`;
+        pattern.commonRanges[range] = (pattern.commonRanges[range] || 0) + 1;
+        
+        // 只保留最近 20 筆資料
+        if (pattern.avgPoints.length > 20) {
+            pattern.avgPoints = pattern.avgPoints.slice(-20);
+            pattern.avgConsensus = pattern.avgConsensus.slice(-20);
+        }
+    }
+    
+    /**
+     * Phase 5: 更新角色投票模式
+     * @param {Object} model - 學習模型
+     * @param {Object} sessionRecord - 會話記錄
+     */
+    updateRoleVotingPatterns(model, sessionRecord) {
+        Object.entries(sessionRecord.votes).forEach(([playerId, vote]) => {
+            const playerRole = vote.player_role || 'other';
+            
+            if (!model.roleVotingPatterns[playerRole]) {
+                model.roleVotingPatterns[playerRole] = {
+                    count: 0,
+                    voteDistribution: {},
+                    avgVote: [],
+                    tendencies: {}
+                };
+            }
+            
+            const rolePattern = model.roleVotingPatterns[playerRole];
+            rolePattern.count++;
+            
+            if (typeof vote.value === 'number') {
+                rolePattern.avgVote.push(vote.value);
+                rolePattern.voteDistribution[vote.value] = (rolePattern.voteDistribution[vote.value] || 0) + 1;
+                
+                // 只保留最近 30 筆投票
+                if (rolePattern.avgVote.length > 30) {
+                    rolePattern.avgVote = rolePattern.avgVote.slice(-30);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Phase 5: 更新共識度模式
+     * @param {Object} model - 學習模型
+     * @param {Object} sessionRecord - 會話記錄
+     */
+    updateConsensusPatterns(model, sessionRecord) {
+        const consensus = sessionRecord.statistics.consensus;
+        const range = sessionRecord.statistics.max - sessionRecord.statistics.min;
+        
+        let category = 'low';
+        if (consensus >= 70) category = 'high';
+        else if (consensus >= 30) category = 'medium';
+        
+        const pattern = model.consensusPatterns[category];
+        pattern.count++;
+        pattern.avgRange = ((pattern.avgRange * (pattern.count - 1)) + range) / pattern.count;
+    }
+    
+    /**
+     * Phase 5: 應用學習模型到建議生成
+     * @param {Object} gameData - 遊戲資料
+     * @returns {Object} 個人化建議增強
+     */
+    applyLearningModel(gameData) {
+        try {
+            const modelKey = 'scrumPoker_learningModel';
+            const modelData = localStorage.getItem(modelKey);
+            
+            if (!modelData) {
+                return { enhanced: false, reason: 'no_learning_data' };
+            }
+            
+            const model = JSON.parse(modelData);
+            const taskType = gameData.taskType || 'general';
+            const enhancement = {};
+            
+            // 基於歷史資料的任務類型洞察
+            if (model.taskTypePatterns[taskType]) {
+                const pattern = model.taskTypePatterns[taskType];
+                const historicalAvg = pattern.avgPoints.reduce((a, b) => a + b, 0) / pattern.avgPoints.length;
+                const currentAvg = this.calculateVotingStatistics(gameData.votes).averagePoints;
+                
+                enhancement.taskTypeInsight = {
+                    historicalAverage: Math.round(historicalAvg * 10) / 10,
+                    currentAverage: currentAvg,
+                    variance: Math.abs(currentAvg - historicalAvg),
+                    sessionCount: pattern.count
+                };
+                
+                // 生成基於歷史的建議
+                if (currentAvg > historicalAvg + 2) {
+                    enhancement.learningAdvice = '當前估點比團隊歷史平均高，可能存在複雜性被低估的情況。';
+                } else if (currentAvg < historicalAvg - 2) {
+                    enhancement.learningAdvice = '當前估點比團隊歷史平均低，團隊可能對此類任務更有經驗了。';
+                }
+            }
+            
+            // 角色模式分析
+            enhancement.roleInsights = this.analyzeRolePatterns(model, gameData);
+            
+            return {
+                enhanced: true,
+                data: enhancement,
+                modelInfo: {
+                    totalSessions: model.metadata.totalSessions,
+                    lastUpdated: model.metadata.lastUpdated
+                }
+            };
+            
+        } catch (error) {
+            console.error('❌ 應用學習模型失敗:', error);
+            return { enhanced: false, reason: 'error', error: error.message };
+        }
+    }
+    
+    /**
+     * Phase 5: 分析角色投票模式
+     * @param {Object} model - 學習模型
+     * @param {Object} gameData - 遊戲資料
+     * @returns {Object} 角色洞察
+     */
+    analyzeRolePatterns(model, gameData) {
+        const insights = {};
+        
+        Object.entries(gameData.votes).forEach(([playerId, vote]) => {
+            const playerRole = vote.player_role || 'other';
+            const rolePattern = model.roleVotingPatterns[playerRole];
+            
+            if (rolePattern && rolePattern.avgVote.length > 0) {
+                const historicalAvg = rolePattern.avgVote.reduce((a, b) => a + b, 0) / rolePattern.avgVote.length;
+                const currentVote = vote.value;
+                
+                if (typeof currentVote === 'number') {
+                    insights[playerRole] = {
+                        historicalAverage: Math.round(historicalAvg * 10) / 10,
+                        currentVote: currentVote,
+                        deviation: Math.abs(currentVote - historicalAvg),
+                        sessionCount: rolePattern.count
+                    };
+                }
+            }
+        });
+        
+        return insights;
+    }
+    
+    /**
+     * Phase 5: 取得角色顯示名稱
+     * @param {string} role - 角色代碼
+     * @returns {string} 顯示名稱
+     */
+    getRoleDisplayName(role) {
+        const roleNames = {
+            'dev': '開發者',
+            'qa': 'QA 測試',
+            'scrum_master': 'Scrum Master',
+            'po': 'Product Owner',
+            'other': '其他角色'
+        };
+        return roleNames[role] || role;
+    }
+    
+    /**
+     * Phase 5: 取得投票歷史摘要
+     * @returns {Object} 歷史摘要
+     */
+    getVotingHistorySummary() {
+        try {
+            const historyKey = 'scrumPoker_votingHistory';
+            const modelKey = 'scrumPoker_learningModel';
+            
+            const historyData = localStorage.getItem(historyKey);
+            const modelData = localStorage.getItem(modelKey);
+            
+            if (!historyData || !modelData) {
+                return { available: false, reason: 'no_data' };
+            }
+            
+            const history = JSON.parse(historyData);
+            const model = JSON.parse(modelData);
+            
+            return {
+                available: true,
+                totalSessions: history.length,
+                dateRange: {
+                    oldest: new Date(history[history.length - 1]?.timestamp).toLocaleDateString(),
+                    newest: new Date(history[0]?.timestamp).toLocaleDateString()
+                },
+                taskTypes: Object.keys(model.taskTypePatterns),
+                roles: Object.keys(model.roleVotingPatterns),
+                modelVersion: model.metadata.version,
+                lastUpdated: new Date(model.metadata.lastUpdated).toLocaleString()
+            };
+            
+        } catch (error) {
+            console.error('❌ 取得歷史摘要失敗:', error);
+            return { available: false, reason: 'error', error: error.message };
+        }
+    }
 }
 
 // 匯出到全域
 window.ScrumAdviceEngine = ScrumAdviceEngine;
 
-console.log('🧠 ScrumAdviceEngine 模組已載入 - Phase 1 Implementation');
+console.log('🧠 ScrumAdviceEngine 模組已載入 - Phase 5 Enhanced with Learning');
