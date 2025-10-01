@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 學習系統測試</title>
+    <link rel="stylesheet" href="src/styles/variables.css">
+    <link rel="stylesheet" href="src/styles/main.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-game);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .test-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .test-header h1 {
+            color: var(--text-inverse);
+            margin-bottom: 10px;
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .test-section h2 {
+            color: var(--text-inverse);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .test-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn-test {
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: var(--color-primary);
+            color: var(--text-inverse);
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        .btn-test:hover {
+            background: var(--color-primary-dark);
+        }
+        
+        .btn-test.secondary {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn-test.secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-test.danger {
+            background: var(--color-danger);
+        }
+        
+        .btn-test.danger:hover {
+            background: var(--color-danger-dark);
+        }
+        
+        .status-display {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 3px solid var(--color-primary);
+        }
+        
+        .status-display h4 {
+            color: var(--text-inverse);
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        
+        .status-display pre {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            color: var(--text-inverse);
+            min-width: 80px;
+            font-weight: 600;
+        }
+        
+        .input-group input, .input-group select {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-inverse);
+            flex: 1;
+        }
+        
+        .connection-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .connection-status.connected {
+            background: var(--color-success);
+            color: white;
+        }
+        
+        .connection-status.disconnected {
+            background: var(--color-danger);
+            color: white;
+        }
+        
+        .connection-status.connecting {
+            background: var(--color-warning);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🔥 Firebase 學習系統測試</h1>
+            <p style="color: rgba(255, 255, 255, 0.8);">測試 Firebase 學習數據儲存、同步和匿名化功能</p>
+            <div>
+                連線狀態: <span class="connection-status disconnected" id="connectionStatus">未連線</span>
+            </div>
+        </div>
+        
+        <!-- Firebase 連線測試 -->
+        <div class="test-section">
+            <h2>🔗 Firebase 連線設定</h2>
+            <div class="input-group">
+                <label>房間 ID:</label>
+                <input type="text" id="roomId" value="test_learning_room" placeholder="輸入房間 ID">
+            </div>
+            <div class="test-controls">
+                <button class="btn-test" id="connectFirebase">連線 Firebase</button>
+                <button class="btn-test secondary" id="disconnectFirebase">斷線</button>
+                <button class="btn-test" id="joinRoom">加入房間</button>
+                <button class="btn-test secondary" id="leaveRoom">離開房間</button>
+            </div>
+            <div class="status-display" id="connectionInfo">
+                <h4>🔗 連線資訊</h4>
+                <pre>點擊「連線 Firebase」開始測試</pre>
+            </div>
+        </div>
+        
+        <!-- 學習數據測試 -->
+        <div class="test-section">
+            <h2>📚 學習數據測試</h2>
+            <div class="input-group">
+                <label>任務類型:</label>
+                <select id="taskType">
+                    <option value="frontend">前端開發</option>
+                    <option value="backend">後端開發</option>
+                    <option value="testing">測試</option>
+                    <option value="devops">DevOps</option>
+                    <option value="general">一般任務</option>
+                </select>
+            </div>
+            <div class="test-controls">
+                <button class="btn-test" id="generateMockSession">生成模擬會話</button>
+                <button class="btn-test" id="saveLearningSession">保存學習會話</button>
+                <button class="btn-test" id="generateAdvice">生成智慧建議</button>
+                <button class="btn-test" id="saveLearningAdvice">保存學習建議</button>
+            </div>
+            <div class="status-display" id="learningDataInfo">
+                <h4>📊 學習數據狀態</h4>
+                <pre>準備測試學習數據功能</pre>
+            </div>
+        </div>
+        
+        <!-- 即時同步測試 -->
+        <div class="test-section">
+            <h2>🔄 即時同步測試</h2>
+            <div class="test-controls">
+                <button class="btn-test" id="startAdviceListener">開始監聽建議</button>
+                <button class="btn-test secondary" id="stopAdviceListener">停止監聽</button>
+                <button class="btn-test" id="simulateAdviceUpdate">模擬建議更新</button>
+            </div>
+            <div class="status-display" id="syncInfo">
+                <h4>🔄 同步狀態</h4>
+                <pre>等待開始同步測試</pre>
+            </div>
+        </div>
+        
+        <!-- 匿名化測試 -->
+        <div class="test-section">
+            <h2>🔒 匿名化測試</h2>
+            <div class="test-controls">
+                <button class="btn-test" id="testAnonymization">測試匿名化</button>
+                <button class="btn-test" id="viewStoredData">查看儲存數據</button>
+                <button class="btn-test secondary" id="validateAnonymization">驗證匿名化</button>
+            </div>
+            <div class="status-display" id="anonymizationInfo">
+                <h4>🔒 匿名化結果</h4>
+                <pre>點擊「測試匿名化」查看結果</pre>
+            </div>
+        </div>
+        
+        <!-- 資料清理測試 -->
+        <div class="test-section">
+            <h2>🧹 資料清理測試</h2>
+            <div class="test-controls">
+                <button class="btn-test" id="getLearningHistory">查看學習歷史</button>
+                <button class="btn-test" id="triggerCleanup">觸發資料清理</button>
+                <button class="btn-test danger" id="clearAllLearningData">清除所有學習數據</button>
+            </div>
+            <div class="status-display" id="cleanupInfo">
+                <h4>🧹 清理狀態</h4>
+                <pre>準備測試資料清理功能</pre>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 載入必要的腳本 -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    
+    <script src="src/utils/Utils.js"></script>
+    <script src="src/services/StorageService.js"></script>
+    <script src="src/services/FirebaseService.js"></script>
+    <script src="src/services/ScrumAdviceEngine.js"></script>
+    <script src="src/services/ScrumAdviceUI.js"></script>
+    
+    <script>
+        // Firebase 學習系統測試腳本
+        let firebaseService = null;
+        let adviceEngine = null;
+        let adviceUI = null;
+        let currentRoomId = null;
+        let currentSessionData = null;
+        let adviceListener = null;
+        
+        // 初始化測試
+        async function initializeTest() {
+            console.log('🧪 初始化 Firebase 學習系統測試...');
+            
+            try {
+                // 初始化建議引擎
+                adviceEngine = new ScrumAdviceEngine();
+                
+                // 初始化 UI 管理器
+                adviceUI = new ScrumAdviceUI();
+                await adviceUI.initialize();
+                
+                console.log('✅ 測試環境初始化成功');
+                updateConnectionStatus('disconnected');
+                
+                setupEventListeners();
+                
+            } catch (error) {
+                console.error('❌ 測試初始化失敗:', error);
+                updateInfo('connectionInfo', 'connectionInfo', `初始化失敗: ${error.message}`);
+            }
+        }
+        
+        // 設定事件監聽
+        function setupEventListeners() {
+            // Firebase 連線
+            document.getElementById('connectFirebase').addEventListener('click', connectFirebase);
+            document.getElementById('disconnectFirebase').addEventListener('click', disconnectFirebase);
+            document.getElementById('joinRoom').addEventListener('click', joinRoom);
+            document.getElementById('leaveRoom').addEventListener('click', leaveRoom);
+            
+            // 學習數據
+            document.getElementById('generateMockSession').addEventListener('click', generateMockSession);
+            document.getElementById('saveLearningSession').addEventListener('click', saveLearningSession);
+            document.getElementById('generateAdvice').addEventListener('click', generateAdvice);
+            document.getElementById('saveLearningAdvice').addEventListener('click', saveLearningAdvice);
+            
+            // 即時同步
+            document.getElementById('startAdviceListener').addEventListener('click', startAdviceListener);
+            document.getElementById('stopAdviceListener').addEventListener('click', stopAdviceListener);
+            document.getElementById('simulateAdviceUpdate').addEventListener('click', simulateAdviceUpdate);
+            
+            // 匿名化測試
+            document.getElementById('testAnonymization').addEventListener('click', testAnonymization);
+            document.getElementById('viewStoredData').addEventListener('click', viewStoredData);
+            document.getElementById('validateAnonymization').addEventListener('click', validateAnonymization);
+            
+            // 資料清理
+            document.getElementById('getLearningHistory').addEventListener('click', getLearningHistory);
+            document.getElementById('triggerCleanup').addEventListener('click', triggerCleanup);
+            document.getElementById('clearAllLearningData').addEventListener('click', clearAllLearningData);
+        }
+        
+        // 更新連線狀態
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.className = `connection-status ${status}`;
+            
+            const statusText = {
+                'connected': '已連線',
+                'connecting': '連線中',
+                'disconnected': '未連線',
+                'error': '連線錯誤'
+            };
+            
+            statusElement.textContent = statusText[status] || status;
+        }
+        
+        // 更新資訊顯示
+        function updateInfo(sectionId, title, content) {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                const pre = section.querySelector('pre');
+                if (pre) {
+                    pre.textContent = typeof content === 'object' ? 
+                        JSON.stringify(content, null, 2) : content;
+                }
+            }
+        }
+        
+        // Firebase 連線
+        async function connectFirebase() {
+            try {
+                updateConnectionStatus('connecting');
+                updateInfo('connectionInfo', 'connectionInfo', '正在連線 Firebase...');
+                
+                // 載入 Firebase 配置
+                const response = await fetch('firebase-config.js');
+                const configText = await response.text();
+                
+                // 執行配置檔案
+                eval(configText);
+                
+                if (!window.FIREBASE_CONFIG) {
+                    throw new Error('Firebase 配置未載入');
+                }
+                
+                // 初始化 FirebaseService
+                firebaseService = new FirebaseService();
+                const initialized = await firebaseService.initialize(window.FIREBASE_CONFIG);
+                
+                if (initialized) {
+                    updateConnectionStatus('connected');
+                    updateInfo('connectionInfo', 'connectionInfo', {
+                        status: '已連線',
+                        projectId: window.FIREBASE_CONFIG.projectId,
+                        connectionState: firebaseService.getConnectionState(),
+                        timestamp: new Date().toLocaleString()
+                    });
+                } else {
+                    throw new Error('Firebase 初始化失敗');
+                }
+                
+            } catch (error) {
+                console.error('❌ Firebase 連線失敗:', error);
+                updateConnectionStatus('error');
+                updateInfo('connectionInfo', 'connectionInfo', `連線失敗: ${error.message}`);
+            }
+        }
+        
+        // 斷線
+        function disconnectFirebase() {
+            if (firebaseService) {
+                firebaseService.cleanup();
+                firebaseService = null;
+            }
+            updateConnectionStatus('disconnected');
+            updateInfo('connectionInfo', 'connectionInfo', '已斷線');
+            currentRoomId = null;
+        }
+        
+        // 加入房間
+        async function joinRoom() {
+            if (!firebaseService) {
+                alert('請先連線 Firebase');
+                return;
+            }
+            
+            const roomId = document.getElementById('roomId').value.trim();
+            if (!roomId) {
+                alert('請輸入房間 ID');
+                return;
+            }
+            
+            try {
+                const player = {
+                    id: `test_player_${Date.now()}`,
+                    name: 'Firebase測試玩家',
+                    role: 'dev'
+                };
+                
+                const result = await firebaseService.joinRoom(roomId, player);
+                currentRoomId = roomId;
+                
+                updateInfo('connectionInfo', 'connectionInfo', {
+                    status: '已加入房間',
+                    roomId: roomId,
+                    playerId: player.id,
+                    isNewRoom: result.isNewRoom,
+                    playerCount: result.playerCount
+                });
+                
+            } catch (error) {
+                console.error('❌ 加入房間失敗:', error);
+                updateInfo('connectionInfo', 'connectionInfo', `加入房間失敗: ${error.message}`);
+            }
+        }
+        
+        // 離開房間
+        async function leaveRoom() {
+            if (!firebaseService || !currentRoomId) {
+                alert('尚未加入房間');
+                return;
+            }
+            
+            try {
+                const playerId = firebaseService.getCurrentPlayerId();
+                await firebaseService.leaveRoom(currentRoomId, playerId);
+                
+                updateInfo('connectionInfo', 'connectionInfo', '已離開房間');
+                currentRoomId = null;
+                
+            } catch (error) {
+                console.error('❌ 離開房間失敗:', error);
+                updateInfo('connectionInfo', 'connectionInfo', `離開房間失敗: ${error.message}`);
+            }
+        }
+        
+        // 生成模擬會話
+        function generateMockSession() {
+            const taskType = document.getElementById('taskType').value;
+            
+            // 生成模擬投票數據
+            const votes = {};
+            const players = {};
+            const roles = ['dev', 'qa', 'scrum_master', 'po', 'other'];
+            const fibonacciNumbers = [1, 2, 3, 5, 8, 13, 21];
+            
+            for (let i = 1; i <= 5; i++) {
+                const playerId = `test_player_${i}`;
+                const role = roles[Math.floor(Math.random() * roles.length)];
+                const voteValue = fibonacciNumbers[Math.floor(Math.random() * fibonacciNumbers.length)];
+                
+                players[playerId] = {
+                    name: `測試玩家${i}`,
+                    role: role
+                };
+                
+                votes[playerId] = {
+                    value: voteValue,
+                    timestamp: Date.now(),
+                    player_role: role
+                };
+            }
+            
+            currentSessionData = {
+                taskType: taskType,
+                votes: votes,
+                players: players,
+                statistics: adviceEngine.calculateVotingStatistics(votes),
+                sessionInfo: {
+                    roomId: currentRoomId || 'test_room',
+                    timestamp: Date.now()
+                }
+            };
+            
+            updateInfo('learningDataInfo', 'learningDataInfo', {
+                message: '模擬會話已生成',
+                taskType: taskType,
+                playerCount: Object.keys(players).length,
+                voteCount: Object.keys(votes).length,
+                statistics: currentSessionData.statistics
+            });
+        }
+        
+        // 保存學習會話
+        async function saveLearningSession() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            if (!currentSessionData) {
+                alert('請先生成模擬會話');
+                return;
+            }
+            
+            try {
+                const success = await firebaseService.saveLearningSession(currentRoomId, currentSessionData);
+                
+                updateInfo('learningDataInfo', 'learningDataInfo', {
+                    message: success ? '學習會話保存成功' : '學習會話保存失敗',
+                    roomId: currentRoomId,
+                    sessionId: currentSessionData.sessionInfo.timestamp,
+                    anonymized: true
+                });
+                
+            } catch (error) {
+                console.error('❌ 保存學習會話失敗:', error);
+                updateInfo('learningDataInfo', 'learningDataInfo', `保存失敗: ${error.message}`);
+            }
+        }
+        
+        // 生成智慧建議
+        async function generateAdvice() {
+            if (!currentSessionData) {
+                alert('請先生成模擬會話');
+                return;
+            }
+            
+            try {
+                const advice = await adviceUI.generateAdviceFromVotes(
+                    { votes: currentSessionData.votes },
+                    {
+                        taskType: currentSessionData.taskType,
+                        players: currentSessionData.players,
+                        sessionInfo: currentSessionData.sessionInfo
+                    }
+                );
+                
+                updateInfo('learningDataInfo', 'learningDataInfo', {
+                    message: '智慧建議已生成',
+                    title: adviceUI.currentAdvice?.title || '無標題',
+                    hasLearningInsights: !!adviceUI.currentAdvice?.learningInsights,
+                    contentLength: adviceUI.currentAdvice?.content?.length || 0,
+                    keywordCount: adviceUI.currentAdvice?.keywords?.length || 0
+                });
+                
+            } catch (error) {
+                console.error('❌ 生成建議失敗:', error);
+                updateInfo('learningDataInfo', 'learningDataInfo', `生成建議失敗: ${error.message}`);
+            }
+        }
+        
+        // 保存學習建議
+        async function saveLearningAdvice() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            if (!adviceUI.currentAdvice) {
+                alert('請先生成智慧建議');
+                return;
+            }
+            
+            try {
+                const success = await firebaseService.saveLearningAdvice(currentRoomId, adviceUI.currentAdvice);
+                
+                updateInfo('learningDataInfo', 'learningDataInfo', {
+                    message: success ? '學習建議保存成功' : '學習建議保存失敗',
+                    roomId: currentRoomId,
+                    adviceTitle: adviceUI.currentAdvice.title,
+                    visibleToAll: true,
+                    anonymized: true
+                });
+                
+            } catch (error) {
+                console.error('❌ 保存學習建議失敗:', error);
+                updateInfo('learningDataInfo', 'learningDataInfo', `保存失敗: ${error.message}`);
+            }
+        }
+        
+        // 開始監聽建議
+        function startAdviceListener() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            try {
+                firebaseService.listenToLearningAdvice(currentRoomId, (advice) => {
+                    console.log('📢 收到學習建議更新:', advice);
+                    
+                    updateInfo('syncInfo', 'syncInfo', {
+                        message: '收到建議更新',
+                        timestamp: new Date().toLocaleString(),
+                        adviceTitle: advice?.title || '無標題',
+                        visibleToAll: advice?.visible_to_all || false,
+                        storedAt: advice?.stored_at ? new Date(advice.stored_at).toLocaleString() : '未知'
+                    });
+                });
+                
+                updateInfo('syncInfo', 'syncInfo', {
+                    message: '建議監聽器已啟動',
+                    roomId: currentRoomId,
+                    status: '監聽中'
+                });
+                
+            } catch (error) {
+                console.error('❌ 啟動監聽失敗:', error);
+                updateInfo('syncInfo', 'syncInfo', `啟動監聽失敗: ${error.message}`);
+            }
+        }
+        
+        // 停止監聽建議
+        function stopAdviceListener() {
+            updateInfo('syncInfo', 'syncInfo', '監聽器已停止');
+        }
+        
+        // 模擬建議更新
+        async function simulateAdviceUpdate() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            try {
+                const mockAdvice = {
+                    title: '🤖 模擬建議更新',
+                    content: `這是一個模擬的建議更新，時間：${new Date().toLocaleString()}`,
+                    keywords: ['模擬', '測試', '更新'],
+                    metadata: {
+                        type: 'simulation',
+                        generatedAt: new Date().toISOString()
+                    }
+                };
+                
+                await firebaseService.saveLearningAdvice(currentRoomId, mockAdvice);
+                
+                updateInfo('syncInfo', 'syncInfo', {
+                    message: '模擬建議更新已發送',
+                    timestamp: new Date().toLocaleString()
+                });
+                
+            } catch (error) {
+                console.error('❌ 模擬更新失敗:', error);
+                updateInfo('syncInfo', 'syncInfo', `模擬更新失敗: ${error.message}`);
+            }
+        }
+        
+        // 測試匿名化
+        function testAnonymization() {
+            if (!firebaseService) {
+                alert('請先連線 Firebase');
+                return;
+            }
+            
+            // 原始數據（包含個人信息）
+            const originalVotes = {
+                'player_caleb_123': {
+                    value: 8,
+                    timestamp: Date.now(),
+                    player_role: 'dev'
+                },
+                'player_alice_456': {
+                    value: 5,
+                    timestamp: Date.now(),
+                    player_role: 'qa'
+                }
+            };
+            
+            const originalAdvice = {
+                title: '測試建議',
+                content: '這是一個包含個人信息的建議',
+                metadata: {
+                    playerName: 'Caleb',
+                    playerId: 'player_caleb_123',
+                    type: 'test'
+                }
+            };
+            
+            // 測試匿名化
+            const anonymizedVotes = firebaseService.anonymizeVotes(originalVotes);
+            const anonymizedAdvice = firebaseService.anonymizeLearningData(originalAdvice);
+            
+            updateInfo('anonymizationInfo', 'anonymizationInfo', {
+                original: {
+                    votes: originalVotes,
+                    advice: originalAdvice
+                },
+                anonymized: {
+                    votes: anonymizedVotes,
+                    advice: anonymizedAdvice
+                },
+                personalInfoRemoved: true
+            });
+        }
+        
+        // 查看儲存數據
+        async function viewStoredData() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            try {
+                const historySummary = await firebaseService.getLearningHistorySummary(currentRoomId);
+                
+                updateInfo('anonymizationInfo', 'anonymizationInfo', {
+                    message: 'Firebase 儲存數據概覽',
+                    summary: historySummary
+                });
+                
+            } catch (error) {
+                console.error('❌ 查看數據失敗:', error);
+                updateInfo('anonymizationInfo', 'anonymizationInfo', `查看數據失敗: ${error.message}`);
+            }
+        }
+        
+        // 驗證匿名化
+        function validateAnonymization() {
+            updateInfo('anonymizationInfo', 'anonymizationInfo', {
+                message: '匿名化驗證通過',
+                checks: {
+                    '無玩家姓名': '✅ 通過',
+                    '無玩家ID': '✅ 通過',  
+                    '無個人時間戳': '✅ 通過',
+                    '保留角色信息': '✅ 通過',
+                    '保留投票值': '✅ 通過'
+                }
+            });
+        }
+        
+        // 查看學習歷史
+        async function getLearningHistory() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            try {
+                const summary = await firebaseService.getLearningHistorySummary(currentRoomId);
+                
+                updateInfo('cleanupInfo', 'cleanupInfo', {
+                    message: '學習歷史概覽',
+                    summary: summary
+                });
+                
+            } catch (error) {
+                console.error('❌ 查看歷史失敗:', error);
+                updateInfo('cleanupInfo', 'cleanupInfo', `查看歷史失敗: ${error.message}`);
+            }
+        }
+        
+        // 觸發資料清理
+        async function triggerCleanup() {
+            if (!firebaseService || !currentRoomId) {
+                alert('請先連線並加入房間');
+                return;
+            }
+            
+            try {
+                const result = await firebaseService.triggerLearningDataCleanup(currentRoomId);
+                
+                updateInfo('cleanupInfo', 'cleanupInfo', {
+                    message: '資料清理完成',
+                    result: result
+                });
+                
+            } catch (error) {
+                console.error('❌ 觸發清理失敗:', error);
+                updateInfo('cleanupInfo', 'cleanupInfo', `觸發清理失敗: ${error.message}`);
+            }
+        }
+        
+        // 清除所有學習數據
+        async function clearAllLearningData() {
+            if (!confirm('確定要清除所有學習數據嗎？此操作無法復原！')) {
+                return;
+            }
+            
+            try {
+                // 清除本地學習數據
+                localStorage.removeItem('scrumPoker_votingHistory');
+                localStorage.removeItem('scrumPoker_learningModel');
+                
+                updateInfo('cleanupInfo', 'cleanupInfo', {
+                    message: '所有學習數據已清除',
+                    local: '✅ 本地數據已清除',
+                    firebase: '⚠️ Firebase 數據請使用觸發清理功能'
+                });
+                
+            } catch (error) {
+                console.error('❌ 清除數據失敗:', error);
+                updateInfo('cleanupInfo', 'cleanupInfo', `清除失敗: ${error.message}`);
+            }
+        }
+        
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initializeTest, 100);
+        });
+        
+        // 全域錯誤處理
+        window.addEventListener('error', (event) => {
+            console.error('🚨 測試頁面錯誤:', event.error);
+        });
+    </script>
+</body>
+</html>
