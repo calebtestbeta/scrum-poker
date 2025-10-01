@@ -1905,3 +1905,49 @@ option {
   width: var(--card-width-lg, 100px);
   height: var(--card-height-lg, 150px);
 }
+
+/* --- Card Visual Fix (route A) --- */
+:root{
+  /* 提供保底值，避免 variables.css 未載入時整排變白 */
+  --bg-game: linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);
+  --card-surface: rgba(255,255,255,0.08);
+  --card-surface-hover: rgba(255,255,255,0.12);
+  --card-surface-active: rgba(255,255,255,0.16);
+  --card-border: rgba(255,255,255,0.18);
+  --card-selected: rgba(59,130,246,0.22);
+  --text-inverse: #fff;
+  --spacing-md: 12px;
+  --radius-xl: 16px;
+  --shadow-card: 0 6px 18px rgba(0,0,0,.25);
+}
+
+/* 卡列穩定置中（不改寬度） */
+.game-cards-area, .cards-area { align-items: center; }
+
+/* 卡片底色/邊圓/陰影，強制不是白底；限定在卡區，避免影響通用 .card */
+.cards-area .card{
+  background: var(--card-surface, rgba(255,255,255,0.08)) !important;
+  color: var(--text-inverse, #fff);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card, 0 6px 18px rgba(0,0,0,.25));
+  padding: var(--spacing-md, 12px);
+  transition: transform .12s ease-out, background .12s ease-out;
+}
+
+/* 若 card-front 被其他樣式覆蓋導致洗白，這裡補回質感層 */
+.cards-area .card .card-front{
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  border-radius: inherit;
+}
+
+/* 互動狀態 */
+.cards-area .card:hover{ background: var(--card-surface-hover); transform: translateY(-1px); }
+.cards-area .card:active{ background: var(--card-surface-active); transform: translateY(0); }
+.cards-area .card[aria-pressed="true"],
+.cards-area .card.card-selected{ background: var(--card-selected); }
+
+/* 卡面數字對比提升 */
+.cards-area .card .card-value{
+  color: var(--text-inverse, #fff);
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
