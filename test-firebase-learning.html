@@ -262,6 +262,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     
+    <!-- Firebase 設定檔 -->
+    <script src="firebase-config.js"></script>
+    
     <script src="src/utils/Utils.js"></script>
     <script src="src/services/StorageService.js"></script>
     <script src="src/services/FirebaseService.js"></script>
@@ -415,27 +418,32 @@ ${!diagnosis.isLocal && !diagnosis.hasValidCloudConfig ? `
                 updateConnectionStatus('connecting');
                 updateInfo('connectionInfo', 'connectionInfo', '正在連線 Firebase...');
                 
-                // 載入 Firebase 配置
-                const response = await fetch('firebase-config.js');
-                const configText = await response.text();
-                
-                // 執行配置檔案
-                eval(configText);
-                
-                if (!window.FIREBASE_CONFIG) {
-                    throw new Error('Firebase 配置未載入');
-                }
+                // 使用 firebase-config.js 中的初始化函數
+                const { app, database, auth } = await window.initializeFirebaseApp();
                 
                 // 初始化 FirebaseService
                 firebaseService = new FirebaseService();
-                const initialized = await firebaseService.initialize(window.FIREBASE_CONFIG);
+                let initialized;
+                
+                if (app) {
+                    // 使用真實 Firebase 實例
+                    const config = window.getFirebaseConfig();
+                    initialized = await firebaseService.initialize(config);
+                } else {
+                    // 使用模擬模式
+                    console.log('🔧 使用模擬模式初始化 FirebaseService');
+                    const mockConfig = window.getFirebaseConfig();
+                    initialized = await firebaseService.initialize(mockConfig);
+                }
                 
                 if (initialized) {
                     updateConnectionStatus('connected');
+                    const config = window.getFirebaseConfig();
                     updateInfo('connectionInfo', 'connectionInfo', {
                         status: '已連線',
-                        projectId: window.FIREBASE_CONFIG.projectId,
-                        connectionState: firebaseService.getConnectionState(),
+                        mode: app ? '真實 Firebase' : '本地模擬模式',
+                        projectId: config.projectId,
+                        connectionState: firebaseService.getConnectionState ? firebaseService.getConnectionState() : '已連線',
                         timestamp: new Date().toLocaleString()
                     });
                 } else {
