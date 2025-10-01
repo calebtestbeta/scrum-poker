@@ -47,6 +47,21 @@ export class ShortcutHintsManager {
         this.lastRenderedContent = null;
         this.containerId = 'shortcutHints';
         this.eventBus = window.eventBus || null;
+        this.setupEventListeners();
+    }
+    
+    /**
+     * 設置事件監聽器
+     */
+    setupEventListeners() {
+        // 監聽面板切換事件
+        window.addEventListener('panel:toggled', (event) => {
+            const { id, isOpen } = event.detail || {};
+            if (id === 'rightRail' && isOpen) {
+                // 面板開啟時刷新快捷鍵提示
+                setTimeout(() => this.updateShortcutHints(), 0);
+            }
+        });
     }
     
     /**
@@ -68,10 +83,13 @@ export class ShortcutHintsManager {
                 return false;
             }
             
-            const shortcutsList = container.querySelector('.shortcuts-list');
+            let shortcutsList = container.querySelector('.shortcuts-list');
             if (!shortcutsList) {
-                console.warn(`⚠️ ShortcutHints: 找不到 .shortcuts-list，安全降級`);
-                return false;
+                console.warn(`⚠️ ShortcutHints: 找不到 .shortcuts-list，嘗試創建`);
+                // 嘗試創建 shortcuts-list 容器
+                shortcutsList = document.createElement('div');
+                shortcutsList.className = 'shortcuts-list';
+                container.appendChild(shortcutsList);
             }
             
             // 生成新內容

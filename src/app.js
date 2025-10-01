@@ -587,7 +587,9 @@ class ScrumPokerApp {
             if (event.key === 'h' || event.key === 'H') {
                 if (!event.target.matches('input, textarea')) {
                     event.preventDefault();
-                    this.panelManager.togglePanel('notificationsPanel', 'keyboard');
+                    this.panelManager.togglePanel('rightRail', 'keyboard');
+                    // 面板開關後刷新快捷鍵清單，避免只剩標題
+                    setTimeout(() => this.shortcutHintsManager.updateShortcutHints(), 0);
                 }
             }
             
@@ -981,6 +983,10 @@ class ScrumPokerApp {
             setTimeout(() => {
                 this.shortcutHintsManager.updateShortcutHints();
             }, 100);
+            
+            // 保護性處理：只保留底部 .game-controls 這一組
+            const gameActions = document.getElementById('gameActions');
+            if (gameActions) gameActions.innerHTML = '';
             
         } catch (error) {
             console.error('遊戲啟動失敗:', error);
@@ -1785,6 +1791,10 @@ class ScrumPokerApp {
                     // 恢復正常操作
                     if (window.eventBus) {
                         window.eventBus.emit('app:page-visible');
+                    }
+                    // 補充更新快捷鍵提示
+                    if (!document.hidden && this.currentState === 'game') {
+                        this.shortcutHintsManager.updateShortcutHints();
                     }
                 }
             }

@@ -258,6 +258,11 @@ export class PanelManager {
             });
         }
         
+        // 發布自定事件給其他模組
+        window.dispatchEvent(new CustomEvent('panel:toggled', { 
+            detail: { id: panelId, isOpen: newState, reason, mode: this.isResponsiveMode ? 'responsive' : 'desktop' } 
+        }));
+        
         return newState;
     }
     

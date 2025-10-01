@@ -35,8 +35,8 @@ body {
   line-height: var(--line-height-normal);
   color: var(--text-primary);
   background: var(--bg-game);
-  overflow: hidden;
-  height: 100vh;
+  overflow-y: auto;
+  min-height: 100vh;
   margin: 0;
   padding: 0;
 }
@@ -172,12 +172,12 @@ input[type="radio"] {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
   padding-inline: clamp(12px, 2vw, 24px);
-  overflow: hidden;
+  overflow: visible;
   position: relative;
   /* Safari 修復 */
   min-height: -webkit-fill-available;
@@ -213,7 +213,7 @@ input[type="radio"] {
   align-items: flex-start;
   gap: 16px;
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .main-area {
@@ -352,6 +352,9 @@ input[type="radio"] {
   display: flex;
   gap: var(--spacing-sm);
   z-index: var(--z-fixed);
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 /* === 卡牌組件樣式 === */
