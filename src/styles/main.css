@@ -1958,3 +1958,207 @@ option {
   color: var(--text-inverse, #fff) !important;
   text-shadow: 0 1px 2px rgba(0,0,0,.35);
 }
+
+/* === ScrumAdviceEngine UI 樣式 === */
+
+/* 智慧建議區域 */
+.smart-advice-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.smart-advice-section h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-inverse);
+  margin-bottom: var(--spacing-md);
+}
+
+.advice-preview {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius-base);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  border-left: 3px solid var(--color-primary);
+}
+
+.advice-preview p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+
+.advice-preview-title {
+  color: var(--text-inverse);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.advice-preview-snippet {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+/* 建議模態框增強 */
+.modal-advice {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+.modal-advice .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.modal-advice .modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.modal-advice .modal-body {
+  padding: var(--spacing-lg);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.modal-advice .modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-gray-200);
+  gap: var(--spacing-md);
+}
+
+/* 建議內容樣式 */
+.advice-content {
+  line-height: var(--line-height-relaxed);
+}
+
+.advice-content h4 {
+  color: var(--color-primary);
+  margin: var(--spacing-lg) 0 var(--spacing-md) 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.advice-content h4:first-child {
+  margin-top: 0;
+}
+
+.advice-content ul {
+  margin: var(--spacing-md) 0;
+  padding-left: var(--spacing-lg);
+}
+
+.advice-content li {
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-secondary);
+}
+
+.advice-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin: var(--spacing-md) 0;
+}
+
+.advice-keyword {
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.advice-metadata {
+  background: var(--color-gray-50);
+  border-radius: var(--border-radius-base);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  border-left: 3px solid var(--color-gray-300);
+}
+
+.advice-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.advice-loading .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(59, 130, 246, 0.3);
+  border-top: 3px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--spacing-md);
+}
+
+.advice-loading p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 快捷鍵支援提示 */
+.advice-shortcut-hint {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--text-inverse);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-base);
+  font-size: var(--font-size-xs);
+  font-family: monospace;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .modal-advice {
+    max-width: calc(100vw - var(--spacing-lg));
+    max-height: 90vh;
+  }
+  
+  .advice-preview {
+    padding: var(--spacing-sm);
+  }
+  
+  .smart-advice-section {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+  }
+  
+  .modal-advice .modal-body {
+    max-height: 60vh;
+    padding: var(--spacing-md);
+  }
+  
+  .modal-advice .modal-footer {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .modal-advice .modal-footer button {
+    width: 100%;
+  }
+}

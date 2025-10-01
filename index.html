@@ -295,6 +295,17 @@
                             <div class="stats-content" id="statsContent">
                                 <p class="text-muted">等待遊戲開始...</p>
                             </div>
+                            
+                            <!-- 智慧建議區域 -->
+                            <div class="smart-advice-section hidden" id="smartAdviceSection">
+                                <h4 class="text-inverse font-medium mb-2">🧠 智慧建議</h4>
+                                <div class="advice-preview" id="advicePreview">
+                                    <p class="text-muted">點擊「開牌」後查看建議</p>
+                                </div>
+                                <button class="btn btn-sm btn-ghost mt-2" id="showFullAdviceBtn">
+                                    📋 查看完整建議
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- 快捷鍵提示面板 -->
@@ -344,16 +355,22 @@
         </div>
     </div>
     
-    <!-- Scrum Master 建議對話框 -->
+    <!-- 智慧建議對話框 -->
     <div class="modal-backdrop hidden" id="adviceModal" role="dialog" aria-modal="true">
-        <div class="modal">
+        <div class="modal modal-advice">
             <div class="modal-header">
-                <h3>📋 Scrum Master 建議</h3>
+                <h3 id="adviceModalTitle">🧠 智慧估點建議</h3>
+                <button class="btn btn-sm btn-ghost" id="adviceModalClose" aria-label="關閉">✕</button>
             </div>
             <div class="modal-body" id="adviceContent">
                 <!-- 建議內容動態生成在這裡 -->
+                <div class="advice-loading hidden" id="adviceLoading">
+                    <div class="loading-spinner"></div>
+                    <p>正在分析投票結果...</p>
+                </div>
             </div>
             <div class="modal-footer">
+                <button class="btn btn-outline" id="adviceTestBtn">🧪 測試模式</button>
                 <button class="btn btn-primary" id="adviceCloseBtn">關閉</button>
             </div>
         </div>
@@ -439,6 +456,8 @@
     <!-- 服務模組 -->
     <script src="src/services/FirebaseService.js" defer></script>
     <script src="src/services/StorageService.js" defer></script>
+    <script src="src/services/ScrumAdviceEngine.js" defer></script>
+    <script src="src/services/ScrumAdviceUI.js" defer></script>
     <!-- 觸控管理器 -->
     <script src="src/core/TouchManager.js" defer></script>
     
