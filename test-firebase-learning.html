@@ -219,6 +219,7 @@
                 <button class="btn-test" id="startAdviceListener">開始監聽建議</button>
                 <button class="btn-test secondary" id="stopAdviceListener">停止監聽</button>
                 <button class="btn-test" id="simulateAdviceUpdate">模擬建議更新</button>
+                <button class="btn-test" id="testSingleTrigger">測試單一觸發機制</button>
             </div>
             <div class="status-display" id="syncInfo">
                 <h4>🔄 同步狀態</h4>
@@ -316,6 +317,7 @@
             document.getElementById('startAdviceListener').addEventListener('click', startAdviceListener);
             document.getElementById('stopAdviceListener').addEventListener('click', stopAdviceListener);
             document.getElementById('simulateAdviceUpdate').addEventListener('click', simulateAdviceUpdate);
+            document.getElementById('testSingleTrigger').addEventListener('click', testSingleTrigger);
             
             // 匿名化測試
             document.getElementById('testAnonymization').addEventListener('click', testAnonymization);
@@ -663,6 +665,60 @@
             } catch (error) {
                 console.error('❌ 模擬更新失敗:', error);
                 updateInfo('syncInfo', 'syncInfo', `模擬更新失敗: ${error.message}`);
+            }
+        }
+        
+        // 測試單一觸發機制
+        function testSingleTrigger() {
+            try {
+                // 模擬觸發者的資料
+                const mockTriggerData = {
+                    statistics: {
+                        averagePoints: 8.5,
+                        consensus: 75,
+                        totalVotes: 4
+                    },
+                    triggeredBy: 'test_player_trigger',
+                    players: []
+                };
+                
+                const mockNonTriggerData = {
+                    statistics: {
+                        averagePoints: 8.5,
+                        consensus: 75,
+                        totalVotes: 4
+                    },
+                    triggeredBy: 'other_player_123',
+                    players: []
+                };
+                
+                // 模擬當前玩家 ID
+                const originalPlayerId = 'test_player_trigger';
+                
+                updateInfo('syncInfo', 'syncInfo', {
+                    message: '單一觸發機制測試',
+                    scenario1: {
+                        description: '當前玩家是觸發者',
+                        currentPlayerId: originalPlayerId,
+                        triggeredBy: mockTriggerData.triggeredBy,
+                        shouldTrigger: originalPlayerId === mockTriggerData.triggeredBy
+                    },
+                    scenario2: {
+                        description: '當前玩家不是觸發者',
+                        currentPlayerId: originalPlayerId,
+                        triggeredBy: mockNonTriggerData.triggeredBy,
+                        shouldTrigger: originalPlayerId === mockNonTriggerData.triggeredBy
+                    },
+                    implementation: {
+                        checkLogic: 'data.triggeredBy === this.currentPlayer?.id',
+                        triggerAction: '執行 generateSmartAdvice()',
+                        nonTriggerAction: '等待 Firebase 建議更新'
+                    }
+                });
+                
+            } catch (error) {
+                console.error('❌ 測試單一觸發失敗:', error);
+                updateInfo('syncInfo', 'syncInfo', `測試失敗: ${error.message}`);
             }
         }
         

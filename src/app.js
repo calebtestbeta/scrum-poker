@@ -1155,8 +1155,14 @@ class ScrumPokerApp {
         // 更新統計面板
         this.updateStatisticsPanel(stats);
         
-        // Phase 4: 自動觸發智慧建議生成
-        this.generateSmartAdvice(data);
+        // Phase 5: 只有觸發開牌的人才執行建議生成和 Firebase 保存
+        if (data.triggeredBy === this.currentPlayer?.id) {
+            console.log('🎯 我是開牌觸發者，執行智慧建議生成...');
+            this.generateSmartAdvice(data);
+        } else {
+            console.log('👁️ 我不是開牌觸發者，等待接收 Firebase 建議...');
+            // 非觸發者只監聽 Firebase 建議更新（現有監聽器會處理）
+        }
         
         // 如果有 Firebase 服務，同步結果
         if (this.firebaseService && this.roomId) {

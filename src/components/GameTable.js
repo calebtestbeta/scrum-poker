@@ -478,7 +478,8 @@ class GameTable {
         if (window.eventBus) {
             window.eventBus.emit('game:votes-revealed', {
                 statistics,
-                players: this.playerList.getAllPlayers().map(p => p.getData())
+                players: this.playerList.getAllPlayers().map(p => p.getData()),
+                triggeredBy: this.currentPlayerId // 添加觸發開牌的玩家 ID
             });
         }
         
