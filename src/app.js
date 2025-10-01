@@ -967,10 +967,6 @@ class ScrumPokerApp {
                 this.shortcutHintsManager.updateShortcutHints();
             }, 100);
             
-            // 保護性處理：只保留底部 .game-controls 這一組
-            const gameActions = document.getElementById('gameActions');
-            if (gameActions) gameActions.innerHTML = '';
-            
         } catch (error) {
             console.error('遊戲啟動失敗:', error);
             this.showError('遊戲啟動失敗');

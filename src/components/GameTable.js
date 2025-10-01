@@ -22,7 +22,6 @@ class GameTable {
         this.elements = {
             playersArea: null,
             cardsArea: null,
-            gameActions: null,
             gameStatus: null
         };
         
@@ -82,14 +81,7 @@ class GameTable {
             }
         });
         
-        // 建立遊戲操作區域
-        this.elements.gameActions = Utils.DOM.createElement('div', {
-            className: 'game-actions',
-            attributes: {
-                'role': 'region',
-                'aria-label': '遊戲操作'
-            }
-        });
+        // 遊戲操作區域使用現有的 HTML #gameControls，不再動態創建
         
         // 建立卡牌區域
         this.elements.cardsArea = Utils.DOM.createElement('div', {
@@ -103,7 +95,6 @@ class GameTable {
         // 添加到容器
         this.container.appendChild(this.elements.playersArea);
         this.container.appendChild(this.elements.gameStatus);
-        this.container.appendChild(this.elements.gameActions);
         this.container.appendChild(this.elements.cardsArea);
     }
     
@@ -161,61 +152,39 @@ class GameTable {
     }
     
     /**
-     * 建立遊戲控制按鈕
+     * 建立遊戲控制按鈕 - 使用現有的 #gameControls 容器
      */
     createGameControls() {
-        const controlsContainer = Utils.DOM.createElement('div', {
-            className: 'game-controls-container'
-        });
+        // 使用現有的 HTML 控制區塊，而不是動態創建
+        const gameControlsContainer = document.getElementById('gameControls');
         
-        // 開牌按鈕
-        const revealBtn = Utils.DOM.createElement('button', {
-            className: 'btn btn-primary',
-            textContent: '🎭 開牌',
-            attributes: {
-                'id': 'revealBtn',
-                'aria-label': '任何玩家都可以點擊開牌顯示所有投票結果',
-                'title': '任何玩家都可以點擊開牌'
-            }
-        });
+        if (!gameControlsContainer) {
+            console.error('GameTable: 找不到 #gameControls 容器');
+            return;
+        }
         
+        // 獲取現有按鈕的引用
+        const revealBtn = gameControlsContainer.querySelector('#revealBtn');
+        const clearBtn = gameControlsContainer.querySelector('#clearBtn');
+        const leaveBtn = gameControlsContainer.querySelector('#leaveBtn');
+        
+        if (!revealBtn || !clearBtn || !leaveBtn) {
+            console.error('GameTable: 找不到所需的控制按鈕');
+            return;
+        }
+        
+        // 綁定事件監聽器
         revealBtn.addEventListener('click', () => {
             this.revealVotes();
-        });
-        
-        // 重新開始按鈕
-        const clearBtn = Utils.DOM.createElement('button', {
-            className: 'btn btn-secondary',
-            textContent: '🔄 重新開始',
-            attributes: {
-                'id': 'clearBtn',
-                'aria-label': '清除所有投票重新開始'
-            }
         });
         
         clearBtn.addEventListener('click', () => {
             this.clearVotes();
         });
         
-        // 離開房間按鈕
-        const leaveBtn = Utils.DOM.createElement('button', {
-            className: 'btn btn-outline',
-            textContent: '🚪 離開房間',
-            attributes: {
-                'id': 'leaveBtn',
-                'aria-label': '離開當前遊戲房間'
-            }
-        });
-        
         leaveBtn.addEventListener('click', () => {
             this.leaveRoom();
         });
-        
-        controlsContainer.appendChild(revealBtn);
-        controlsContainer.appendChild(clearBtn);
-        controlsContainer.appendChild(leaveBtn);
-        
-        this.elements.gameActions.appendChild(controlsContainer);
         
         // 儲存按鈕引用
         this.buttons = {
@@ -226,6 +195,8 @@ class GameTable {
         
         // 更新按鈕狀態
         this.updateButtonStates();
+        
+        console.log('🎮 遊戲控制按鈕已綁定到現有 #gameControls 容器');
     }
     
     /**

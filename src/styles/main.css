@@ -750,19 +750,7 @@ input[type="radio"] {
   color: var(--color-secondary);
 }
 
-.game-actions {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.game-controls-container {
-  display: flex;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-  justify-content: center;
-}
+/* .game-actions 和 .game-controls-container 已移除 - 統一使用 .game-controls */
 
 .game-cards-area {
   flex: 0 0 auto;
