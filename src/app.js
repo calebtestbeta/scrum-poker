@@ -1082,11 +1082,30 @@ class ScrumPokerApp {
      * 處理投票清除
      */
     handleVotesCleared() {
-        this.showToast('info', '投票已清除，開始新一輪');
-        
-        // 如果有 Firebase 服務，同步清除
-        if (this.firebaseService && this.roomId) {
-            this.firebaseService.clearVotes(this.roomId);
+        try {
+            console.log('📢 處理投票清除事件');
+            
+            // 顯示成功訊息
+            this.showToast('info', '投票已清除，開始新一輪');
+            
+            // 如果有 Firebase 服務，同步清除
+            if (this.firebaseService && this.roomId) {
+                console.log('🔄 同步清除投票到 Firebase');
+                this.firebaseService.clearVotes(this.roomId)
+                    .then(() => {
+                        console.log('✅ Firebase 清除投票同步成功');
+                    })
+                    .catch(error => {
+                        console.error('❌ Firebase 清除投票同步失敗:', error);
+                        this.showToast('warning', 'Firebase 同步失敗，但本地清除成功');
+                    });
+            } else {
+                console.log('ℹ️ 跳過 Firebase 同步（本地模式或服務不可用）');
+            }
+            
+        } catch (error) {
+            console.error('❌ 處理投票清除事件失敗:', error);
+            this.showError('清除投票處理失敗');
         }
     }
     

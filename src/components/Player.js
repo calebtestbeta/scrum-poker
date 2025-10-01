@@ -467,50 +467,103 @@ class Player {
      * 更新顯示
      */
     updateDisplay() {
-        if (!this.element) return;
+        if (!this.element) {
+            console.warn(`⚠️ updateDisplay: ${this.name} 的 element 不存在`);
+            return;
+        }
         
-        // 更新 CSS 類別
-        this.element.className = this.getPlayerClasses();
-        
-        // 更新卡牌顯示
-        if (this.cardElement) {
-            const voteDisplay = this.cardElement.querySelector('.player-vote-display');
+        try {
+            // 更新 CSS 類別
+            const newClasses = this.getPlayerClasses();
+            this.element.className = newClasses;
             
-            if (voteDisplay) {
-                if (this.hasVoted) {
-                    // 優先使用 isRevealed 狀態，CSS 類別作為備援
-                    const shouldReveal = this.isRevealed || this.cardElement.classList.contains('player-card-revealed');
-                    const displayValue = shouldReveal ? Utils.Game.formatPoints(this.vote) : '?';
-                    voteDisplay.textContent = displayValue;
+            // 更新卡牌顯示
+            if (this.cardElement) {
+                const voteDisplay = this.cardElement.querySelector('.player-vote-display');
+                
+                if (voteDisplay) {
+                    if (this.hasVoted) {
+                        // 優先使用 isRevealed 狀態，CSS 類別作為備援
+                        const shouldReveal = this.isRevealed || this.cardElement.classList.contains('player-card-revealed');
+                        const displayValue = shouldReveal ? Utils.Game.formatPoints(this.vote) : '?';
+                        voteDisplay.textContent = displayValue;
+                        
+                        console.log(`🎯 更新卡牌顯示 - ${this.name}: hasVoted=${this.hasVoted}, isRevealed=${this.isRevealed}, shouldReveal=${shouldReveal}, displayValue="${displayValue}", vote=${this.vote}`);
+                    } else {
+                        // 沒有投票時清空顯示內容
+                        voteDisplay.textContent = '';
+                        console.log(`🎯 清空卡牌顯示 - ${this.name}: 無投票`);
+                    }
                     
-                    console.log(`🎯 更新卡牌顯示 - ${this.name}: hasVoted=${this.hasVoted}, isRevealed=${this.isRevealed}, shouldReveal=${shouldReveal}, displayValue="${displayValue}", vote=${this.vote}`);
+                    // 確保 CSS 類別與狀態同步
+                    this.syncCardCssClasses();
                 } else {
-                    voteDisplay.textContent = '';
-                    console.log(`🎯 清空卡牌顯示 - ${this.name}: 無投票`);
+                    console.warn(`⚠️ updateDisplay: ${this.name} 的 vote-display 元素不存在`);
+                }
+            } else {
+                console.warn(`⚠️ updateDisplay: ${this.name} 的 cardElement 不存在`);
+            }
+            
+            // 完成顯示更新的後續處理
+            this.finishDisplayUpdate();
+            
+        } catch (error) {
+            console.error(`❌ updateDisplay 失敗 - ${this.name}:`, error);
+        }
+    }
+    
+    /**
+     * 同步卡牌 CSS 類別與狀態
+     */
+    syncCardCssClasses() {
+        if (!this.cardElement) return;
+        
+        try {
+            // 根據 isRevealed 狀態同步 CSS 類別
+            if (this.isRevealed && this.hasVoted) {
+                if (!this.cardElement.classList.contains('player-card-revealed')) {
+                    this.cardElement.classList.add('player-card-revealed');
+                    console.log(`🔄 添加 revealed 類別 - ${this.name}`);
+                }
+            } else {
+                if (this.cardElement.classList.contains('player-card-revealed')) {
+                    this.cardElement.classList.remove('player-card-revealed');
+                    console.log(`🔄 移除 revealed 類別 - ${this.name}`);
                 }
             }
+        } catch (error) {
+            console.error(`❌ syncCardCssClasses 失敗 - ${this.name}:`, error);
         }
-        
-        // 更新狀態指示器
-        if (this.statusElement) {
-            const onlineIndicator = this.statusElement.querySelector('.player-online-indicator');
-            const voteIndicator = this.statusElement.querySelector('.player-vote-indicator');
-            
-            if (onlineIndicator) {
-                onlineIndicator.setAttribute('title', this.isOnline ? '線上' : '離線');
+    }
+    
+    /**
+     * 完成顯示更新的後續處理
+     */
+    finishDisplayUpdate() {
+        try {
+            // 更新狀態指示器
+            if (this.statusElement) {
+                const onlineIndicator = this.statusElement.querySelector('.player-online-indicator');
+                const voteIndicator = this.statusElement.querySelector('.player-vote-indicator');
+                
+                if (onlineIndicator) {
+                    onlineIndicator.setAttribute('title', this.isOnline ? '線上' : '離線');
+                }
+                
+                if (voteIndicator) {
+                    voteIndicator.setAttribute('title', this.hasVoted ? '已投票' : '未投票');
+                }
             }
             
-            if (voteIndicator) {
-                voteIndicator.setAttribute('title', this.hasVoted ? '已投票' : '未投票');
-            }
+            // 更新 ARIA 標籤
+            this.element.setAttribute('aria-label', this.getAriaLabel());
+            
+            // 設置角色顏色
+            const roleColor = Utils.Game.getRoleColor(this.role);
+            this.element.style.setProperty('--player-role-color', roleColor);
+        } catch (error) {
+            console.error(`❌ finishDisplayUpdate 失敗 - ${this.name}:`, error);
         }
-        
-        // 更新 ARIA 標籤
-        this.element.setAttribute('aria-label', this.getAriaLabel());
-        
-        // 設置角色顏色
-        const roleColor = Utils.Game.getRoleColor(this.role);
-        this.element.style.setProperty('--player-role-color', roleColor);
     }
     
     /**
@@ -736,17 +789,28 @@ class PlayerList {
     
     /**
      * 清除所有投票
+     * @param {boolean} resetRevealState - 是否重置開牌狀態（重新開始遊戲時使用）
      */
-    clearAllVotes() {
+    clearAllVotes(resetRevealState = false) {
+        console.log(`🧹 開始清除所有投票 - resetRevealState: ${resetRevealState}`);
+        
         this.players.forEach(player => {
             player.clearVote();
-            // 移除 hideVote() 調用 - 這是造成開牌狀態重置的根本原因
-            // 開牌狀態應該由明確的用戶操作（如重新開始遊戲）來控制
-            // player.hideVote(); // <- 已移除，避免不當重置開牌狀態
+            
+            // 根據參數決定是否重置開牌狀態
+            if (resetRevealState) {
+                console.log(`🔄 重新開始遊戲 - 強制重置玩家 ${player.name} 的開牌狀態`);
+                player.hideVote(true); // 強制隱藏，重新開始遊戲
+            }
         });
         
         this.updateVotingProgress();
-        console.log('🧹 所有投票已清除，開牌狀態保持不變');
+        
+        if (resetRevealState) {
+            console.log('🔄 所有投票和開牌狀態已清除 - 重新開始遊戲');
+        } else {
+            console.log('🧹 所有投票已清除，開牌狀態保持不變 - Firebase 同步');
+        }
     }
     
     /**

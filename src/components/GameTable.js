@@ -535,27 +535,68 @@ class GameTable {
      * 清除投票重新開始
      */
     clearVotes() {
-        // 清除所有玩家投票
-        this.playerList.clearAllVotes();
+        console.log('🚀 開始重新開始遊戲流程');
         
-        // 清除卡牌選擇
-        this.cardDeck.clearSelection();
-        
-        // 重置階段
-        this.currentPhase = 'voting';
-        
-        // 重新啟用投票
-        this.enableVoting();
-        
-        // 發送清除事件
-        if (window.eventBus) {
-            window.eventBus.emit('game:votes-cleared');
+        try {
+            // 清除所有玩家投票和開牌狀態（重新開始遊戲）
+            console.log('📋 步驟 1: 清除所有玩家投票和開牌狀態');
+            this.playerList.clearAllVotes(true); // 傳入 true 表示重新開始遊戲
+            
+            // 清除卡牌選擇
+            console.log('📋 步驟 2: 清除卡牌選擇');
+            if (this.cardDeck && typeof this.cardDeck.clearSelection === 'function') {
+                this.cardDeck.clearSelection();
+            } else {
+                console.warn('⚠️ cardDeck.clearSelection 方法不存在');
+            }
+            
+            // 重置階段到投票階段
+            console.log('📋 步驟 3: 重置遊戲階段到投票');
+            const oldPhase = this.currentPhase;
+            this.currentPhase = 'voting';
+            console.log(`🎮 階段變更: ${oldPhase} → ${this.currentPhase}`);
+            
+            // 重新啟用投票
+            console.log('📋 步驟 4: 重新啟用投票功能');
+            this.enableVoting();
+            
+            // 發送清除事件
+            console.log('📋 步驟 5: 發送遊戲清除事件');
+            if (window.eventBus) {
+                window.eventBus.emit('game:votes-cleared', {
+                    reason: 'restart',
+                    timestamp: Date.now(),
+                    previousPhase: oldPhase
+                });
+            } else {
+                console.warn('⚠️ eventBus 不存在，無法發送事件');
+            }
+            
+            // 更新 UI 狀態
+            console.log('📋 步驟 6: 更新按鈕和遊戲狀態');
+            this.updateButtonStates();
+            this.updateGameStatus();
+            
+            console.log('✅ 重新開始遊戲流程完成');
+            
+        } catch (error) {
+            console.error('❌ 重新開始遊戲失敗:', error);
+            console.error('錯誤詳情:', {
+                currentPhase: this.currentPhase,
+                hasPlayerList: !!this.playerList,
+                hasCardDeck: !!this.cardDeck,
+                stack: error.stack
+            });
+            
+            // 嘗試基本重置
+            try {
+                this.currentPhase = 'voting';
+                this.updateGameStatus();
+                console.log('🔄 執行基本重置成功');
+            } catch (basicError) {
+                console.error('❌ 基本重置也失敗:', basicError);
+            }
         }
-        
-        this.updateButtonStates();
-        this.updateGameStatus();
-        
-        console.log('🔄 投票已清除，重新開始');
     }
     
     /**
