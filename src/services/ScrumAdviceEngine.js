@@ -1720,6 +1720,156 @@ class ScrumAdviceEngine {
     }
     
     /**
+     * Phase 5: 導出學習數據（用於備份或團隊共享）
+     * @returns {Object} 可導出的學習數據
+     */
+    exportLearningData() {
+        try {
+            const historyKey = 'scrumPoker_votingHistory';
+            const modelKey = 'scrumPoker_learningModel';
+            
+            const historyData = localStorage.getItem(historyKey);
+            const modelData = localStorage.getItem(modelKey);
+            
+            if (!historyData || !modelData) {
+                return { 
+                    success: false, 
+                    error: 'No learning data available to export',
+                    data: null 
+                };
+            }
+            
+            const exportData = {
+                version: '1.0.0',
+                exportedAt: Date.now(),
+                exportedBy: 'ScrumAdviceEngine',
+                votingHistory: JSON.parse(historyData),
+                learningModel: JSON.parse(modelData),
+                metadata: {
+                    totalSessions: JSON.parse(historyData).length,
+                    modelVersion: JSON.parse(modelData).metadata?.version || '1.0',
+                    taskTypes: Object.keys(JSON.parse(modelData).taskTypePatterns || {}),
+                    roles: Object.keys(JSON.parse(modelData).roleVotingPatterns || {})
+                }
+            };
+            
+            return {
+                success: true,
+                data: exportData,
+                filename: `ScrumPoker_LearningData_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.json`
+            };
+        } catch (error) {
+            console.error('❌ 導出學習數據失敗:', error);
+            return { 
+                success: false, 
+                error: error.message,
+                data: null 
+            };
+        }
+    }
+    
+    /**
+     * Phase 5: 導入學習數據（從備份或其他團隊成員）
+     * @param {Object} importData - 導入的學習數據
+     * @param {boolean} mergeMode - 是否合併模式（true=合併，false=覆蓋）
+     * @returns {Object} 導入結果
+     */
+    importLearningData(importData, mergeMode = true) {
+        try {
+            // 驗證導入數據格式
+            if (!importData || !importData.votingHistory || !importData.learningModel) {
+                throw new Error('Invalid import data format');
+            }
+            
+            if (!importData.version || !importData.exportedAt) {
+                throw new Error('Missing required metadata in import data');
+            }
+            
+            const historyKey = 'scrumPoker_votingHistory';
+            const modelKey = 'scrumPoker_learningModel';
+            
+            if (mergeMode) {
+                // 合併模式：保留現有數據並添加新數據
+                const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+                const existingModel = JSON.parse(localStorage.getItem(modelKey) || '{}');
+                
+                // 合併投票歷史（去重）
+                const mergedHistory = [...existingHistory];
+                const existingRoomIds = new Set(existingHistory.map(h => h.sessionInfo?.roomId));
+                
+                importData.votingHistory.forEach(newSession => {
+                    if (!existingRoomIds.has(newSession.sessionInfo?.roomId)) {
+                        mergedHistory.push(newSession);
+                    }
+                });
+                
+                // 限制合併後的總數量
+                const finalHistory = mergedHistory.slice(0, 50);
+                
+                // 合併學習模型（重新訓練）
+                const mergedModel = this.getDefaultLearningModel();
+                finalHistory.forEach(session => {
+                    this.updateTaskTypePatterns(mergedModel, session);
+                    this.updateRoleVotingPatterns(mergedModel, session);
+                    this.updateConsensusPatterns(mergedModel, session);
+                });
+                
+                localStorage.setItem(historyKey, JSON.stringify(finalHistory));
+                localStorage.setItem(modelKey, JSON.stringify(mergedModel));
+                
+                return {
+                    success: true,
+                    mode: 'merged',
+                    totalSessions: finalHistory.length,
+                    newSessions: importData.votingHistory.length,
+                    message: `Successfully merged ${importData.votingHistory.length} sessions with existing data`
+                };
+                
+            } else {
+                // 覆蓋模式：完全替換現有數據
+                localStorage.setItem(historyKey, JSON.stringify(importData.votingHistory));
+                localStorage.setItem(modelKey, JSON.stringify(importData.learningModel));
+                
+                return {
+                    success: true,
+                    mode: 'replaced',
+                    totalSessions: importData.votingHistory.length,
+                    message: `Successfully replaced all data with ${importData.votingHistory.length} sessions`
+                };
+            }
+            
+        } catch (error) {
+            console.error('❌ 導入學習數據失敗:', error);
+            return {
+                success: false,
+                error: error.message,
+                message: 'Import failed: ' + error.message
+            };
+        }
+    }
+    
+    /**
+     * Phase 5: 生成可下載的數據備份文件
+     * @returns {string} 數據下載 URL
+     */
+    generateDataDownload() {
+        const exportResult = this.exportLearningData();
+        
+        if (!exportResult.success) {
+            throw new Error(exportResult.error);
+        }
+        
+        const dataStr = JSON.stringify(exportResult.data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        
+        return {
+            url: URL.createObjectURL(dataBlob),
+            filename: exportResult.filename,
+            size: Math.round(dataBlob.size / 1024) + ' KB'
+        };
+    }
+
+    /**
      * Phase 5: 取得投票歷史摘要
      * @returns {Object} 歷史摘要
      */

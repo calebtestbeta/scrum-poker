@@ -191,7 +191,10 @@
             <div class="demo-controls">
                 <button class="btn-demo" id="refreshStats">🔄 刷新狀態</button>
                 <button class="btn-demo secondary" id="clearLearningData">🗑️ 清除學習資料</button>
+                <button class="btn-demo" id="exportData">📥 導出學習資料</button>
+                <button class="btn-demo" id="importData">📤 導入學習資料</button>
             </div>
+            <input type="file" id="importFileInput" accept=".json" style="display: none;">
             
             <div class="info-display" id="learningModelInfo">
                 <h4>📊 學習模型詳細資訊</h4>
@@ -294,6 +297,11 @@
             document.getElementById('clearLearningData').addEventListener('click', clearLearningData);
             document.getElementById('testPersonalizedAdvice').addEventListener('click', testPersonalizedAdvice);
             document.getElementById('testHistoryComparison').addEventListener('click', testHistoryComparison);
+            document.getElementById('exportData').addEventListener('click', exportLearningData);
+            document.getElementById('importData').addEventListener('click', () => {
+                document.getElementById('importFileInput').click();
+            });
+            document.getElementById('importFileInput').addEventListener('change', importLearningData);
         }
         
         // 刷新學習統計
@@ -469,6 +477,88 @@
                     console.error('❌ 清除失敗:', error);
                 }
             }
+        }
+        
+        // 導出學習資料
+        function exportLearningData() {
+            if (!adviceEngine) return;
+            
+            try {
+                console.log('📥 開始導出學習資料...');
+                
+                const downloadInfo = adviceEngine.generateDataDownload();
+                
+                // 創建下載連結
+                const link = document.createElement('a');
+                link.href = downloadInfo.url;
+                link.download = downloadInfo.filename;
+                link.style.display = 'none';
+                
+                // 觸發下載
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 清理 URL
+                setTimeout(() => URL.revokeObjectURL(downloadInfo.url), 1000);
+                
+                console.log(`✅ 學習資料已導出: ${downloadInfo.filename} (${downloadInfo.size})`);
+                alert(`學習資料導出成功！\n檔案: ${downloadInfo.filename}\n大小: ${downloadInfo.size}`);
+                
+            } catch (error) {
+                console.error('❌ 導出學習資料失敗:', error);
+                alert('導出失敗: ' + error.message);
+            }
+        }
+        
+        // 導入學習資料
+        function importLearningData(event) {
+            if (!adviceEngine) return;
+            
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            console.log('📤 開始導入學習資料:', file.name);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importData = JSON.parse(e.target.result);
+                    
+                    // 顯示導入選項
+                    const mergeMode = confirm(
+                        `檢測到學習資料檔案:\n` +
+                        `檔案: ${file.name}\n` +
+                        `會話數: ${importData.metadata?.totalSessions || '未知'}\n` +
+                        `任務類型: ${importData.metadata?.taskTypes?.join(', ') || '未知'}\n\n` +
+                        `選擇導入模式:\n` +
+                        `確定 = 合併模式（保留現有資料）\n` +
+                        `取消 = 覆蓋模式（完全替換）`
+                    );
+                    
+                    const result = adviceEngine.importLearningData(importData, mergeMode);
+                    
+                    if (result.success) {
+                        console.log('✅ 學習資料導入成功:', result);
+                        alert(`導入成功！\n${result.message}\n模式: ${result.mode === 'merged' ? '合併' : '覆蓋'}`);
+                        
+                        // 刷新顯示
+                        refreshLearningStats();
+                        showLearningInsights();
+                    } else {
+                        throw new Error(result.message);
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ 導入學習資料失敗:', error);
+                    alert('導入失敗: ' + error.message);
+                }
+                
+                // 清空檔案輸入
+                event.target.value = '';
+            };
+            
+            reader.readAsText(file);
         }
         
         // 顯示學習洞察
