@@ -1207,12 +1207,12 @@ class FirebaseService {
         switch(playerRole) {
             case 'scrum_master':
             case 'po': 
-                return 15; // Scrum Master 和 PO 需要更多思考和討論時間
+                return 20; // Scrum Master 和 PO 需要更多主持和決策時間
             case 'dev':
             case 'qa':
             case 'other':
             default:
-                return 8;  // 開發者和其他角色的合理超時時間
+                return 15; // 所有參與者都支援15+分鐘的深度討論
         }
     }
     
