@@ -2,39 +2,44 @@
 
 ## 專案說明
 
-這是一個基於 p5.js 開發的 **Scrum Poker 敏捷估點工具**，主要用於軟體開發團隊進行 Story Point 估點會議。專案提供互動式的撲克牌估點界面，支援多人即時協作，並具備智慧建議系統來協助團隊做出更好的技術決策。
+這是一個基於 **Vanilla JavaScript** 開發的 **Scrum Poker 敏捷估點工具**，主要用於軟體開發團隊進行 Story Point 估點會議。專案提供直觀的撲克牌估點界面，支援多人即時協作，並具備智慧建議系統來協助團隊做出更好的技術決策。
 
 ### 主要技術棧
-- **前端框架**: p5.js (互動式畫布渲染)
-- **資料儲存**: Firebase Realtime Database
+- **前端框架**: Vanilla JavaScript + CSS (v3.0.0-vanilla)
+- **架構模式**: 事件驅動架構 (EventBus)
+- **資料儲存**: Firebase Realtime Database + Cookie
 - **身份驗證**: Firebase Anonymous Auth
 - **部署平台**: 靜態網頁託管
 
 ### 核心功能
 - 即時多人估點系統
-- 動畫化卡牌互動
+- CSS 動畫化卡牌互動
 - 智慧任務類型建議
 - 投票結果統計分析
 - 跨裝置響應式設計
+- 本地/離線模式支援
+- 狀態持久化機制
 
 ## 程式碼規範
 
 ### 命名規則
 
 #### 變數命名
-- **駝峰式命名**: `playerName`, `gameState`, `animationManager`
+- **駝峰式命名**: `playerName`, `gameState`, `eventBus`
 - **常數**: 全大寫蛇形 `GAME_CONFIG`, `FIREBASE_CONFIG`
 - **私有變數**: 底線開頭 `_internalState`, `_tempData`
 
 #### 函式命名
 - **動詞開頭**: `startGame()`, `revealCards()`, `updateStatistics()`
 - **事件處理**: `on` 開頭 `onPlayerJoined()`, `onVoteUpdated()`
+- **事件發送**: `handle` 開頭 `handleVoteSubmitted()`, `handlePhaseChange()`
 - **工具函式**: 描述性命名 `calculateAverage()`, `validateInput()`
 
 #### 檔案命名
 - **類別檔案**: 大寫開頭 `Player.js`, `GameTable.js`, `Card.js`
-- **管理器**: `Manager` 結尾 `UIManager.js`, `FirebaseManager.js`
-- **設定檔**: 小寫蛇形 `firebase-config.js`, `game-config.js`
+- **服務檔案**: `Service` 結尾 `FirebaseService.js`, `StorageService.js`
+- **核心工具**: 小寫開頭 `Utils.js`, `EventBus.js`
+- **設定檔**: 小寫連字符 `firebase-config.js`
 
 ### 註解風格
 ```javascript
@@ -56,32 +61,44 @@ function updateScore() {
 ### 模組化原則
 - **類別化**: 使用 ES6 Class 語法
 - **單一職責**: 每個類別只負責一個主要功能
-- **管理器模式**: 用於處理複雜的系統協調
+- **事件驅動**: 使用 EventBus 進行組件間通訊
 - **靜態方法**: 工具函式使用靜態方法
 
 ## 檔案結構說明
 
 ```
 scrum-poker/
-├── index.html              # 主頁面 - 登入界面
-├── game.js                 # 遊戲整合邏輯
-├── sketch.js               # p5.js 主要繪製邏輯
+├── index.html              # 主頁面 - 登入和遊戲界面
 ├── firebase-config.js      # Firebase 設定檔
-├── firebase-config-local.js # 本地開發設定
-├── 
-├── classes/                # 核心類別
-│   ├── Card.js            # 卡牌類別
-│   ├── Player.js          # 玩家類別
-│   ├── GameTable.js       # 遊戲桌面類別
-│   └── Vector2D.js        # 向量計算工具
+├── firebase-rules.json     # Firebase 安全規則
+├── package.json            # 專案設定和依賴
+├── sw.js                   # Service Worker (PWA)
 │
-├── managers/               # 系統管理器
-│   ├── FirebaseManager.js # Firebase 資料管理
-│   ├── UIManager.js       # 使用者介面管理
-│   ├── AnimationManager.js # 動畫效果管理
-│   └── CookieManager.js   # 本地資料管理
+├── src/                    # 原始碼目錄
+│   ├── app.js             # 主應用程式控制器
+│   │
+│   ├── components/        # UI 組件
+│   │   ├── Card.js       # 卡牌組件和卡牌組
+│   │   ├── Player.js     # 玩家組件和玩家列表
+│   │   └── GameTable.js  # 遊戲桌面主控制器
+│   │
+│   ├── core/             # 核心工具和管理器
+│   │   ├── EventBus.js   # 全域事件匯流排
+│   │   ├── GameState.js  # 遊戲狀態管理
+│   │   ├── TouchManager.js # 觸控手勢管理
+│   │   └── Utils.js      # 通用工具函數
+│   │
+│   ├── services/         # 服務層
+│   │   ├── FirebaseService.js # Firebase 資料管理
+│   │   └── StorageService.js  # 本地儲存管理
+│   │
+│   └── styles/           # 樣式文件
+│       ├── variables.css # CSS 變數定義
+│       └── main.css      # 主要樣式文件
 │
 ├── FEATURE_DEMO.md        # 功能演示說明
+├── FIREBASE_SETUP.md     # Firebase 設定教學
+├── LOCAL_DEVELOPMENT_GUIDE.md # 本地開發指南
 └── CLAUDE.md              # 本文件
 ```
 
@@ -121,7 +138,7 @@ scrum-poker/
 }
 ```
 
-### 權限設計 (database.rules.json)
+### 權限設計 (firebase-rules.json)
 - **讀取權限**: 所有已驗證使用者可讀取房間資料
 - **寫入權限**: 限制玩家只能修改自己的資料
 - **房間管理**: 自動清除 24 小時無活動的房間
@@ -141,14 +158,57 @@ firebase.database().ref().on('error', (error) => {
 });
 ```
 
+## 事件驅動架構
+
+### EventBus 系統
+專案使用全域事件匯流排進行組件間通訊，避免直接依賴關係：
+
+```javascript
+// 發送事件
+window.eventBus.emit('game:vote-submitted', {
+    playerId: this.currentPlayerId,
+    vote: value,
+    timestamp: Date.now()
+});
+
+// 監聽事件
+window.eventBus.on('game:vote-submitted', (data) => {
+    this.handleVoteSubmitted(data);
+});
+```
+
+### 主要事件類型
+
+#### 遊戲流程事件
+- `game:vote-submitted` - 投票提交
+- `game:votes-revealed` - 開牌完成
+- `game:votes-cleared` - 清除投票
+- `game:phase-changed` - 階段變更
+- `game:leave-room` - 離開房間
+
+#### 玩家事件
+- `players:player-added` - 玩家加入
+- `players:player-removed` - 玩家離開
+- `players:voting-progress` - 投票進度更新
+
+#### 卡牌事件
+- `deck:card-selected` - 卡牌選擇
+- `deck:card-hover` - 卡牌懸停
+
+#### Firebase 事件
+- `firebase:connected` - 連線成功
+- `firebase:disconnected` - 連線中斷
+- `room:players-updated` - 玩家列表更新
+- `room:votes-updated` - 投票數據更新
+
 ## 開發與維護規則
 
 ### 新功能開發注意事項
 
-1. **核心渲染循環保護**
-   - 不要直接修改 `draw()` 函式的主要結構
-   - 新功能封裝在獨立的類別或管理器中
-   - 使用事件驅動模式，避免直接修改遊戲狀態
+1. **事件驅動原則**
+   - 使用 EventBus 進行組件間通訊
+   - 避免直接修改其他組件的狀態
+   - 新功能應該監聽相關事件並做出響應
 
 2. **狀態管理原則**
    ```javascript
@@ -157,11 +217,13 @@ firebase.database().ref().on('error', (error) => {
        constructor() {
            this.isEnabled = false;
            this.data = {};
+           this.setupEventListeners();
        }
        
-       update() {
-           if (!this.isEnabled) return;
-           // 功能邏輯
+       setupEventListeners() {
+           window.eventBus.on('game:phase-changed', (data) => {
+               this.handlePhaseChange(data);
+           });
        }
    }
    
@@ -169,10 +231,10 @@ firebase.database().ref().on('error', (error) => {
    let globalNewFeatureFlag = true; // 避免全域狀態
    ```
 
-3. **向後相容性**
-   - 新功能必須是可選的
-   - 不影響現有的估點流程
-   - 提供功能開關和降級機制
+3. **狀態保護機制**
+   - 開牌狀態 (`isRevealed`) 需要特別保護
+   - 區分「重新開始遊戲」與「Firebase 同步」場景
+   - 使用智慧參數控制狀態重置行為
 
 ### Debug / 測試方式
 
@@ -189,12 +251,14 @@ firebase.database().ref().on('error', (error) => {
        riskyOperation();
    } catch (error) {
        console.error('操作失敗:', error);
-       uiManager.showError('操作失敗，請重試');
+       this.showToast('error', '操作失敗，請重試');
    }
    ```
 
 2. **本地測試伺服器**
    ```bash
+   npm start
+   # 或
    python3 -m http.server 8080
    # 訪問 http://localhost:8080
    ```
@@ -248,36 +312,42 @@ firebase.database().ref().on('error', (error) => {
 
 ### 新增互動功能
 
-1. **滑鼠點擊事件**
+1. **事件監聽**
    ```javascript
-   function mousePressed() {
-       // 檢查點擊位置
-       if (gameTable.isMouseOverCard(mouseX, mouseY)) {
-           const card = gameTable.getCardAt(mouseX, mouseY);
-           handleCardClick(card);
-       }
+   // 在組件初始化時設置事件監聽
+   setupEventListeners() {
+       window.eventBus.on('deck:card-selected', (data) => {
+           this.handleCardSelection(data);
+       });
    }
    
    // 觸控裝置支援
-   function touchStarted() {
-       mousePressed(); // 重用滑鼠邏輯
-       return false; // 防止預設行為
-   }
+   this.touchManager.on('tap', (gestureData) => {
+       const target = gestureData.target;
+       if (target.closest('.card')) {
+           // 處理卡牌點擊
+       }
+   });
    ```
 
 2. **鍵盤快捷鍵**
    ```javascript
-   function keyPressed() {
-       if (gameState !== 'game') return;
-       
-       switch (keyCode) {
-           case 32: // 空白鍵
-               revealCards();
-               break;
-           case 72: // H 鍵
-               scrumMasterAdvice.toggle();
-               break;
-       }
+   setupKeyboardShortcuts() {
+       document.addEventListener('keydown', (event) => {
+           if (this.currentState !== 'game') return;
+           
+           switch (event.key) {
+               case ' ': // 空白鍵
+                   this.revealVotes();
+                   break;
+               case 'r': // R 鍵
+                   if (event.ctrlKey || event.metaKey) {
+                       event.preventDefault();
+                       this.clearVotes();
+                   }
+                   break;
+           }
+       });
    }
    ```
 
@@ -304,12 +374,50 @@ firebase.database().ref().on('error', (error) => {
        ref.on('value', (snapshot) => {
            const data = snapshot.val();
            if (data) {
-               updateGameState(data);
+               // 發送事件而非直接更新狀態
+               window.eventBus.emit('firebase:data-updated', data);
            }
        });
        
        // 記得在適當時機移除監聽
        // ref.off();
+   }
+   ```
+
+### 狀態管理和保護
+
+1. **開牌狀態保護**
+   ```javascript
+   setVote(vote, animate = true) {
+       const wasRevealed = this.isRevealed; // 保存當前開牌狀態
+       
+       this.vote = vote;
+       this.hasVoted = vote !== null && vote !== undefined;
+       
+       // 保護開牌狀態：如果之前已開牌且仍有投票，維持開牌狀態
+       if (wasRevealed && this.hasVoted) {
+           console.log(`🛡️ 保護玩家 ${this.name} 的開牌狀態`);
+           // 開牌狀態保持不變
+       } else if (!this.hasVoted) {
+           this.isRevealed = false;
+       }
+   }
+   ```
+
+2. **智慧狀態重置**
+   ```javascript
+   clearAllVotes(resetRevealState = false) {
+       console.log(`🧹 清除所有投票 - resetRevealState: ${resetRevealState}`);
+       
+       this.players.forEach(player => {
+           player.clearVote();
+           
+           if (resetRevealState) {
+               // 重新開始遊戲：強制重置開牌狀態
+               player.hideVote(true);
+           }
+           // Firebase 同步：保持開牌狀態不變
+       });
    }
    ```
 
@@ -329,7 +437,7 @@ firebase.database().ref().on('error', (error) => {
                console.warn(`嘗試 ${retries}/${MAX_RETRIES} 失敗:`, error);
                
                if (retries >= MAX_RETRIES) {
-                   uiManager.showError('連線失敗，請檢查網路後重試');
+                   this.showToast('error', '連線失敗，請檢查網路後重試');
                    throw error;
                }
                
@@ -342,19 +450,32 @@ firebase.database().ref().on('error', (error) => {
 2. **使用者輸入驗證**
    ```javascript
    function validateUserInput(input) {
+       // 基本檢查
        if (!input || typeof input !== 'string') {
            throw new Error('輸入格式錯誤');
        }
        
-       if (input.trim().length === 0) {
+       // 清理潛在惡意字符
+       const sanitizedInput = input
+           .replace(/[<>"'&]/g, '') // 移除 HTML 字符
+           .replace(/javascript:/gi, '') // 移除 JavaScript 協議
+           .trim();
+       
+       // 長度檢查
+       if (sanitizedInput.length === 0) {
            throw new Error('輸入不能為空');
        }
        
-       if (input.length > 50) {
+       if (sanitizedInput.length > 20) {
            throw new Error('輸入過長');
        }
        
-       return input.trim();
+       // 字符格式檢查
+       if (!/^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/.test(sanitizedInput)) {
+           throw new Error('名字包含不允許的字符');
+       }
+       
+       return sanitizedInput;
    }
    ```
 
@@ -384,7 +505,7 @@ firebase.database().ref().on('error', (error) => {
 
 3. **避免過度依賴外部套件**
    - 優先使用原生 JavaScript
-   - p5.js 內建功能已足夠大部分需求
+   - Vanilla JavaScript 和 CSS 已足夠大部分需求
    - 只在必要時引入新的 CDN 資源
 
 ### 功能開發建議
@@ -406,20 +527,21 @@ firebase.database().ref().on('error', (error) => {
 
 ### 效能考量
 
-1. **p5.js 最佳化**
+1. **DOM 操作最佳化**
    ```javascript
-   // 避免在 draw() 中重複計算
-   let cachedValue;
-   function draw() {
-       if (!cachedValue) {
-           cachedValue = expensiveCalculation();
+   // 避免重複查詢 DOM
+   class UIComponent {
+       constructor() {
+           this.elements = {
+               container: document.getElementById('container'),
+               button: document.getElementById('button')
+           };
        }
-   }
-   
-   // 使用物件池重用
-   const particlePool = [];
-   function getParticle() {
-       return particlePool.pop() || new Particle();
+       
+       update() {
+           // 使用快取的元素引用
+           this.elements.container.classList.toggle('active');
+       }
    }
    ```
 
@@ -432,7 +554,82 @@ firebase.database().ref().on('error', (error) => {
    
    // 限制查詢結果數量
    ref.limitToLast(10).once('value');
+   
+   // 批次更新
+   const updates = {};
+   updates[`rooms/${roomId}/phase`] = 'finished';
+   updates[`rooms/${roomId}/last_activity`] = Date.now();
+   firebase.database().ref().update(updates);
    ```
+
+3. **事件監聽器管理**
+   ```javascript
+   class Component {
+       constructor() {
+           this.boundHandlers = {
+               handleClick: this.handleClick.bind(this),
+               handleKeydown: this.handleKeydown.bind(this)
+           };
+       }
+       
+       bindEvents() {
+           document.addEventListener('click', this.boundHandlers.handleClick);
+           document.addEventListener('keydown', this.boundHandlers.handleKeydown);
+       }
+       
+       unbindEvents() {
+           document.removeEventListener('click', this.boundHandlers.handleClick);
+           document.removeEventListener('keydown', this.boundHandlers.handleKeydown);
+       }
+       
+       destroy() {
+           this.unbindEvents();
+       }
+   }
+   ```
+
+## 關鍵修復和最佳實踐
+
+### CSS 翻牌動畫修復
+修復了卡牌開牌後顯示錯誤的問題：
+
+```css
+/* 修復前：卡牌正面和背面 transform 邏輯錯誤 */
+.player-card-front {
+    transform: rotateY(0deg); /* 錯誤：未翻轉 */
+}
+
+/* 修復後：正確的翻牌邏輯 */
+.player-card-front {
+    /* 正面預設就是翻轉的，這樣開牌後顯示正面 */
+    transform: rotateY(180deg);
+}
+
+.player-card-back {
+    /* 背面在未開牌時顯示（不翻轉） */
+}
+```
+
+### 狀態保護機制
+實現了多層狀態保護，防止 Firebase 同步時意外重置開牌狀態：
+
+```javascript
+// 智慧參數設計
+clearAllVotes(resetRevealState = false) {
+    // resetRevealState = true: 重新開始遊戲，完全重置
+    // resetRevealState = false: Firebase 同步，保持開牌狀態
+}
+
+// 狀態保護邏輯
+setVote(vote, animate = true) {
+    const wasRevealed = this.isRevealed;
+    
+    // 保護開牌狀態：如果之前已開牌且仍有投票，維持開牌狀態
+    if (wasRevealed && this.hasVoted) {
+        console.log(`🛡️ 保護玩家 ${this.name} 的開牌狀態`);
+    }
+}
+```
 
 ---
 
@@ -444,5 +641,6 @@ firebase.database().ref().on('error', (error) => {
 
 ---
 
-*最後更新: 2025-09-28*
-*版本: v1.0*
+*最後更新: 2025-01-01*
+*版本: v3.0.0-vanilla*
+*架構: Vanilla JavaScript + CSS + EventBus*
