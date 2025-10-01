@@ -33,7 +33,11 @@ const EVENT_TYPES = {
     // 系統事件
     ERROR_OCCURRED: 'error:occurred',
     CONNECTION_CHANGED: 'connection:changed',
-    STATE_CHANGED: 'state:changed'
+    STATE_CHANGED: 'state:changed',
+    
+    // UI 事件
+    SHORTCUT_HINTS_RENDERED: 'UI/ShortcutHintsRendered',
+    PANEL_TOGGLED: 'UI/PanelToggled'
 };
 
 class EventBus {

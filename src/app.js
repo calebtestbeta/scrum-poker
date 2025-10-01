@@ -4,6 +4,9 @@
  * @version 3.0.0-enhanced
  */
 
+import { shortcutHintsManager } from './ui/ShortcutHints.js';
+import { panelManager } from './ui/PanelManager.js';
+
 /**
  * 主應用程式類別
  */
@@ -25,6 +28,10 @@ class ScrumPokerApp {
         this.firebaseService = null;
         this.storageService = null;
         this.touchManager = null;
+        
+        // UI 管理器
+        this.shortcutHintsManager = shortcutHintsManager;
+        this.panelManager = panelManager;
         
         // 投票進度節流控制
         this.lastAppProgressKey = null;
@@ -576,6 +583,14 @@ class ScrumPokerApp {
                 }
             }
             
+            // H 鍵: 展開/收合面板
+            if (event.key === 'h' || event.key === 'H') {
+                if (!event.target.matches('input, textarea')) {
+                    event.preventDefault();
+                    this.panelManager.togglePanel('notificationsPanel', 'keyboard');
+                }
+            }
+            
             // 數字鍵: 快速投票
             if (event.key >= '0' && event.key <= '9' && !event.target.matches('input, textarea')) {
                 const value = parseInt(event.key);
@@ -961,6 +976,11 @@ class ScrumPokerApp {
             }
             
             console.log(`🎮 遊戲開始 - 房間: ${roomId}, 玩家: ${this.currentPlayer.name}`);
+            
+            // 初始化快捷鍵提示
+            setTimeout(() => {
+                this.shortcutHintsManager.updateShortcutHints();
+            }, 100);
             
         } catch (error) {
             console.error('遊戲啟動失敗:', error);
@@ -2106,6 +2126,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 掛載到全域以便調試
     window.scrumPokerApp = scrumPokerApp;
+    window.shortcutHintsManager = shortcutHintsManager;
+    window.panelManager = panelManager;
 });
 
 // 匯出應用類別
