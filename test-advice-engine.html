@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScrumAdviceEngine 測試頁面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #4a5568;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f7fafc;
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #3182ce;
+        }
+        
+        .advice-result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            background: white;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .advice-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .advice-content {
+            white-space: pre-line;
+            line-height: 1.6;
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .advice-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .keyword-tag {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .advice-metadata {
+            font-size: 12px;
+            color: #718096;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+            margin-top: 15px;
+        }
+        
+        .test-results {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        
+        .test-case {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #48bb78;
+        }
+        
+        .test-case.failed {
+            border-left-color: #f56565;
+            background: #fed7d7;
+        }
+        
+        .error-message {
+            color: #e53e3e;
+            font-style: italic;
+        }
+        
+        .engine-info {
+            background: #ebf8ff;
+            border: 1px solid #90cdf4;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .engine-info h3 {
+            margin-top: 0;
+            color: #2b6cb0;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .info-item {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .info-value {
+            color: #4a5568;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 ScrumAdviceEngine 測試與演示</h1>
+        
+        <!-- 引擎資訊 -->
+        <div class="engine-info">
+            <h3>📊 引擎資訊</h3>
+            <div class="info-grid" id="engineInfo">
+                <!-- 動態生成 -->
+            </div>
+        </div>
+        
+        <!-- 互動測試區域 -->
+        <div class="test-section">
+            <h2>🎯 互動測試</h2>
+            <div class="test-controls">
+                <div class="form-group">
+                    <label for="taskType">任務類型</label>
+                    <select id="taskType">
+                        <option value="frontend">前端開發</option>
+                        <option value="backend">後端開發</option>
+                        <option value="testing">測試相關</option>
+                        <option value="fullstack">全端開發</option>
+                        <option value="ui_ux">UI/UX 設計</option>
+                        <option value="mobile_app">手機應用</option>
+                        <option value="api_integration">API 整合</option>
+                        <option value="database">資料庫相關</option>
+                        <option value="devops">DevOps</option>
+                        <option value="general">通用</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="averagePoints">平均估點</label>
+                    <input type="number" id="averagePoints" value="8" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="consensus">共識度 (%)</label>
+                    <input type="number" id="consensus" value="65" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="totalVotes">投票人數</label>
+                    <input type="number" id="totalVotes" value="5" min="1" max="20">
+                </div>
+            </div>
+            
+            <div class="test-controls">
+                <div class="form-group">
+                    <label for="minPoints">最小估點</label>
+                    <input type="number" id="minPoints" value="3" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="maxPoints">最大估點</label>
+                    <input type="number" id="maxPoints" value="13" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="variance">變異數</label>
+                    <input type="number" id="variance" value="0.6" min="0" max="5" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <button onclick="generateAdvice()">🧠 產生建議</button>
+                </div>
+            </div>
+            
+            <div id="adviceResult"></div>
+        </div>
+        
+        <!-- 預設測試案例 -->
+        <div class="test-section">
+            <h2>📋 預設測試案例</h2>
+            <div class="test-controls">
+                <button onclick="runPresetTest('highVariance')">🎨 前端高分歧</button>
+                <button onclick="runPresetTest('lowVariance')">⚙️ 後端低分歧</button>
+                <button onclick="runPresetTest('highEstimate')">🚀 測試高估點</button>
+                <button onclick="runPresetTest('lowEstimate')">⚡ 通用低估點</button>
+                <button onclick="runPresetTest('errorCase')">❌ 錯誤處理</button>
+            </div>
+            <div id="presetResult"></div>
+        </div>
+        
+        <!-- 自動化測試 -->
+        <div class="test-section">
+            <h2>🧪 自動化測試</h2>
+            <button onclick="runAllTests()">執行所有測試</button>
+            <div id="testResults"></div>
+        </div>
+    </div>
+
+    <!-- 載入 ScrumAdviceEngine -->
+    <script src="src/services/ScrumAdviceEngine.js"></script>
+    
+    <script>
+        // 初始化引擎
+        let adviceEngine;
+        
+        // 預設測試案例
+        const presetTestCases = {
+            highVariance: {
+                name: '前端高分歧測試',
+                taskType: 'frontend',
+                statistics: { averagePoints: 8, consensus: 30, totalVotes: 5, min: 2, max: 21, variance: 1.2 }
+            },
+            lowVariance: {
+                name: '後端低分歧測試',
+                taskType: 'backend',
+                statistics: { averagePoints: 5, consensus: 85, totalVotes: 4, min: 3, max: 8, variance: 0.3 }
+            },
+            highEstimate: {
+                name: '測試高估點測試',
+                taskType: 'testing',
+                statistics: { averagePoints: 18, consensus: 60, totalVotes: 6, min: 13, max: 21, variance: 0.4 }
+            },
+            lowEstimate: {
+                name: '通用低估點測試',
+                taskType: 'general',
+                statistics: { averagePoints: 2, consensus: 90, totalVotes: 5, min: 1, max: 3, variance: 0.15 }
+            },
+            errorCase: {
+                name: '錯誤處理測試',
+                taskType: 'frontend',
+                statistics: null
+            }
+        };
+        
+        // 初始化頁面
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                adviceEngine = new ScrumAdviceEngine();
+                displayEngineInfo();
+                console.log('✅ ScrumAdviceEngine 測試頁面已初始化');
+            } catch (error) {
+                console.error('❌ 初始化失敗:', error);
+                document.getElementById('engineInfo').innerHTML = '<div class="error-message">引擎初始化失敗: ' + error.message + '</div>';
+            }
+        });
+        
+        // 顯示引擎資訊
+        function displayEngineInfo() {
+            if (!adviceEngine) return;
+            
+            const info = adviceEngine.getEngineInfo();
+            const infoHtml = `
+                <div class="info-item">
+                    <div class="info-label">版本</div>
+                    <div class="info-value">${info.version}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">初始化狀態</div>
+                    <div class="info-value">${info.initialized ? '✅ 已初始化' : '❌ 未初始化'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">支援的任務類型</div>
+                    <div class="info-value">${info.supportedTaskTypes.length} 種</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">建議模板類別</div>
+                    <div class="info-value">${info.templateCategories.join(', ')}</div>
+                </div>
+            `;
+            
+            document.getElementById('engineInfo').innerHTML = infoHtml;
+        }
+        
+        // 產生建議（互動測試）
+        function generateAdvice() {
+            if (!adviceEngine) {
+                alert('引擎未初始化');
+                return;
+            }
+            
+            const taskType = document.getElementById('taskType').value;
+            const statistics = {
+                averagePoints: parseFloat(document.getElementById('averagePoints').value),
+                consensus: parseFloat(document.getElementById('consensus').value),
+                totalVotes: parseInt(document.getElementById('totalVotes').value),
+                min: parseFloat(document.getElementById('minPoints').value),
+                max: parseFloat(document.getElementById('maxPoints').value),
+                variance: parseFloat(document.getElementById('variance').value)
+            };
+            
+            try {
+                const advice = adviceEngine.generateAdvice(taskType, statistics);
+                displayAdviceResult('adviceResult', advice);
+            } catch (error) {
+                document.getElementById('adviceResult').innerHTML = 
+                    '<div class="error-message">建議產生失敗: ' + error.message + '</div>';
+            }
+        }
+        
+        // 執行預設測試案例
+        function runPresetTest(testKey) {
+            if (!adviceEngine) {
+                alert('引擎未初始化');
+                return;
+            }
+            
+            const testCase = presetTestCases[testKey];
+            if (!testCase) {
+                alert('測試案例不存在');
+                return;
+            }
+            
+            try {
+                const advice = adviceEngine.generateAdvice(testCase.taskType, testCase.statistics);
+                displayAdviceResult('presetResult', advice);
+            } catch (error) {
+                document.getElementById('presetResult').innerHTML = 
+                    '<div class="error-message">測試執行失敗: ' + error.message + '</div>';
+            }
+        }
+        
+        // 執行所有自動化測試
+        function runAllTests() {
+            if (!adviceEngine) {
+                alert('引擎未初始化');
+                return;
+            }
+            
+            try {
+                const testResults = adviceEngine.testEngine();
+                displayTestResults(testResults);
+            } catch (error) {
+                document.getElementById('testResults').innerHTML = 
+                    '<div class="error-message">自動化測試失敗: ' + error.message + '</div>';
+            }
+        }
+        
+        // 顯示建議結果
+        function displayAdviceResult(containerId, advice) {
+            const keywordsHtml = advice.keywords.map(keyword => 
+                `<span class="keyword-tag">${keyword}</span>`
+            ).join('');
+            
+            const metadataHtml = advice.metadata ? `
+                <div class="advice-metadata">
+                    <strong>元資料:</strong><br>
+                    類別: ${advice.metadata.category || 'N/A'} | 
+                    類型: ${advice.metadata.type || 'N/A'} | 
+                    版本: ${advice.metadata.version || 'N/A'}<br>
+                    生成時間: ${new Date(advice.metadata.generatedAt).toLocaleString('zh-TW')}
+                    ${advice.metadata.analysis ? `<br>統計: 平均 ${advice.metadata.analysis.averagePoints}, 共識 ${advice.metadata.analysis.consensus}%, 變異 ${advice.metadata.analysis.variance}` : ''}
+                </div>
+            ` : '';
+            
+            const resultHtml = `
+                <div class="advice-result">
+                    <div class="advice-title">${advice.title}</div>
+                    <div class="advice-content">${advice.content}</div>
+                    <div class="advice-keywords">${keywordsHtml}</div>
+                    ${metadataHtml}
+                </div>
+            `;
+            
+            document.getElementById(containerId).innerHTML = resultHtml;
+        }
+        
+        // 顯示測試結果
+        function displayTestResults(testResults) {
+            const resultsHtml = `
+                <div class="test-results">
+                    <h3>測試結果概要</h3>
+                    <p>總測試數: ${testResults.totalTests} | 
+                       通過: ${testResults.passedTests} | 
+                       失敗: ${testResults.failedTests}</p>
+                    
+                    <h4>詳細結果:</h4>
+                    ${testResults.results.map(result => `
+                        <div class="test-case ${result.success ? 'passed' : 'failed'}">
+                            <strong>${result.testName}</strong>
+                            ${result.success ? `
+                                <br>✅ 通過
+                                <br>標題: ${result.advice.title}
+                                <br>內容預覽: ${result.advice.contentPreview}
+                                <br>關鍵字數量: ${result.advice.keywordCount}
+                            ` : `
+                                <br>❌ 失敗
+                                <br><span class="error-message">錯誤: ${result.error}</span>
+                            `}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            document.getElementById('testResults').innerHTML = resultsHtml;
+        }
+        
+        // 全域錯誤處理
+        window.addEventListener('error', function(event) {
+            console.error('🚨 頁面錯誤:', event.error);
+        });
+    </script>
+</body>
+</html>
