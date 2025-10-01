@@ -179,23 +179,28 @@ class Card {
     setupTouchEvents() {
         let touchStartTime = 0;
         
-        this.element.addEventListener('touchstart', (event) => {
-            touchStartTime = Date.now();
-            this.element.classList.add('card-touching');
-        });
-        
-        this.element.addEventListener('touchend', (event) => {
-            this.element.classList.remove('card-touching');
-            
-            const touchDuration = Date.now() - touchStartTime;
-            if (touchDuration < 500) { // 短觸控視為點擊
-                this.handleClick();
+        // 儲存觸控事件處理器以便清理
+        this.touchHandlers = {
+            touchstart: (event) => {
+                touchStartTime = Date.now();
+                this.element.classList.add('card-touching');
+            },
+            touchend: (event) => {
+                this.element.classList.remove('card-touching');
+                
+                const touchDuration = Date.now() - touchStartTime;
+                if (touchDuration < 500) { // 短觸控視為點擊
+                    this.handleClick();
+                }
+            },
+            touchcancel: () => {
+                this.element.classList.remove('card-touching');
             }
-        });
+        };
         
-        this.element.addEventListener('touchcancel', () => {
-            this.element.classList.remove('card-touching');
-        });
+        this.element.addEventListener('touchstart', this.touchHandlers.touchstart);
+        this.element.addEventListener('touchend', this.touchHandlers.touchend);
+        this.element.addEventListener('touchcancel', this.touchHandlers.touchcancel);
     }
     
     /**
@@ -415,6 +420,14 @@ class Card {
         if (this.hoverHandler) {
             this.element.removeEventListener('mouseenter', this.hoverHandler.enter);
             this.element.removeEventListener('mouseleave', this.hoverHandler.leave);
+        }
+        
+        // 清理觸控事件監聽器
+        if (this.touchHandlers) {
+            this.element.removeEventListener('touchstart', this.touchHandlers.touchstart);
+            this.element.removeEventListener('touchend', this.touchHandlers.touchend);
+            this.element.removeEventListener('touchcancel', this.touchHandlers.touchcancel);
+            this.touchHandlers = null;
         }
         
         if (this.element && this.element.parentNode) {

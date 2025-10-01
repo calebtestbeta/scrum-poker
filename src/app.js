@@ -33,6 +33,10 @@ class ScrumPokerApp {
         this.shortcutHintsManager = shortcutHintsManager;
         this.panelManager = panelManager;
         
+        // 事件監聽器統一管理 - AbortController 模式
+        this.abortController = new AbortController();
+        this.signal = this.abortController.signal;
+        
         // 投票進度節流控制
         this.lastAppProgressKey = null;
         this.lastAppProgressTime = null;
@@ -448,25 +452,10 @@ class ScrumPokerApp {
         
         this.firebaseService.on('room:players-updated', (data) => {
             try {
-                const { roomId, players } = data;
-                const playerCount = Object.keys(players).length;
-                console.log(`📢 [${roomId}] App 收到玩家更新事件:`, {
-                    玩家數: playerCount,
-                    GameTable狀態: !!this.gameTable,
-                    有updatePlayers方法: this.gameTable ? typeof this.gameTable.updatePlayers === 'function' : false
-                });
-                
                 if (this.gameTable && typeof this.gameTable.updatePlayers === 'function') {
-                    console.log(`🔄 [${roomId}] 調用 GameTable.updatePlayers`);
                     this.gameTable.updatePlayers(data.players);
-                    console.log(`✅ [${roomId}] GameTable.updatePlayers 完成`);
                 } else {
-                    console.warn(`⚠️ [${roomId}] GameTable 尚未初始化或 updatePlayers 方法不存在，跳過玩家更新`);
-                    console.log('   GameTable 狀態:', {
-                        exists: !!this.gameTable,
-                        hasMethod: this.gameTable ? typeof this.gameTable.updatePlayers === 'function' : false,
-                        currentState: this.currentState
-                    });
+                    console.warn('⚠️ GameTable 尚未初始化，跳過玩家更新');
                 }
             } catch (error) {
                 console.error('❌ 處理玩家更新事件失敗:', error);
@@ -779,15 +768,12 @@ class ScrumPokerApp {
             return;
         }
         
-        // 進階輸入驗證和清理（增強版）
+        // 進階輸入驗證和清理
         try {
-            console.log('🔍 開始驗證玩家名稱:', playerName);
-            
             // 檢查名字長度和格式
             if (playerName.length < 1 || playerName.length > 20) {
                 throw new Error('名字長度必須在 1-20 個字符之間');
             }
-            console.log('✅ 長度檢查通過:', playerName.length);
             
             // 移除潛在的惡意字符
             const sanitizedName = playerName
@@ -796,32 +782,20 @@ class ScrumPokerApp {
                 .replace(/data:/gi, '') // 移除 data 協議
                 .trim();
             
-            console.log('🧹 清理後的名稱:', sanitizedName);
-            
             // 檢查清理後是否為空
             if (!sanitizedName) {
                 throw new Error('名字包含不允許的字符（清理後為空）');
             }
-            console.log('✅ 清理後非空檢查通過');
             
             // 檢查是否只包含允許的字符（字母、數字、中文、空格、連字符、底線）
             const regex = /^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/;
-            const regexTest = regex.test(sanitizedName);
-            console.log('🔍 正規表達式測試:', regexTest, '使用:', regex.toString());
-            
-            if (!regexTest) {
-                // 提供更詳細的錯誤資訊
-                const invalidChars = [...sanitizedName].filter(char => {
-                    return !regex.test(char);
-                });
-                console.error('❌ 無效字符:', invalidChars);
+            if (!regex.test(sanitizedName)) {
+                const invalidChars = [...sanitizedName].filter(char => !regex.test(char));
                 throw new Error(`名字包含不允許的字符: ${invalidChars.join(', ')}`);
             }
-            console.log('✅ 字符格式檢查通過');
             
             // 更新為清理後的名字
             document.getElementById('playerName').value = sanitizedName;
-            console.log('✅ 玩家名稱驗證完成:', sanitizedName);
             
         } catch (error) {
             this.showError(error.message);
