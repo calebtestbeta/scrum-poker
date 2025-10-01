@@ -1199,15 +1199,31 @@ class FirebaseService {
     }
     
     /**
-     * 清理超時玩家
+     * 取得角色對應的超時時間（分鐘）
+     * @param {string} playerRole - 玩家角色
+     * @returns {number} 超時時間（分鐘）
+     */
+    getRoleTimeoutMinutes(playerRole) {
+        switch(playerRole) {
+            case 'scrum_master':
+            case 'po': 
+                return 15; // Scrum Master 和 PO 需要更多思考和討論時間
+            case 'dev':
+            case 'qa':
+            case 'other':
+            default:
+                return 8;  // 開發者和其他角色的合理超時時間
+        }
+    }
+    
+    /**
+     * 清理超時玩家 - 基於角色的差異化超時機制
      * @param {string} roomId - 房間 ID
-     * @param {number} timeoutMinutes - 超時分鐘數（預設 5 分鐘）
+     * @param {number} defaultTimeoutMinutes - 預設超時分鐘數（向後兼容）
      * @returns {Promise<number>} 清理的玩家數量
      */
-    async cleanupInactivePlayers(roomId, timeoutMinutes = 5) {
+    async cleanupInactivePlayers(roomId, defaultTimeoutMinutes = 8) {
         try {
-            const HEARTBEAT_TIMEOUT = timeoutMinutes * 60 * 1000;
-            const cutoffTime = Date.now() - HEARTBEAT_TIMEOUT;
             let cleanedCount = 0;
             
             const playersRef = this.db.ref(`rooms/${roomId}/players`);
@@ -1215,15 +1231,28 @@ class FirebaseService {
             const players = snapshot.val() || {};
             
             const cleanupPromises = [];
+            const now = Date.now();
             
             for (const [playerId, playerData] of Object.entries(players)) {
                 const lastHeartbeat = playerData.lastHeartbeat || 0;
+                const playerRole = playerData.role || 'other';
+                
+                // 基於角色決定超時時間
+                const roleTimeoutMinutes = this.getRoleTimeoutMinutes(playerRole);
+                const roleTimeoutMs = roleTimeoutMinutes * 60 * 1000;
+                const cutoffTime = now - roleTimeoutMs;
+                
                 const isTimeout = !playerData.lastHeartbeat || lastHeartbeat < cutoffTime;
                 
                 if (isTimeout) {
-                    console.log(`🧹 清理超時玩家: ${playerData.name}`);
+                    console.log(`🧹 清理超時玩家: ${playerData.name} (${playerRole}, 超時: ${roleTimeoutMinutes}分鐘)`);
                     cleanupPromises.push(this.leaveRoom(roomId, playerId, true));
                     cleanedCount++;
+                } else {
+                    // 記錄角色與剩餘時間（調試用）
+                    const remainingMs = lastHeartbeat + roleTimeoutMs - now;
+                    const remainingMinutes = Math.ceil(remainingMs / 60000);
+                    console.log(`⏰ ${playerData.name} (${playerRole}) 剩餘時間: ${remainingMinutes}分鐘`);
                 }
             }
             

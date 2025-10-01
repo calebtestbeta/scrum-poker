@@ -1154,7 +1154,7 @@ class ScrumPokerApp {
         this.playerCleanupTimer = setInterval(async () => {
             try {
                 if (this.firebaseService && this.currentState === 'game') {
-                    const cleanedCount = await this.firebaseService.cleanupInactivePlayers(roomId, 3); // 3分鐘超時
+                    const cleanedCount = await this.firebaseService.cleanupInactivePlayers(roomId); // 使用基於角色的差異化超時
                     if (cleanedCount > 0) {
                         this.showToast('info', `已清理 ${cleanedCount} 個離線玩家`, 2000);
                     }
@@ -1719,6 +1719,16 @@ class ScrumPokerApp {
                         this.firebaseService.updatePlayerHeartbeat();
                     } catch (error) {
                         console.warn('⚠️ 更新心跳失敗:', error);
+                    }
+                }
+            } else {
+                // 頁面重新可見時立即更新心跳，避免被誤判為不活躍
+                if (this.firebaseService && this.roomId && this.currentPlayer) {
+                    try {
+                        this.firebaseService.updatePlayerHeartbeat();
+                        console.log('🔄 頁面重新可見，已更新心跳');
+                    } catch (error) {
+                        console.warn('⚠️ 頁面可見心跳更新失敗:', error);
                     }
                 }
             }
