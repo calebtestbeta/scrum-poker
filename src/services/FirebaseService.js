@@ -174,6 +174,8 @@ class FirebaseService {
                 this.updatePlayerHeartbeat();
             }
         }, this.config.heartbeatInterval);
+        
+        console.log(`💓 心跳機制已啟動 (間隔: ${this.config.heartbeatInterval / 1000}秒)`);
     }
     
     /**
@@ -192,7 +194,20 @@ class FirebaseService {
     async updatePlayerHeartbeat() {
         try {
             if (this.currentRoomRef && this.currentPlayerId) {
-                await this.currentRoomRef.child(`players/${this.currentPlayerId}/lastHeartbeat`).set(Date.now());
+                const heartbeatTime = Date.now();
+                await this.currentRoomRef.child(`players/${this.currentPlayerId}/lastHeartbeat`).set(heartbeatTime);
+                // 降低心跳日誌頻率 - 只在每5次心跳時記錄一次（5分鐘一次）
+                if (!this._heartbeatCount) this._heartbeatCount = 0;
+                this._heartbeatCount++;
+                if (this._heartbeatCount % 5 === 0) {
+                    console.log(`💓 [${this.getCurrentRoomId()}] [${this.currentPlayerId}] 心跳更新 (第${this._heartbeatCount}次): ${new Date(heartbeatTime).toLocaleTimeString()}`);
+                }
+            } else {
+                console.warn('⚠️ 心跳更新跳過: currentRoomRef或currentPlayerId未設置', {
+                    hasRoomRef: !!this.currentRoomRef,
+                    hasPlayerId: !!this.currentPlayerId,
+                    connectionState: this.connectionState
+                });
             }
         } catch (error) {
             console.warn('⚠️ 心跳更新失敗:', error);
@@ -523,6 +538,10 @@ class FirebaseService {
             
             // 設置房間監聽器
             this.setupRoomListeners(roomId);
+            
+            // 現在房間信息已設置，重新啟動心跳機制確保定時更新
+            console.log(`💓 玩家已加入房間，重新啟動心跳機制`);
+            this.startHeartbeat();
             
             // 取得更新後的房間資料
             const updatedSnapshot = await roomRef.once('value');
@@ -1212,31 +1231,41 @@ class FirebaseService {
             const cutoffTime = Date.now() - HEARTBEAT_TIMEOUT;
             let cleanedCount = 0;
             
-            console.log(`🧹 開始清理超時玩家（超過 ${timeoutMinutes} 分鐘）`);
+            console.log(`🧹 [${roomId}] 開始清理超時玩家（超過 ${timeoutMinutes} 分鐘，截止時間: ${new Date(cutoffTime).toLocaleTimeString()}）`);
             
             const playersRef = this.db.ref(`rooms/${roomId}/players`);
             const snapshot = await playersRef.once('value');
             const players = snapshot.val() || {};
             
+            const totalPlayers = Object.keys(players).length;
+            console.log(`🧹 [${roomId}] 檢查 ${totalPlayers} 個玩家的心跳狀態`);
+            
             const cleanupPromises = [];
             
             for (const [playerId, playerData] of Object.entries(players)) {
-                if (!playerData.lastHeartbeat || playerData.lastHeartbeat < cutoffTime) {
-                    console.log(`🧹 清理超時玩家: ${playerData.name} (${playerId})`);
+                const lastHeartbeat = playerData.lastHeartbeat || 0;
+                const isTimeout = !playerData.lastHeartbeat || lastHeartbeat < cutoffTime;
+                const heartbeatAge = lastHeartbeat ? Math.round((Date.now() - lastHeartbeat) / (60 * 1000)) : '∞';
+                
+                console.log(`🧹 [${roomId}] [${playerId}] ${playerData.name}: 心跳 ${heartbeatAge}分鐘前, ${isTimeout ? '需清理' : '正常'}`);
+                
+                if (isTimeout) {
+                    console.log(`🧹 [${roomId}] 清理超時玩家: ${playerData.name} (${playerId}) - 最後心跳: ${lastHeartbeat ? new Date(lastHeartbeat).toLocaleTimeString() : '無'}`);
                     cleanupPromises.push(this.leaveRoom(roomId, playerId, true));
                     cleanedCount++;
                 }
             }
             
-            await Promise.all(cleanupPromises);
-            
-            if (cleanedCount > 0) {
-                console.log(`✅ 已清理 ${cleanedCount} 個超時玩家`);
+            if (cleanupPromises.length > 0) {
+                await Promise.all(cleanupPromises);
+                console.log(`✅ [${roomId}] 已清理 ${cleanedCount} 個超時玩家`);
+            } else {
+                console.log(`✅ [${roomId}] 所有玩家心跳正常，無需清理`);
             }
             
             return cleanedCount;
         } catch (error) {
-            console.error('❌ 清理超時玩家失敗:', error);
+            console.error(`❌ [${roomId}] 清理超時玩家失敗:`, error);
             return 0;
         }
     }
