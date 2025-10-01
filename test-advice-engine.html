@@ -198,7 +198,7 @@
         
         <!-- 互動測試區域 -->
         <div class="test-section">
-            <h2>🎯 互動測試</h2>
+            <h2>🎯 互動測試 (Phase 2 Enhanced)</h2>
             <div class="test-controls">
                 <div class="form-group">
                     <label for="taskType">任務類型</label>
@@ -249,7 +249,33 @@
                 </div>
                 
                 <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enablePhase2" checked>
+                        啟用 Phase 2 增強功能
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Phase 2 角色配置 -->
+            <div id="phase2Options" class="test-controls">
+                <div class="form-group">
+                    <label for="playerRoles">玩家角色分布 (用逗號分隔)</label>
+                    <input type="text" id="playerRoles" value="dev,dev,qa,po,scrum_master" placeholder="dev,qa,po,scrum_master,other">
+                </div>
+                
+                <div class="form-group">
+                    <label for="roleVotes">角色投票 (格式: role:value,role:value)</label>
+                    <input type="text" id="roleVotes" value="dev:5,dev:8,qa:13,po:3,scrum_master:8" placeholder="dev:5,qa:13,po:3">
+                </div>
+            </div>
+            
+            <div class="test-controls">
+                <div class="form-group">
                     <button onclick="generateAdvice()">🧠 產生建議</button>
+                </div>
+                
+                <div class="form-group">
+                    <button onclick="generateBasicAdvice()">📝 基礎建議 (Phase 1)</button>
                 </div>
             </div>
             
