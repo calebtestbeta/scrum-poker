@@ -2041,6 +2041,7 @@ option {
 /* 建議內容樣式 */
 .advice-content {
   line-height: var(--line-height-relaxed);
+  color: var(--text-primary);
 }
 
 .advice-content h4 {
@@ -2064,7 +2065,29 @@ option {
 
 .advice-content li {
   margin-bottom: var(--spacing-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* 改善建議內容中的強調文字 */
+.advice-content strong {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 深色模式下的建議內容 */
+@media (prefers-color-scheme: dark) {
+  .advice-content {
+    color: var(--color-gray-100);
+  }
+  
+  .advice-content li {
+    color: var(--color-gray-200);
+  }
+  
+  .advice-content strong {
+    color: var(--color-primary-light);
+  }
 }
 
 .advice-keywords {
@@ -2084,13 +2107,48 @@ option {
 }
 
 .advice-metadata {
-  background: var(--color-gray-50);
+  background: rgba(59, 130, 246, 0.08);
   border-radius: var(--border-radius-base);
   padding: var(--spacing-md);
   margin-top: var(--spacing-lg);
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  border-left: 3px solid var(--color-gray-300);
+  color: var(--text-primary);
+  border-left: 3px solid var(--color-primary);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* 改善元資料內容的對比度 */
+.advice-metadata strong {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 深色模式支援 */
+@media (prefers-color-scheme: dark) {
+  .advice-metadata {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--color-gray-100);
+    border-color: var(--color-primary);
+  }
+  
+  .advice-metadata strong {
+    color: var(--color-primary-light);
+  }
+}
+
+/* 高對比模式支援 */
+@media (prefers-contrast: high) {
+  .advice-metadata {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+  }
+  
+  .advice-metadata strong {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-bold);
+  }
 }
 
 .advice-loading {
