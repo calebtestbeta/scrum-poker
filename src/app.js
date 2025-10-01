@@ -618,7 +618,7 @@ class ScrumPokerApp {
                     });
                 }
             }
-        });
+        }, { signal: this.signal });
     }
     
     /**
@@ -628,12 +628,12 @@ class ScrumPokerApp {
         window.addEventListener('error', (event) => {
             console.error('🚨 全域錯誤:', event.error);
             this.showError('發生未預期的錯誤');
-        });
+        }, { signal: this.signal });
         
         window.addEventListener('unhandledrejection', (event) => {
             console.error('🚨 未處理的 Promise 錯誤:', event.reason);
             this.showError('發生系統錯誤');
-        });
+        }, { signal: this.signal });
     }
     
     /**
@@ -1703,11 +1703,11 @@ class ScrumPokerApp {
             }
         };
         
-        // 監聽頁面卸載事件
-        window.addEventListener('beforeunload', cleanup);
-        window.addEventListener('unload', cleanup);
+        // 監聽頁面卸載事件 - 使用 AbortController 管理
+        window.addEventListener('beforeunload', cleanup, { signal: this.signal });
+        window.addEventListener('unload', cleanup, { signal: this.signal });
         
-        // 監聽頁面可見性變化（用於檢測標籤頁切換）
+        // 監聽頁面可見性變化（用於檢測標籤頁切換） - 使用 AbortController 管理
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 // 頁面隱藏時更新最後活動時間
@@ -1719,7 +1719,7 @@ class ScrumPokerApp {
                     }
                 }
             }
-        });
+        }, { signal: this.signal });
         
         console.log('🛡️ 瀏覽器關閉自動清理機制已設置');
     }
@@ -1754,7 +1754,7 @@ class ScrumPokerApp {
             }
         }
         
-        // 監控頁面可見性變化
+        // 監控頁面可見性變化 - 使用 AbortController 管理
         let lastVisibilityState = document.visibilityState;
         document.addEventListener('visibilitychange', () => {
             const currentState = document.visibilityState;
@@ -1781,7 +1781,7 @@ class ScrumPokerApp {
                     }
                 }
             }
-        });
+        }, { signal: this.signal });
     }
     
     /**
