@@ -495,6 +495,51 @@
                 // 模擬獲取當前玩家 ID
                 getCurrentPlayerId: () => {
                     return 'mock_player_' + Math.random().toString(36).substr(2, 9);
+                },
+                
+                // 模擬匿名化學習建議數據
+                anonymizeLearningData: (adviceData) => {
+                    console.log('🔧 模擬匿名化學習建議數據:', adviceData);
+                    
+                    // 移除任何可能的個人識別資訊
+                    const cleanAdvice = {
+                        title: adviceData.title || '',
+                        content: adviceData.content || '',
+                        keywords: adviceData.keywords || [],
+                        metadata: {
+                            type: adviceData.metadata?.type || 'general',
+                            generated_at: Date.now(),
+                            based_on_sessions: adviceData.metadata?.modelInfo?.totalSessions || 0,
+                            analysis_depth: adviceData.metadata?.analysisDepth || 'basic'
+                        }
+                    };
+                    
+                    // 如果有學習洞察，也要匿名化
+                    if (adviceData.learningInsights) {
+                        cleanAdvice.learning_insights = {
+                            task_type_insight: adviceData.learningInsights.taskTypeInsight || null,
+                            // 角色洞察只保留角色類型，不保留具體數值以避免推斷個人
+                            role_insights_summary: service.anonymizeRoleInsights(adviceData.learningInsights.roleInsights)
+                        };
+                    }
+                    
+                    return cleanAdvice;
+                },
+                
+                // 模擬匿名化角色洞察
+                anonymizeRoleInsights: (roleInsights) => {
+                    if (!roleInsights) return null;
+                    
+                    const summary = {};
+                    Object.entries(roleInsights).forEach(([role, insight]) => {
+                        summary[role] = {
+                            has_historical_data: insight.sessionCount > 0,
+                            deviation_level: Math.abs(insight.deviation) > 2 ? 'high' : 'low'
+                            // 不包含具體數值，避免個人識別
+                        };
+                    });
+                    
+                    return summary;
                 }
             };
             
