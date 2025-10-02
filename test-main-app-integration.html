@@ -311,6 +311,20 @@
                 const config = window.getFirebaseConfig();
                 output += `📋 Firebase 配置: ${config ? '✅ 已取得' : '❌ 取得失敗'}\n`;
                 
+                // 初始化 Firebase 服務（這會創建模擬數據庫）
+                if (config) {
+                    const { app, database } = await window.initializeFirebaseApp(config);
+                    if (database) {
+                        // 直接設置模擬數據庫到服務中
+                        mockApp.firebaseService.db = database;
+                        output += '✅ Firebase 服務已初始化（模擬模式）\n';
+                    } else {
+                        output += '❌ Firebase 數據庫初始化失敗\n';
+                    }
+                } else {
+                    output += '❌ 無法取得 Firebase 配置\n';
+                }
+                
                 // 步驟 3: ScrumAdviceUI 初始化
                 output += '🧠 初始化 ScrumAdviceUI...\n';
                 mockApp.adviceUI = new ScrumAdviceUI();
