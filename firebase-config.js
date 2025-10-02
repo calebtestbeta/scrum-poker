@@ -5,11 +5,11 @@
 const firebaseConfig = {
     // 請替換為你的 Firebase 專案設定
     // 如果未設定，將自動回退到本地模擬模式
-    apiKey: "AIzaSyCSlvwoDZ1Qpt7bvLJSsRwUDXkfDiCRWpE",
-    authDomain: "scrum-poker-eb66e.firebaseapp.com",
-    databaseURL: "https://scrum-poker-eb66e-default-rtdb.firebaseio.com/",
-    projectId: "scrum-poker-eb66e",
-    storageBucket: "scrum-poker-eb66e.appspot.com",
+    apiKey: "your-api-key-here",
+    authDomain: "your-project-id.firebaseapp.com",
+    databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
+    projectId: "your-project-id",
+    storageBucket: "your-project-id.appspot.com",
     messagingSenderId: "123456789012",
     appId: "1:123456789012:web:demo-app-id"
 };

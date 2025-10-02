@@ -1,0 +1,47 @@
+# Firebase 配置文件（包含敏感信息）
+firebase-config.local.js
+firebase-config.production.js
+
+# 環境變數文件
+.env
+.env.local
+.env.production
+
+# 日誌文件
+*.log
+logs/
+
+# 依賴目錄
+node_modules/
+
+# 建置輸出
+dist/
+build/
+
+# IDE 設定文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS 系統文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 備份和臨時文件
+*.bak
+*.tmp
+*~
+
+# Firebase 快取和日誌
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# PWA 相關
+sw.js.map
