@@ -1338,7 +1338,7 @@ class FirebaseService {
             console.log('✅ 智慧建議已儲存到 Firebase');
             
             // 觸發事件讓所有客戶端更新
-            this.emit('learning:advice-updated', {
+            this.emitEvent('learning:advice-updated', {
                 roomId,
                 advice: firebaseAdvice
             });
