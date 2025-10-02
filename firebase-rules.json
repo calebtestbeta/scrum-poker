@@ -5,9 +5,33 @@
         ".read": "auth != null",
         ".write": "auth != null",
         
+        "created_at": {
+          ".validate": "newData.isNumber()"
+        },
+        
+        "last_activity": {
+          ".validate": "newData.isNumber()"
+        },
+        
         "players": {
           ".read": "auth != null",
-          ".write": "auth != null"
+          ".write": "auth != null",
+          
+          "$playerId": {
+            ".validate": "newData.hasChild('name') && newData.hasChild('role')",
+            
+            "lastHeartbeat": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "online": {
+              ".validate": "newData.isBoolean()"
+            },
+            
+            "hasVoted": {
+              ".validate": "newData.isBoolean()"
+            }
+          }
         },
         
         "votes": {

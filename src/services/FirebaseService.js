@@ -95,6 +95,16 @@ class FirebaseService {
             // 取得資料庫參考
             this.db = firebase.database();
             
+            // 匿名身份驗證 - 解決權限問題
+            try {
+                console.log('🔐 正在進行匿名身份驗證...');
+                const authResult = await firebase.auth().signInAnonymously();
+                console.log('✅ 匿名身份驗證成功:', authResult.user.uid);
+            } catch (authError) {
+                console.warn('⚠️ 匿名身份驗證失敗:', authError);
+                // 繼續執行，可能是本地模擬器模式
+            }
+            
             // 啟用離線持久化
             if (this.config.enablePersistence) {
                 try {
