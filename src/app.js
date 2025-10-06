@@ -447,6 +447,14 @@ class ScrumPokerApp {
             }, { signal: this.signal });
         }
         
+        // Firebase 清除設定按鈕
+        const clearConfigBtn = document.getElementById('clearConfigBtn');
+        if (clearConfigBtn) {
+            clearConfigBtn.addEventListener('click', () => {
+                this.clearFirebaseConfig();
+            }, { signal: this.signal });
+        }
+        
         const localModeBtn = document.getElementById('localModeBtn');
         if (localModeBtn) {
             localModeBtn.addEventListener('click', () => {
@@ -1576,6 +1584,126 @@ class ScrumPokerApp {
         } catch (error) {
             console.error('保存 Firebase 設定失敗:', error);
             this.showError('保存設定失敗');
+        }
+    }
+    
+    /**
+     * 清除 Firebase 設定
+     */
+    async clearFirebaseConfig() {
+        try {
+            // 彈出確認對話框
+            const confirmed = confirm(
+                '🧹 清除 Firebase 設定\n\n' +
+                '確定要清除目前儲存的 Firebase 設定嗎？\n' +
+                '清除後需要重新輸入 Project ID 和 API Key。\n\n' +
+                '點擊「確定」繼續，「取消」返回。'
+            );
+            
+            if (!confirmed) {
+                console.log('👤 使用者取消清除 Firebase 設定');
+                return;
+            }
+            
+            console.log('🧹 開始清除 Firebase 設定...');
+            
+            // 1. 停用現有的 Firebase 連線
+            if (this.firebaseService) {
+                try {
+                    console.log('🔌 正在中斷 Firebase 連線...');
+                    if (typeof this.firebaseService.destroy === 'function') {
+                        this.firebaseService.destroy();
+                    }
+                    this.firebaseService = null;
+                    this.updateConnectionStatus(false);
+                    console.log('✅ Firebase 服務已停用');
+                } catch (error) {
+                    console.warn('⚠️ 停用 Firebase 服務時出現警告:', error);
+                }
+            }
+            
+            // 2. 清除主要的 Cookie 配置
+            const mainCookieDeleted = Utils.Cookie.deleteCookie('scrumPoker_firebaseConfig');
+            console.log(`🍪 主要配置 Cookie: ${mainCookieDeleted ? '已清除' : '清除失敗'}`);
+            
+            // 3. 清除本地模式標記 Cookie（如果存在）
+            const localModeDeleted = Utils.Cookie.deleteCookie('scrumPoker_localMode');
+            console.log(`🏠 本地模式 Cookie: ${localModeDeleted ? '已清除' : '不存在或清除失敗'}`);
+            
+            // 4. 清除舊版儲存資料（向後兼容）
+            let legacyDataCleaned = 0;
+            
+            // 清除 StorageService 中的舊資料
+            if (this.storageService) {
+                try {
+                    await this.storageService.removeItem('firebaseConfig');
+                    legacyDataCleaned++;
+                    console.log('🗂️ StorageService 舊資料已清除');
+                } catch (error) {
+                    console.warn('⚠️ 清除 StorageService 資料失敗:', error);
+                }
+            }
+            
+            // 清除 Utils.Storage 中的舊資料
+            try {
+                if (Utils.Storage.getItem('scrumPoker_firebaseConfig')) {
+                    Utils.Storage.removeItem('scrumPoker_firebaseConfig');
+                    legacyDataCleaned++;
+                    console.log('💾 Utils.Storage 舊資料已清除');
+                }
+            } catch (error) {
+                console.warn('⚠️ 清除 Utils.Storage 資料失敗:', error);
+            }
+            
+            // 清除 localStorage 中可能的殘留資料
+            try {
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('firebase') || key.includes('scrumPoker'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    legacyDataCleaned++;
+                });
+                
+                if (keysToRemove.length > 0) {
+                    console.log(`🧹 已清除 ${keysToRemove.length} 個 localStorage 項目:`, keysToRemove);
+                }
+            } catch (error) {
+                console.warn('⚠️ 清除 localStorage 資料失敗:', error);
+            }
+            
+            // 5. 清空 Firebase 設定表單
+            const projectIdInput = document.getElementById('projectId');
+            const apiKeyInput = document.getElementById('apiKey');
+            
+            if (projectIdInput) projectIdInput.value = '';
+            if (apiKeyInput) apiKeyInput.value = '';
+            
+            console.log('📝 Firebase 設定表單已清空');
+            
+            // 6. 重新顯示 Firebase 設定區域
+            this.showFirebaseConfig();
+            
+            // 7. 顯示成功訊息
+            const totalCleaned = (mainCookieDeleted ? 1 : 0) + (localModeDeleted ? 1 : 0) + legacyDataCleaned;
+            this.showToast('success', `🧹 設定已清除（共 ${totalCleaned} 項）`);
+            
+            console.log('✅ Firebase 設定清除完成');
+            console.log('📊 清除統計:', {
+                mainCookie: mainCookieDeleted,
+                localModeCookie: localModeDeleted,
+                legacyData: legacyDataCleaned,
+                totalItems: totalCleaned
+            });
+            
+        } catch (error) {
+            console.error('❌ 清除 Firebase 設定失敗:', error);
+            this.showError('清除設定失敗，請重新整理頁面後重試');
         }
     }
     
