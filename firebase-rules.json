@@ -9,8 +9,35 @@
           ".validate": "newData.isNumber()"
         },
         
+        "lastActivity": {
+          ".validate": "newData.isNumber()"
+        },
+        
         "last_activity": {
           ".validate": "newData.isNumber()"
+        },
+        
+        "phase": {
+          ".validate": "newData.isString() && (newData.val() === 'voting' || newData.val() === 'revealing' || newData.val() === 'finished')"
+        },
+        
+        "task_type": {
+          ".validate": "newData.isString()"
+        },
+        
+        "settings": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        "statistics": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        "history": {
+          ".read": "auth != null",
+          ".write": "auth != null"
         },
         
         "players": {
@@ -20,7 +47,35 @@
           "$playerId": {
             ".validate": "newData.hasChild('name') && newData.hasChild('role')",
             
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+            },
+            
+            "role": {
+              ".validate": "newData.isString() && (newData.val() === 'dev' || newData.val() === 'qa' || newData.val() === 'scrum_master' || newData.val() === 'po' || newData.val() === 'other')"
+            },
+            
+            "joinedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "joined_at": {
+              ".validate": "newData.isNumber()"
+            },
+            
             "lastHeartbeat": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "lastActivity": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "last_active": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "lastSeen": {
               ".validate": "newData.isNumber()"
             },
             
@@ -30,13 +85,35 @@
             
             "hasVoted": {
               ".validate": "newData.isBoolean()"
+            },
+            
+            "vote": {
+              ".validate": "newData.val() === null || newData.isNumber() || newData.isString()"
             }
           }
         },
         
         "votes": {
           ".read": "auth != null",
-          ".write": "auth != null"
+          ".write": "auth != null",
+          
+          "$playerId": {
+            "value": {
+              ".validate": "newData.isNumber() || newData.isString()"
+            },
+            
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "playerId": {
+              ".validate": "newData.isString()"
+            },
+            
+            "player_role": {
+              ".validate": "newData.isString()"
+            }
+          }
         },
         
         "learning_data": {
@@ -49,6 +126,26 @@
             
             "visible_to_all": {
               ".validate": "newData.val() === true"
+            },
+            
+            "stored_at": {
+              ".validate": "newData.val() === '.sv' || newData.isNumber()"
+            },
+            
+            "advice_type": {
+              ".validate": "newData.isString()"
+            },
+            
+            "content": {
+              ".validate": "newData.isString()"
+            },
+            
+            "confidence": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1"
+            },
+            
+            "timestamp": {
+              ".validate": "newData.isNumber()"
             }
           },
           
@@ -57,14 +154,42 @@
             ".write": "auth != null",
             
             "$sessionId": {
+              "timestamp": {
+                ".validate": "newData.isNumber()"
+              },
+              
+              "task_type": {
+                ".validate": "newData.isString()"
+              },
+              
               "anonymous_votes": {
                 "$anonId": {
-                  ".validate": "newData.hasChild('role') && newData.hasChild('value') && newData.child('role').isString() && (newData.child('value').isNumber() || newData.child('value').isString())"
+                  ".validate": "newData.hasChild('role') && newData.hasChild('value')",
+                  
+                  "role": {
+                    ".validate": "newData.isString() && (newData.val() === 'dev' || newData.val() === 'qa' || newData.val() === 'scrum_master' || newData.val() === 'po' || newData.val() === 'other')"
+                  },
+                  
+                  "value": {
+                    ".validate": "newData.isNumber() || newData.isString()"
+                  }
                 }
               },
               
               "statistics": {
-                ".validate": "newData.hasChild('average_points') && newData.hasChild('consensus') && newData.hasChild('total_votes')"
+                ".validate": "newData.hasChild('average_points') && newData.hasChild('consensus') && newData.hasChild('total_votes')",
+                
+                "average_points": {
+                  ".validate": "newData.isNumber()"
+                },
+                
+                "consensus": {
+                  ".validate": "newData.isBoolean()"
+                },
+                
+                "total_votes": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0"
+                }
               }
             }
           },
@@ -80,16 +205,12 @@
             
             "cleanup_threshold": {
               ".validate": "newData.isNumber() && newData.val() > 0"
+            },
+            
+            "last_cleanup": {
+              ".validate": "newData.val() === '.sv' || newData.isNumber()"
             }
           }
-        },
-        
-        "phase": {
-          ".validate": "newData.isString() && (newData.val() === 'voting' || newData.val() === 'revealing' || newData.val() === 'finished')"
-        },
-        
-        "task_type": {
-          ".validate": "newData.isString()"
         }
       }
     },

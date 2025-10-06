@@ -38,6 +38,26 @@ function isLocalEnvironment() {
     return isLocal;
 }
 
+// 驗證 Firebase 配置是否有效
+function isValidFirebaseConfig(config) {
+    const requiredFields = ['apiKey', 'authDomain', 'databaseURL', 'projectId'];
+    const placeholderValues = ['your-api-key-here', 'your-project-id', 'demo-api-key'];
+
+    for (const field of requiredFields) {
+        if (!config[field] || placeholderValues.includes(config[field])) {
+            return false;
+        }
+    }
+
+    // 檢查 API Key 格式（Firebase API Key 通常以 AIza 開頭）
+    if (!config.apiKey.startsWith('AIza') || config.apiKey.length < 35) {
+        console.warn('⚠️ API Key 格式可能無效:', config.apiKey);
+        return false;
+    }
+
+    return true;
+}
+
 // 獲取適當的 Firebase 設定
 function getFirebaseConfig() {
     if (isLocalEnvironment()) {
@@ -47,8 +67,17 @@ function getFirebaseConfig() {
         return firebaseConfigLocal;
     } else {
         console.log('☁️ 雲端環境檢測完成');
-        console.log('🔥 Firebase 雲端設定已載入');
-        return firebaseConfig;
+
+        // 驗證雲端配置是否有效
+        if (isValidFirebaseConfig(firebaseConfig)) {
+            console.log('🔥 Firebase 雲端設定已載入');
+            return firebaseConfig;
+        } else {
+            console.warn('⚠️ 雲端 Firebase 配置無效，自動回退到本地模擬模式');
+            console.log('💡 請檢查 Firebase API Key 和專案設定是否正確');
+            console.log('🔥 Firebase 模擬器設定已載入');
+            return firebaseConfigLocal;
+        }
     }
 }
 
@@ -78,9 +107,10 @@ async function initializeFirebaseApp(customConfig = null) {
         }
 
         // 雲端環境處理
-        if (!config.apiKey || !config.projectId || config.apiKey === 'your-api-key-here') {
-            console.warn('⚠️ 雲端 Firebase 設定未配置，自動回退到本地模擬模式');
+        if (!isValidFirebaseConfig(config)) {
+            console.warn('⚠️ 雲端 Firebase 設定無效，自動回退到本地模擬模式');
             console.log('🔧 使用本地模擬模式（無需 Firebase 專案）');
+            console.log('💡 如需使用雲端模式，請確保 Firebase API Key 和專案設定正確');
             return {
                 app: null,
                 database: createMockDatabase(),
@@ -302,9 +332,8 @@ function diagnoseFirebaseConfig() {
     console.log('⚙️ 使用的設定:', isLocal ? '本地模擬器' : '雲端 Firebase');
 
     if (!isLocal) {
-        const hasValidConfig = config.apiKey !== 'your-api-key-here' &&
-            config.projectId !== 'your-project-id';
-        console.log(`🔑 雲端設定狀態: ${hasValidConfig ? '✅ 已配置' : '❌ 未配置（使用範例值）'}`);
+        const hasValidConfig = isValidFirebaseConfig(config);
+        console.log(`🔑 雲端設定狀態: ${hasValidConfig ? '✅ 已配置且有效' : '❌ 無效或未配置'}`);
 
         if (!hasValidConfig) {
             console.warn('💡 解決方案:');
