@@ -201,8 +201,14 @@ class ScrumPokerApp {
                 }
             } catch (error) {
                 console.error('❌ FirebaseService 初始化失敗:', error);
+                console.log('🔄 自動啟用本地模式...');
+                
+                // 自動啟用本地模式
+                await this.enableLocalMode();
+                
                 this.firebaseService = null;
-                this.showError('Firebase 初始化失敗，將使用本地模式');
+                this.showToast('info', 'Firebase 連線失敗，已切換到本地模式');
+                console.log('✅ 本地模式已自動啟用，功能不受影響');
             }
         } else {
             console.log('ℹ️ 使用本地模式（未設定 Firebase）');

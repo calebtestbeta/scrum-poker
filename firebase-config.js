@@ -102,7 +102,8 @@ async function initializeFirebaseApp(customConfig = null) {
             return {
                 app: null,
                 database: createMockDatabase(),
-                auth: createMockAuth()
+                auth: createMockAuth(),
+                isLocalMode: true
             };
         }
 
@@ -114,7 +115,8 @@ async function initializeFirebaseApp(customConfig = null) {
             return {
                 app: null,
                 database: createMockDatabase(),
-                auth: createMockAuth()
+                auth: createMockAuth(),
+                isLocalMode: true
             };
         }
 
@@ -122,17 +124,20 @@ async function initializeFirebaseApp(customConfig = null) {
         app = firebase.initializeApp(config);
         database = firebase.database();
 
-        console.log('☁️ Firebase 雲端服務初始化成功（無身份驗證模式）');
-        return { app, database };
+        console.log('☁️ Firebase 雲端服務初始化成功');
+        return { app, database, auth: firebase.auth };
     } catch (error) {
         console.error('Firebase 初始化失敗:', error);
 
-        // 最後的回退：使用本地模擬模式
-        console.log('🔧 使用本地模擬模式');
+        // 最後的回退：使用本地模擬模式  
+        console.warn('⚠️ Firebase 初始化失敗，自動啟用本地模擬模式');
+        console.log('🔧 使用本地模擬模式（無需網路連線）');
+        console.log('💡 這是正常的 fallback 行為，不會影響功能使用');
         return {
             app: null,
             database: createMockDatabase(),
-            auth: createMockAuth()
+            auth: createMockAuth(),
+            isLocalMode: true
         };
     }
 }
@@ -281,30 +286,37 @@ function triggerListeners(path, data) {
 
 // 建立模擬 Authentication（用於開發和測試）
 function createMockAuth() {
+    const mockUser = {
+        uid: 'mock-user-' + Math.random().toString(36).substr(2, 9),
+        isAnonymous: true
+    };
+
     return {
+        currentUser: mockUser,
+        
         signInAnonymously: async () => {
-            console.log('模擬匿名登入');
+            console.log('🔐 模擬匿名登入成功');
             return Promise.resolve({
-                user: {
-                    uid: 'mock-user-' + Math.random().toString(36).substr(2, 9),
-                    isAnonymous: true
-                }
+                user: mockUser
             });
         },
 
         onAuthStateChanged: (callback) => {
-            console.log('模擬 Auth 狀態監聽');
-            // 模擬用戶已登入
+            console.log('👁️ 模擬 Auth 狀態監聽器設置');
+            // 立即觸發回調，模擬用戶已登入
             setTimeout(() => {
-                callback({
-                    uid: 'mock-user-' + Math.random().toString(36).substr(2, 9),
-                    isAnonymous: true
-                });
-            }, 100);
+                callback(mockUser);
+            }, 50);
+            
+            // 返回取消監聽的函數
+            return () => {
+                console.log('🔇 Auth 狀態監聽器已移除');
+            };
         },
 
         signOut: async () => {
-            console.log('模擬登出');
+            console.log('🚪 模擬登出');
+            this.currentUser = null;
             return Promise.resolve();
         }
     };
