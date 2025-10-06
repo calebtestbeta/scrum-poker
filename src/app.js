@@ -455,6 +455,14 @@ class ScrumPokerApp {
             }, { signal: this.signal });
         }
         
+        // Firebase 設定切換按鈕
+        const toggleFirebaseConfigBtn = document.getElementById('toggleFirebaseConfigBtn');
+        if (toggleFirebaseConfigBtn) {
+            toggleFirebaseConfigBtn.addEventListener('click', () => {
+                this.toggleFirebaseConfig();
+            }, { signal: this.signal });
+        }
+        
         const localModeBtn = document.getElementById('localModeBtn');
         if (localModeBtn) {
             localModeBtn.addEventListener('click', () => {
@@ -1783,6 +1791,27 @@ class ScrumPokerApp {
         const configElement = document.getElementById('firebaseConfig');
         if (configElement) {
             configElement.style.display = 'none';
+        }
+    }
+    
+    /**
+     * 切換 Firebase 設定區域顯示狀態
+     */
+    toggleFirebaseConfig() {
+        const configElement = document.getElementById('firebaseConfig');
+        if (configElement) {
+            const isVisible = configElement.style.display !== 'none';
+            
+            if (isVisible) {
+                this.hideFirebaseConfig();
+                console.log('🔧 Firebase 設定區域已隱藏');
+            } else {
+                this.showFirebaseConfig();
+                console.log('🔧 Firebase 設定區域已顯示');
+                
+                // 提示使用者可以在這裡清除設定
+                this.showToast('info', '💡 在此區域可以重新設定或清除 Firebase 配置');
+            }
         }
     }
     
