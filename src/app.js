@@ -170,9 +170,11 @@ class ScrumPokerApp {
             console.log('✅ StorageService 已初始化');
         }
         
-        // 取得 Firebase 設定 - 決定是否需要 Firebase
-        const firebaseConfig = await this.getFirebaseConfig();
-        if (firebaseConfig && window.FirebaseService) {
+        // 檢查是否有使用者自定義的 Firebase 設定
+        const userFirebaseConfig = await this.getFirebaseConfig();
+        
+        // 如果有使用者設定且 FirebaseService 可用，使用真實 Firebase
+        if (userFirebaseConfig && window.FirebaseService) {
             try {
                 this.firebaseService = new FirebaseService();
                 
@@ -192,26 +194,41 @@ class ScrumPokerApp {
                     this.showError('Firebase 連線異常，請檢查網路狀態');
                 });
                 
-                // 初始化 Firebase - 暫不設置事件監聽器
-                const initialized = await this.firebaseService.initialize(firebaseConfig);
+                // 初始化真實 Firebase
+                const initialized = await this.firebaseService.initialize(userFirebaseConfig);
                 if (initialized) {
-                    console.log('✅ FirebaseService 已初始化');
+                    console.log('✅ FirebaseService 已初始化（使用用戶配置）');
+                    return; // 成功初始化，結束流程
                 } else {
                     throw new Error('Firebase 初始化失敗');
                 }
             } catch (error) {
                 console.error('❌ FirebaseService 初始化失敗:', error);
-                console.log('🔄 自動啟用本地模式...');
-                
-                // 自動啟用本地模式
-                await this.enableLocalMode();
-                
+                console.log('🔄 回退到 firebase-config.js fallback 機制...');
+                // 清理失敗的 FirebaseService
                 this.firebaseService = null;
-                this.showToast('info', 'Firebase 連線失敗，已切換到本地模式');
-                console.log('✅ 本地模式已自動啟用，功能不受影響');
             }
-        } else {
-            console.log('ℹ️ 使用本地模式（未設定 Firebase）');
+        }
+        
+        // 使用 firebase-config.js 的智慧 fallback 機制
+        try {
+            console.log('🏠 使用 firebase-config.js 智慧初始化...');
+            const firebaseApp = await window.initializeFirebaseApp();
+            
+            if (firebaseApp.isLocalMode) {
+                console.log('✅ 已啟用本地模擬模式');
+                await this.enableLocalMode();
+                this.showToast('info', '使用本地模式（無需 Firebase 配置）');
+            } else if (firebaseApp.app) {
+                console.log('✅ Firebase 雲端模式已啟用');
+                // 這裡可以選擇是否要包裝成 FirebaseService
+                // 目前保持 firebase-config.js 的原生支援
+            }
+        } catch (fallbackError) {
+            console.error('❌ firebase-config.js fallback 也失敗:', fallbackError);
+            console.log('🏠 強制啟用本地模式...');
+            await this.enableLocalMode();
+            this.showToast('info', 'Firebase 不可用，已切換到本地模式');
         }
     }
     
