@@ -170,11 +170,33 @@ class ScrumPokerApp {
             console.log('✅ StorageService 已初始化');
         }
         
-        // 檢查是否有使用者自定義的 Firebase 設定
-        const userFirebaseConfig = await this.getFirebaseConfig();
+        // 🔥 新架構：優先使用本地房間服務
+        console.log('🏠 採用本地優先架構，初始化 LocalRoomService...');
         
-        // 如果有使用者設定且 FirebaseService 可用，使用真實 Firebase
-        if (userFirebaseConfig && window.FirebaseService) {
+        try {
+            // 初始化本地房間服務
+            if (window.LocalRoomService) {
+                this.localRoomService = new LocalRoomService();
+                console.log('✅ LocalRoomService 已初始化');
+                
+                // 標記為本地模式
+                this.isLocalMode = true;
+                await this.enableLocalMode();
+                this.showToast('success', '🏠 本地模式已啟用，無需額外配置');
+                
+                return; // 本地模式成功啟用，結束初始化
+            }
+        } catch (localError) {
+            console.error('❌ LocalRoomService 初始化失敗:', localError);
+        }
+        
+        // 🔧 備用方案：檢查是否有使用者明確要求使用 Firebase
+        const userFirebaseConfig = await this.getFirebaseConfig();
+        const forceFirebase = Utils.Cookie.getCookie('scrumPoker_forceFirebase');
+        
+        if ((userFirebaseConfig || forceFirebase) && window.FirebaseService) {
+            console.log('🔧 使用者要求使用 Firebase 模式...');
+            
             try {
                 this.firebaseService = new FirebaseService();
                 
@@ -191,45 +213,30 @@ class ScrumPokerApp {
                 
                 this.firebaseService.on('firebase:error', (data) => {
                     console.error('Firebase 錯誤:', data.error);
-                    this.showError('Firebase 連線異常，請檢查網路狀態');
+                    this.showError('Firebase 連線異常，已切換回本地模式');
+                    this.fallbackToLocalMode();
                 });
                 
                 // 初始化真實 Firebase
-                const initialized = await this.firebaseService.initialize(userFirebaseConfig);
-                if (initialized) {
-                    console.log('✅ FirebaseService 已初始化（使用用戶配置）');
-                    return; // 成功初始化，結束流程
-                } else {
-                    throw new Error('Firebase 初始化失敗');
+                if (userFirebaseConfig) {
+                    const initialized = await this.firebaseService.initialize(userFirebaseConfig);
+                    if (initialized) {
+                        console.log('✅ FirebaseService 已初始化（使用用戶配置）');
+                        this.isLocalMode = false;
+                        return;
+                    }
                 }
             } catch (error) {
                 console.error('❌ FirebaseService 初始化失敗:', error);
-                console.log('🔄 回退到 firebase-config.js fallback 機制...');
-                // 清理失敗的 FirebaseService
                 this.firebaseService = null;
             }
         }
         
-        // 使用 firebase-config.js 的智慧 fallback 機制
-        try {
-            console.log('🏠 使用 firebase-config.js 智慧初始化...');
-            const firebaseApp = await window.initializeFirebaseApp();
-            
-            if (firebaseApp.isLocalMode) {
-                console.log('✅ 已啟用本地模擬模式');
-                await this.enableLocalMode();
-                this.showToast('info', '使用本地模式（無需 Firebase 配置）');
-            } else if (firebaseApp.app) {
-                console.log('✅ Firebase 雲端模式已啟用');
-                // 這裡可以選擇是否要包裝成 FirebaseService
-                // 目前保持 firebase-config.js 的原生支援
-            }
-        } catch (fallbackError) {
-            console.error('❌ firebase-config.js fallback 也失敗:', fallbackError);
-            console.log('🏠 強制啟用本地模式...');
-            await this.enableLocalMode();
-            this.showToast('info', 'Firebase 不可用，已切換到本地模式');
-        }
+        // 🏠 最終 fallback：強制本地模式
+        console.log('🏠 啟用本地模式作為最終方案...');
+        this.isLocalMode = true;
+        await this.enableLocalMode();
+        this.showToast('info', '使用本地模式（推薦用於內部團隊）');
     }
     
     /**
@@ -496,6 +503,54 @@ class ScrumPokerApp {
         
         // 瀏覽器關閉時自動清理
         this.setupBrowserCloseCleanup();
+    }
+    
+    /**
+     * 設置本地房間事件監聽器
+     */
+    setupLocalRoomEventListeners() {
+        if (!this.localRoomService) return;
+        
+        console.log('🏠 正在設置本地房間事件監聽器...');
+        
+        // 玩家相關事件
+        this.localRoomService.on('players:player-added', (player) => {
+            console.log('👤 本地房間：玩家加入', player);
+            if (this.gameTable) {
+                this.gameTable.addPlayer(player.id, player.name, player.role);
+            }
+        });
+        
+        // 投票相關事件
+        this.localRoomService.on('room:votes-updated', (votes) => {
+            console.log('🗳️ 本地房間：投票更新', votes);
+            if (this.gameTable) {
+                // 更新所有玩家的投票狀態
+                Object.keys(votes).forEach(playerId => {
+                    const vote = votes[playerId];
+                    this.gameTable.updatePlayerVote(playerId, vote.value);
+                });
+            }
+        });
+        
+        // 階段變更事件
+        this.localRoomService.on('game:phase-changed', (data) => {
+            console.log('🎮 本地房間：階段變更', data);
+            if (this.gameTable) {
+                if (data.newPhase === 'revealing') {
+                    this.gameTable.revealAllVotes();
+                } else if (data.newPhase === 'voting') {
+                    this.gameTable.clearAllVotes();
+                }
+            }
+        });
+        
+        // 房間同步事件
+        this.localRoomService.on('room:synced', (roomData) => {
+            console.log('🔄 本地房間：跨標籤頁同步', roomData);
+        });
+        
+        console.log('✅ 本地房間事件監聽器已設置');
     }
     
     /**
@@ -778,12 +833,16 @@ class ScrumPokerApp {
             console.log('ℹ️ Cookie 中未找到保存的用戶資訊');
         }
         
-        // 檢查保存的 Firebase 設定（檢查兩種儲存方式）
+        // 🏠 新架構：預設隱藏 Firebase 設定，使用本地模式
+        this.hideFirebaseConfig();
+        
+        // 只有在使用者明確要求使用 Firebase 時才顯示設定
+        const forceFirebase = Utils.Cookie.getCookie('scrumPoker_forceFirebase');
         const hasFirebaseConfig = await this.hasFirebaseConfig();
-        if (hasFirebaseConfig) {
-            this.hideFirebaseConfig();
-        } else {
-            this.showFirebaseConfig();
+        
+        if (forceFirebase || hasFirebaseConfig) {
+            console.log('🔧 使用者要求使用 Firebase 模式，顯示設定區域');
+            // 可以選擇性地顯示設定區域
         }
     }
     
@@ -1049,8 +1108,22 @@ class ScrumPokerApp {
                 console.log('✅ GameTable 初始化完成，現在可以安全處理 Firebase 事件');
             }
             
-            // 現在 GameTable 已就緒，設置 Firebase 事件監聽器
-            if (this.firebaseService) {
+            // 🏠 根據模式設置房間服務
+            if (this.isLocalMode && this.localRoomService) {
+                console.log('🏠 正在加入本地房間...');
+                
+                // 初始化本地房間
+                await this.localRoomService.initialize(roomId);
+                
+                // 設置本地房間事件監聽器
+                this.setupLocalRoomEventListeners();
+                
+                // 加入本地房間
+                await this.localRoomService.joinRoom(roomId, this.currentPlayer);
+                
+                console.log('✅ 已成功加入本地房間');
+                
+            } else if (this.firebaseService) {
                 console.log('🔄 正在設置 Firebase 事件監聽器...');
                 this.setupFirebaseEventListeners();
                 
@@ -1067,10 +1140,11 @@ class ScrumPokerApp {
             this.currentState = 'game';
             
             // 顯示成功訊息
-            this.showToast('success', `歡迎來到房間 ${roomId}！`);
+            const modeText = this.isLocalMode ? '本地模式' : 'Firebase 模式';
+            this.showToast('success', `歡迎來到房間 ${roomId}！(${modeText})`);
             
             // 設置連線狀態
-            this.updateConnectionStatus(this.firebaseService ? true : false);
+            this.updateConnectionStatus(this.isLocalMode || this.firebaseService ? true : false);
             
             // 啟動定期清理超時玩家（每 2 分鐘執行一次）
             if (this.firebaseService) {
@@ -1142,8 +1216,20 @@ class ScrumPokerApp {
             this.showToast('success', `${message}: ${formattedVote}`);
             console.log(`✅ 投票提示已顯示: ${message}: ${formattedVote}`);
             
-            // 如果有 Firebase 服務，同步投票（帶錯誤處理）
-            if (this.firebaseService && this.roomId && this.currentPlayer) {
+            // 🏠 根據模式同步投票
+            if (this.isLocalMode && this.localRoomService && this.roomId && this.currentPlayer) {
+                console.log('🏠 開始本地投票同步...');
+                
+                this.localRoomService.submitVote(this.currentPlayer.id, data.vote)
+                    .then(() => {
+                        console.log('✅ 本地投票同步成功');
+                    })
+                    .catch(error => {
+                        console.error('❌ 本地投票同步失敗:', error);
+                        this.showToast('error', '投票儲存失敗，請重試');
+                    });
+                    
+            } else if (this.firebaseService && this.roomId && this.currentPlayer) {
                 console.log('🔄 開始 Firebase 投票同步...');
                 
                 this.firebaseService.submitVote(this.roomId, this.currentPlayer.id, data.vote)
@@ -1165,7 +1251,9 @@ class ScrumPokerApp {
                         }
                     });
             } else {
-                console.warn('⚠️ Firebase 服務或必要參數缺失，跳過同步', {
+                console.warn('⚠️ 房間服務或必要參數缺失，跳過同步', {
+                    isLocalMode: !!this.isLocalMode,
+                    localRoomService: !!this.localRoomService,
                     firebaseService: !!this.firebaseService,
                     roomId: !!this.roomId,
                     currentPlayer: !!this.currentPlayer
@@ -1713,6 +1801,32 @@ class ScrumPokerApp {
             console.error('❌ 清除 Firebase 設定失敗:', error);
             this.showError('清除設定失敗，請重新整理頁面後重試');
         }
+    }
+    
+    /**
+     * 回退到本地模式
+     */
+    async fallbackToLocalMode() {
+        console.log('🔄 正在切換到本地模式...');
+        
+        // 清理 Firebase 服務
+        if (this.firebaseService) {
+            try {
+                this.firebaseService.destroy();
+            } catch (error) {
+                console.warn('清理 Firebase 服務時出現警告:', error);
+            }
+            this.firebaseService = null;
+        }
+        
+        // 初始化本地服務
+        if (!this.localRoomService && window.LocalRoomService) {
+            this.localRoomService = new LocalRoomService();
+        }
+        
+        this.isLocalMode = true;
+        await this.enableLocalMode();
+        this.showToast('info', '已切換到本地模式');
     }
     
     /**

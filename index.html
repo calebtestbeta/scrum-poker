@@ -248,6 +248,15 @@
                                 <button type="button" class="btn btn-outline btn-sm" id="clearConfigBtn">🧹 清除設定</button>
                                 <small class="text-muted flex-1">清除已儲存的 Firebase 配置，重新設定</small>
                             </div>
+                            
+                            <div class="mt-3 p-3" style="background: rgba(255, 193, 7, 0.1); border-radius: 8px; border-left: 4px solid #ffc107;">
+                                <h4 style="margin: 0 0 8px 0; color: #f57c00;">💡 建議</h4>
+                                <p style="margin: 0; font-size: 14px; line-height: 1.5;">
+                                    <strong>內部團隊推薦使用本地模式</strong><br>
+                                    無需 Firebase 配置，支援多標籤頁同步，所有資料儲存在瀏覽器中。
+                                    只有需要跨裝置同步時才需要設定 Firebase。
+                                </p>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -466,8 +475,9 @@
     <!-- Firebase 設定 -->
     <script src="firebase-config.js" defer></script>
     <!-- 服務模組 -->
-    <script src="src/services/FirebaseService.js" defer></script>
     <script src="src/services/StorageService.js" defer></script>
+    <script src="src/services/LocalRoomService.js" defer></script>
+    <script src="src/services/FirebaseService.js" defer></script>
     <script src="src/services/ScrumAdviceEngine.js" defer></script>
     <script src="src/services/ScrumAdviceUI.js" defer></script>
     <!-- 觸控管理器 -->
