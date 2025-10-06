@@ -100,9 +100,21 @@ class FirebaseService {
                 console.log('🔐 正在進行匿名身份驗證...');
                 const authResult = await firebase.auth().signInAnonymously();
                 console.log('✅ 匿名身份驗證成功:', authResult.user.uid);
+                
+                // 等待身份驗證狀態穩定
+                await new Promise(resolve => {
+                    const unsubscribe = firebase.auth().onAuthStateChanged(user => {
+                        if (user) {
+                            console.log('✅ 身份驗證狀態確認:', user.uid);
+                            unsubscribe();
+                            resolve();
+                        }
+                    });
+                });
+                
             } catch (authError) {
-                console.warn('⚠️ 匿名身份驗證失敗:', authError);
-                // 繼續執行，可能是本地模擬器模式
+                console.error('❌ 匿名身份驗證失敗:', authError);
+                throw new Error(`身份驗證失敗: ${authError.message}`);
             }
             
             // 啟用離線持久化
@@ -247,6 +259,49 @@ class FirebaseService {
         this.rateLimiter.set(key, validAttempts);
         
         return true;
+    }
+    
+    /**
+     * 確保身份驗證已完成
+     * @returns {Promise<void>}
+     */
+    async ensureAuthenticated() {
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            console.log('🏠 本地模擬模式，跳過身份驗證');
+            return;
+        }
+        
+        // 檢查當前是否已有用戶
+        const currentUser = firebase.auth().currentUser;
+        if (currentUser) {
+            console.log('✅ 身份驗證已存在:', currentUser.uid);
+            return;
+        }
+        
+        console.log('🔄 開始匿名身份驗證...');
+        
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('身份驗證超時'));
+            }, 15000); // 延長到 15 秒超時
+            
+            // 直接進行匿名登入，不依賴 onAuthStateChanged
+            firebase.auth().signInAnonymously()
+                .then((result) => {
+                    clearTimeout(timeout);
+                    console.log('✅ 匿名身份驗證成功:', result.user.uid);
+                    
+                    // 等待一下確保 auth state 完全更新
+                    setTimeout(() => {
+                        resolve();
+                    }, 500);
+                })
+                .catch((error) => {
+                    clearTimeout(timeout);
+                    console.error('❌ 匿名身份驗證失敗:', error);
+                    reject(error);
+                });
+        });
     }
 
     /**
@@ -492,6 +547,9 @@ class FirebaseService {
             }
             
             console.log(`🏠 正在加入房間: ${roomId}`);
+            
+            // 確保身份驗證完成
+            await this.ensureAuthenticated();
             
             // 取得房間參考
             const roomRef = this.db.ref(`rooms/${roomId}`);
