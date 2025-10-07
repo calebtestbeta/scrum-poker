@@ -3,18 +3,18 @@
     "rooms": {
       "$roomId": {
         ".read": "auth != null",
-        ".write": "auth != null",
+        ".write": "auth != null && auth.uid != null",
         
         "created_at": {
-          ".validate": "newData.isNumber()"
+          ".validate": "newData.isNumber() && newData.val() <= now + 300000"
         },
         
         "lastActivity": {
-          ".validate": "newData.isNumber()"
+          ".validate": "newData.isNumber() && newData.val() <= now + 300000"
         },
         
         "last_activity": {
-          ".validate": "newData.isNumber()"
+          ".validate": "newData.isNumber() && newData.val() <= now + 300000"
         },
         
         "phase": {
@@ -27,28 +27,29 @@
         
         "settings": {
           ".read": "auth != null",
-          ".write": "auth != null"
+          ".write": "auth != null && auth.uid != null"
         },
         
         "statistics": {
-          ".read": "auth != null",
-          ".write": "auth != null"
+          ".read": "auth != null", 
+          ".write": "auth != null && auth.uid != null"
         },
         
         "history": {
           ".read": "auth != null",
-          ".write": "auth != null"
+          ".write": "auth != null && auth.uid != null"
         },
         
         "players": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": "auth != null && auth.uid != null",
+          ".validate": "newData.numChildren() <= 50",
           
           "$playerId": {
             ".validate": "newData.hasChild('name') && newData.hasChild('role')",
             
             "name": {
-              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20 && newData.val().matches(/^[a-zA-Z0-9\\u4e00-\\u9fff\\s_-]+$/)"
             },
             
             "role": {
@@ -56,27 +57,27 @@
             },
             
             "joinedAt": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "joined_at": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "lastHeartbeat": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "lastActivity": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "last_active": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "lastSeen": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "online": {
@@ -95,7 +96,8 @@
         
         "votes": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": "auth != null && auth.uid != null",
+          ".validate": "newData.numChildren() <= 50",
           
           "$playerId": {
             "value": {
@@ -103,7 +105,7 @@
             },
             
             "timestamp": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             },
             
             "playerId": {
@@ -118,18 +120,18 @@
         
         "learning_data": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": "auth != null && auth.uid != null",
           
           "current_advice": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": "auth != null && auth.uid != null",
             
             "visible_to_all": {
               ".validate": "newData.val() === true"
             },
             
             "stored_at": {
-              ".validate": "newData.val() === '.sv' || newData.isNumber()"
+              ".validate": "newData.val() === 'timestamp' || (newData.isNumber() && newData.val() <= now + 300000)"
             },
             
             "advice_type": {
@@ -145,17 +147,17 @@
             },
             
             "timestamp": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() <= now + 300000"
             }
           },
           
           "session_history": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": "auth != null && auth.uid != null",
             
             "$sessionId": {
               "timestamp": {
-                ".validate": "newData.isNumber()"
+                ".validate": "newData.isNumber() && newData.val() <= now + 300000"
               },
               
               "task_type": {
@@ -196,27 +198,37 @@
           
           "learning_model": {
             ".read": "auth != null",
-            ".write": "auth != null"
+            ".write": "auth != null && auth.uid != null"
           },
           
           "metadata": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": "auth != null && auth.uid != null",
             
             "cleanup_threshold": {
               ".validate": "newData.isNumber() && newData.val() > 0"
             },
             
             "last_cleanup": {
-              ".validate": "newData.val() === '.sv' || newData.isNumber()"
+              ".validate": "newData.val() === 'timestamp' || (newData.isNumber() && newData.val() <= now + 300000)"
             }
           }
         }
       }
     },
     
+    // 防止其他路徑的寫入
     "$other": {
       ".validate": false
     }
   }
+  
+  // Firebase Rules 說明:
+  // 1. 所有讀寫操作需要匿名身份驗證 (auth != null)
+  // 2. 寫入操作額外需要有效的用戶ID (auth.uid != null)
+  // 3. 時間戳驗證防止時間欺騙 (now + 300000 = 5分鐘容忍度)
+  // 4. 房間限制最多50個玩家和投票
+  // 5. 玩家姓名限制20字符且僅允許安全字符
+  // 6. 學習數據支援匿名化儲存
+  // 7. 階段驗證僅允許 voting, revealing, finished
 }
