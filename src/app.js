@@ -164,7 +164,7 @@ class ScrumPokerApp {
     }
     
     /**
-     * 初始化關鍵服務（阻塞載入）- Firebase-First 架構
+     * 初始化關鍵服務（阻塞載入）- 調整為不自動連線 Firebase
      */
     async initializeCriticalServices() {
         // 初始化 StorageService - 關鍵服務
@@ -173,22 +173,27 @@ class ScrumPokerApp {
             console.log('✅ StorageService 已初始化');
         }
         
-        // 🔥 新架構：Firebase-First 優先架構
-        console.log('☁️ 採用 Firebase-First 架構，檢測團隊使用模式...');
+        // 🔥 調整架構：檢查是否有 Firebase 設定但不自動連線
+        console.log('☁️ 檢查 Firebase 設定但不自動連線...');
         
         // 檢查用戶意圖：團隊協作 vs 個人試用
         const userIntention = await this.detectUserIntention();
         console.log(`🎯 檢測到用戶意圖: ${userIntention}`);
         
-        // 優先嘗試 Firebase（團隊協作模式）
-        if (userIntention !== 'trial-only') {
+        // 檢查是否有有效的 Firebase 配置
+        const hasFirebaseConfig = await this.hasFirebaseConfig();
+        console.log(`🔍 Firebase 設定狀態: ${hasFirebaseConfig ? '已設定' : '未設定'}`);
+        
+        // 只有在有設定且非試用模式時才自動連線
+        if (hasFirebaseConfig && userIntention === 'team-collaboration') {
+            console.log('🔥 檢測到有效 Firebase 設定，自動啟用團隊協作模式');
             const firebaseResult = await this.tryFirebaseInitializationWithRetry();
             if (firebaseResult.success) {
                 console.log('✅ Firebase 團隊模式已啟用');
                 this.isLocalMode = false;
                 this.showToast('success', '🔥 Firebase 團隊協作模式已啟用');
                 return;
-            } else if (firebaseResult.hasConfig) {
+            } else {
                 // 有配置但連線失敗，提供故障排除指引
                 console.warn('⚠️ Firebase 配置存在但連線失敗');
                 this.showFirebaseConnectionGuidance(firebaseResult);
@@ -198,9 +203,16 @@ class ScrumPokerApp {
             }
         }
         
-        // 本地模式（試用版）
-        console.log('🏠 啟用本地試用模式...');
+        // 沒有設定或是其他情況，進入本地模式
+        console.log('🏠 啟用本地模式...');
         await this.initializeLocalTrialMode(userIntention === 'trial-only');
+        
+        // 沒有 Firebase 設定時，顯示設定區域
+        if (!hasFirebaseConfig) {
+            console.log('📝 未檢測到 Firebase 設定，顯示設定區域');
+            this.showFirebaseConfig();
+            this.showToast('info', '💡 設定 Firebase 以啟用團隊協作功能', 5000);
+        }
     }
     
     /**
@@ -374,13 +386,13 @@ class ScrumPokerApp {
     }
     
     /**
-     * 驗證 API Key 格式
+     * 驗證 API Key 格式（放寬規則）
      */
     validateApiKeyFormat(apiKey) {
         if (!apiKey) return { valid: false, reason: 'missing' };
         if (typeof apiKey !== 'string') return { valid: false, reason: 'invalid_type' };
         if (!apiKey.startsWith('AIza')) return { valid: false, reason: 'wrong_prefix' };
-        if (apiKey.length !== 39) return { valid: false, reason: 'wrong_length' };
+        if (apiKey.length < 35) return { valid: false, reason: 'too_short' };
         return { valid: true };
     }
     
@@ -868,6 +880,14 @@ class ScrumPokerApp {
         if (saveConfigBtn) {
             saveConfigBtn.addEventListener('click', () => {
                 this.saveFirebaseConfig();
+            }, { signal: this.signal });
+        }
+        
+        // Firebase 手動連線按鈕
+        const connectFirebaseBtn = document.getElementById('connectFirebaseBtn');
+        if (connectFirebaseBtn) {
+            connectFirebaseBtn.addEventListener('click', () => {
+                this.connectFirebaseNow();
             }, { signal: this.signal });
         }
         
@@ -2082,9 +2102,9 @@ class ScrumPokerApp {
                 throw new Error('Project ID 長度必須在 3-30 字符之間');
             }
             
-            // 驗證 API Key 格式（基本檢查）
-            if (!/^AIza[a-zA-Z0-9_-]{35}$/.test(apiKey)) {
-                throw new Error('API Key 格式無效');
+            // 驗證 API Key 格式（放寬規則）
+            if (!/^AIza[a-zA-Z0-9_-]{35,}$/.test(apiKey)) {
+                throw new Error('API Key 格式無效（應以 AIza 開頭且長度至少 39 字元）');
             }
             
             // 檢查是否包含可疑內容
@@ -2131,39 +2151,78 @@ class ScrumPokerApp {
             console.log('✅ Firebase 設定已成功儲存到 Cookie');
             
             this.hideFirebaseConfig();
-            this.showToast('success', 'Firebase 設定已保存');
+            this.showToast('success', 'Firebase 設定已保存！點擊「連線到 Firebase」按鈕進行連線');
             
-            // 重新初始化 Firebase 服務
-            if (window.FirebaseService) {
-                const firebaseConfig = await this.getFirebaseConfig();
-                if (firebaseConfig) {
-                    try {
-                        // 清理舊的服務實例
-                        if (this.firebaseService) {
-                            this.firebaseService.destroy();
-                        }
-                        
-                        // 創建新的服務實例
-                        this.firebaseService = new FirebaseService();
-                        
-                        // 重新設置事件監聽器
-                        this.setupFirebaseEventListeners();
-                        
-                        // 初始化服務
-                        const initialized = await this.firebaseService.initialize(firebaseConfig);
-                        if (initialized) {
-                            console.log('🔄 FirebaseService 已重新初始化');
-                            this.showToast('success', 'Firebase 重新連線成功');
-                        }
-                    } catch (error) {
-                        console.error('❌ Firebase 重新初始化失敗:', error);
-                        this.showError('Firebase 重新連線失敗');
-                    }
-                }
-            }
+            // 不再自動重新初始化 Firebase，讓使用者手動連線
+            console.log('💾 Firebase 設定已保存，請使用手動連線按鈕');
         } catch (error) {
             console.error('保存 Firebase 設定失敗:', error);
             this.showError('保存設定失敗');
+        }
+    }
+    
+    /**
+     * 手動連線到 Firebase
+     */
+    async connectFirebaseNow() {
+        try {
+            console.log('🔄 使用者手動要求連線 Firebase...');
+            
+            // 檢查是否有 Firebase 設定
+            const firebaseConfig = await this.getFirebaseConfig();
+            if (!firebaseConfig) {
+                console.warn('⚠️ 未找到 Firebase 設定');
+                this.showFirebaseConfig();
+                this.showError('請先設定 Firebase Project ID 和 API Key');
+                return;
+            }
+            
+            // 更新按鈕狀態
+            const connectBtn = document.getElementById('connectFirebaseBtn');
+            const originalText = connectBtn ? connectBtn.textContent : '';
+            if (connectBtn) {
+                connectBtn.disabled = true;
+                connectBtn.textContent = '⏳ 連線中...';
+            }
+            
+            try {
+                // 清理舊的服務實例
+                if (this.firebaseService) {
+                    this.firebaseService.destroy();
+                    this.firebaseService = null;
+                }
+                
+                // 嘗試連線 Firebase
+                const firebaseResult = await this.tryFirebaseInitializationWithRetry();
+                
+                if (firebaseResult.success) {
+                    console.log('✅ 手動 Firebase 連線成功');
+                    this.isLocalMode = false;
+                    this.showToast('success', '🔥 Firebase 團隊協作模式已啟用！');
+                    
+                    // 如果當前在遊戲中，重新加入 Firebase 房間
+                    if (this.currentState === 'game' && this.roomId && this.currentPlayer) {
+                        console.log('🔄 當前在遊戲中，重新加入 Firebase 房間...');
+                        await this.rejoinFirebaseRoom();
+                        this.showToast('success', '🏠 已重新加入團隊房間！');
+                    }
+                    
+                } else {
+                    console.error('❌ 手動 Firebase 連線失敗');
+                    this.showFirebaseConnectionGuidance(firebaseResult);
+                }
+                
+            } finally {
+                // 恢復按鈕狀態
+                if (connectBtn) {
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = originalText;
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ connectFirebaseNow 執行失敗:', error);
+            this.showError('連線 Firebase 失敗，請重試');
         }
     }
     
@@ -2712,11 +2771,11 @@ class ScrumPokerApp {
     }
     
     /**
-     * 檢查 API Key 是否有效
+     * 檢查 API Key 是否有效（放寬規則）
      */
     isValidApiKey(apiKey) {
         if (!apiKey || typeof apiKey !== 'string') return false;
-        return /^AIza[a-zA-Z0-9_-]{35}$/.test(apiKey);
+        return /^AIza[a-zA-Z0-9_-]{35,}$/.test(apiKey);
     }
     
     /**
