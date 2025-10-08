@@ -142,6 +142,13 @@ class FirebaseService {
     }
     
     /**
+     * 提供 database 屬性的 getter，保持 API 一致性
+     */
+    get database() {
+        return this.db;
+    }
+    
+    /**
      * 設置連線狀態監聽
      */
     setupConnectionMonitoring() {

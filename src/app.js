@@ -2413,6 +2413,11 @@ class ScrumPokerApp {
                 throw new Error('FirebaseService 未載入，請重新整理頁面');
             }
             
+            // 檢查 Firebase SDK 是否已載入
+            if (typeof firebase === 'undefined') {
+                throw new Error('Firebase SDK 未載入，請檢查網路連線並重新整理頁面');
+            }
+            
             const testService = new FirebaseService();
             
             // 設置測試超時
@@ -2432,6 +2437,11 @@ class ScrumPokerApp {
                 
                 // 簡單驗證資料庫讀寫權限
                 try {
+                    // 防呆：確認 Database 實例已正確初始化
+                    if (!testService.database || typeof testService.database.ref !== 'function') {
+                        throw new Error('Firebase Database 實例未正確初始化');
+                    }
+                    
                     const testRef = testService.database.ref('connection-test');
                     await testRef.set({ timestamp: Date.now(), test: true });
                     await testRef.remove();
