@@ -7,11 +7,7 @@
     "start": "http-server -p 8080 -c-1 --cors",
     "dev": "concurrently \"firebase emulators:start\" \"http-server -p 8080 -c-1 --cors\"",
     "firebase": "firebase emulators:start",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "echo \"靜態網站，無需構建\"",
-    "serve": "http-server -p 8080 -c-1 --cors",
-    "lint": "echo \"檢查代碼品質...\"",
-    "clean": "echo \"清理暫存文件...\""
+    "serve": "http-server -p 8080 -c-1 --cors"
   },
   "keywords": [
     "scrum",
@@ -20,8 +16,8 @@
     "agile",
     "planning",
     "javascript",
-    "p5js",
-    "firebase"
+    "firebase",
+    "low-security"
   ],
   "author": "Scrum Poker Team",
   "license": "MIT",

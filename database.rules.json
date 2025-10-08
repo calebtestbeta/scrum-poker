@@ -1,0 +1,79 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "$roomId.length > 0 && $roomId.length <= 50",
+        
+        "created_at": {
+          ".validate": "newData.isNumber()"
+        },
+        
+        "last_activity": {
+          ".validate": "newData.isNumber()"
+        },
+        
+        "phase": {
+          ".validate": "newData.isString() && (newData.val() === 'voting' || newData.val() === 'revealing' || newData.val() === 'finished')"
+        },
+        
+        "task_type": {
+          ".validate": "newData.isString()"
+        },
+        
+        "players": {
+          "$playerId": {
+            ".validate": "newData.hasChild('name')",
+            
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+            },
+            
+            "role": {
+              ".validate": "newData.isString()"
+            },
+            
+            "joined_at": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "last_active": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+        
+        "votes": {
+          "$playerId": {
+            "value": {
+              ".validate": "newData.isNumber() || newData.isString()"
+            },
+            
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "player_role": {
+              ".validate": "newData.isString()"
+            }
+          }
+        },
+        
+        "session_info": {
+          "total_rounds": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          
+          "average_votes": {
+            ".validate": "newData.isString()"
+          },
+          
+          "completion_time": {
+            ".validate": "newData.isString()"
+          }
+        }
+      }
+    }
+  }
+}

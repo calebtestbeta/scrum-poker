@@ -9,12 +9,14 @@
       "**/.*",
       "**/node_modules/**",
       "**/*.md",
-      "package*.json"
+      "package*.json",
+      "SECURITY_DESIGN.md",
+      "FIREBASE_SECURITY_GUIDE.md"
     ],
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/playground",
+        "destination": "/playground.html"
       }
     ],
     "headers": [
@@ -33,6 +35,27 @@
           {
             "key": "Cache-Control",
             "value": "max-age=0"
+          },
+          {
+            "key": "X-Security-Level",
+            "value": "LOW"
+          },
+          {
+            "key": "X-Internal-Use-Only",
+            "value": "true"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
           }
         ]
       }

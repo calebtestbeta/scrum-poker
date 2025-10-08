@@ -1,7 +1,7 @@
 /**
  * Scrum Poker 主應用程式 - v3.0.0 Vanilla JavaScript 版本
- * 整合所有組件和服務的主控制器
- * @version 3.0.0-enhanced
+ * 整合所有組件和服務的主控制器 - 雙模式支援版本
+ * @version 3.0.0-dual-mode
  */
 
 import { shortcutHintsManager } from './ui/ShortcutHints.js';
@@ -12,7 +12,7 @@ import { panelManager } from './ui/PanelManager.js';
  */
 class ScrumPokerApp {
     constructor() {
-        this.version = 'v3.0.0-enhanced';
+        this.version = 'v3.0.0-dual-mode';
         this.buildTime = new Date().toISOString().slice(0,10).replace(/-/g,'') + '_' + new Date().toTimeString().slice(0,5).replace(':','');
         
         // 應用狀態
@@ -24,8 +24,13 @@ class ScrumPokerApp {
         this.currentPlayer = null;
         this.roomId = null;
         
-        // 服務實例
+        // 雙模式架構：統一房間資料提供者介面
+        this.roomProvider = null; // 統一的房間資料提供者
+        this.appMode = null; // 當前應用模式 ('firebase' | 'local')
+        
+        // 服務實例（向後兼容）
         this.firebaseService = null;
+        this.localRoomService = null;
         this.storageService = null;
         this.touchManager = null;
         
@@ -164,54 +169,50 @@ class ScrumPokerApp {
     }
     
     /**
-     * 初始化關鍵服務（阻塞載入）- 調整為不自動連線 Firebase
+     * 初始化關鍵服務（阻塞載入）- 雙模式架構重構版本
      */
     async initializeCriticalServices() {
-        // 初始化 StorageService - 關鍵服務
+        console.log('🏗️ 雙模式架構：正在初始化關鍵服務...');
+        
+        // 1. 初始化 StorageService - 關鍵服務
         if (window.StorageService) {
             this.storageService = new StorageService();
             console.log('✅ StorageService 已初始化');
         }
         
-        // 🔥 調整架構：檢查是否有 Firebase 設定但不自動連線
-        console.log('☁️ 檢查 Firebase 設定但不自動連線...');
+        // 2. 檢測應用模式
+        this.appMode = this.detectAppMode();
+        console.log(`📍 檢測到應用模式: ${this.appMode}`);
         
-        // 檢查用戶意圖：團隊協作 vs 個人試用
-        const userIntention = await this.detectUserIntention();
-        console.log(`🎯 檢測到用戶意圖: ${userIntention}`);
-        
-        // 檢查是否有有效的 Firebase 配置
-        const hasFirebaseConfig = await this.hasFirebaseConfig();
-        console.log(`🔍 Firebase 設定狀態: ${hasFirebaseConfig ? '已設定' : '未設定'}`);
-        
-        // 只有在有設定且非試用模式時才自動連線
-        if (hasFirebaseConfig && userIntention === 'team-collaboration') {
-            console.log('🔥 檢測到有效 Firebase 設定，自動啟用團隊協作模式');
-            const firebaseResult = await this.tryFirebaseInitializationWithRetry();
-            if (firebaseResult.success) {
-                console.log('✅ Firebase 團隊模式已啟用');
-                this.isLocalMode = false;
-                this.showToast('success', '🔥 Firebase 團隊協作模式已啟用');
-                return;
-            } else {
-                // 有配置但連線失敗，提供故障排除指引
-                console.warn('⚠️ Firebase 配置存在但連線失敗');
-                this.showFirebaseConnectionGuidance(firebaseResult);
-                // 暫時回退到本地模式，但保持 Firebase 配置
-                await this.fallbackToLocalWithFirebaseIntent();
-                return;
-            }
+        // 3. 等待 RoomProviderFactory 載入
+        if (!window.RoomProviderFactory) {
+            console.log('⏳ 等待 RoomProviderFactory 載入...');
+            await this.waitForRoomProviderFactory();
         }
         
-        // 沒有設定或是其他情況，進入本地模式
-        console.log('🏠 啟用本地模式...');
-        await this.initializeLocalTrialMode(userIntention === 'trial-only');
-        
-        // 沒有 Firebase 設定時，顯示設定區域
-        if (!hasFirebaseConfig) {
-            console.log('📝 未檢測到 Firebase 設定，顯示設定區域');
-            this.showFirebaseConfig();
-            this.showToast('info', '💡 設定 Firebase 以啟用團隊協作功能', 5000);
+        // 4. 建立對應的房間資料提供者
+        try {
+            const providerConfig = await this.buildProviderConfig();
+            this.roomProvider = await window.RoomProviderFactory.createProvider(this.appMode, providerConfig);
+            
+            // 驗證提供者介面
+            if (!window.RoomProviderFactory.validateProvider(this.roomProvider)) {
+                throw new Error('房間資料提供者介面驗證失敗');
+            }
+            
+            console.log(`✅ ${this.appMode} 房間資料提供者已建立`);
+            
+            // 5. 向後兼容：設置舊有服務引用
+            this.setupLegacyServiceReferences();
+            
+            // 6. 顯示模式狀態
+            this.displayModeStatus();
+            
+        } catch (error) {
+            console.error(`❌ 初始化 ${this.appMode} 房間資料提供者失敗:`, error);
+            
+            // 失敗時的降級策略
+            await this.handleProviderInitializationFailure(error);
         }
     }
     
@@ -386,13 +387,26 @@ class ScrumPokerApp {
     }
     
     /**
-     * 驗證 API Key 格式（放寬規則）
+     * 驗證 API Key 格式（安全性強化）
      */
     validateApiKeyFormat(apiKey) {
         if (!apiKey) return { valid: false, reason: 'missing' };
         if (typeof apiKey !== 'string') return { valid: false, reason: 'invalid_type' };
         if (!apiKey.startsWith('AIza')) return { valid: false, reason: 'wrong_prefix' };
         if (apiKey.length < 35) return { valid: false, reason: 'too_short' };
+        
+        // 安全性檢查：防止注入攻擊
+        const dangerousPatterns = [
+            /<script/i, /javascript:/i, /data:/i, /vbscript:/i,
+            /on\w+\s*=/i, /eval\(/i, /function\(/i, /\${/
+        ];
+        
+        for (const pattern of dangerousPatterns) {
+            if (pattern.test(apiKey)) {
+                return { valid: false, reason: 'potentially_malicious' };
+            }
+        }
+        
         return { valid: true };
     }
     
@@ -1070,15 +1084,9 @@ class ScrumPokerApp {
         this.firebaseService.on('room:votes-updated', (data) => {
             try {
                 if (this.gameTable && typeof this.gameTable.updateVotes === 'function') {
-                    console.log('📢 收到投票更新事件:', data);
                     this.gameTable.updateVotes(data.votes);
                 } else {
-                    console.warn('⚠️ GameTable 尚未初始化或 updateVotes 方法不存在，跳過投票更新');
-                    console.log('   GameTable 狀態:', {
-                        exists: !!this.gameTable,
-                        hasMethod: this.gameTable ? typeof this.gameTable.updateVotes === 'function' : false,
-                        currentState: this.currentState
-                    });
+                    console.warn('⚠️ GameTable 尚未初始化或 updateVotes 方法不存在');
                 }
             } catch (error) {
                 console.error('❌ 處理投票更新事件失敗:', error);
@@ -1089,15 +1097,9 @@ class ScrumPokerApp {
         this.firebaseService.on('room:phase-changed', (data) => {
             try {
                 if (this.gameTable && typeof this.gameTable.updatePhase === 'function') {
-                    console.log('📢 收到階段更新事件:', data);
                     this.gameTable.updatePhase(data.phase);
                 } else {
-                    console.warn('⚠️ GameTable 尚未初始化或 updatePhase 方法不存在，跳過階段更新');
-                    console.log('   GameTable 狀態:', {
-                        exists: !!this.gameTable,
-                        hasMethod: this.gameTable ? typeof this.gameTable.updatePhase === 'function' : false,
-                        currentState: this.currentState
-                    });
+                    console.warn('⚠️ GameTable 尚未初始化或 updatePhase 方法不存在');
                 }
             } catch (error) {
                 console.error('❌ 處理階段更新事件失敗:', error);
@@ -1109,7 +1111,6 @@ class ScrumPokerApp {
             this.updateVotingProgress(progress);
         });
         
-        console.log('📡 Firebase 事件監聽器已設置');
     }
     
     /**
@@ -1429,11 +1430,24 @@ class ScrumPokerApp {
             return;
         }
         
-        // 進階輸入驗證和清理
+        // 進階輸入驗證和清理（安全性強化）
         try {
             // 檢查名字長度和格式
             if (playerName.length < 1 || playerName.length > 20) {
                 throw new Error('名字長度必須在 1-20 個字符之間');
+            }
+            
+            // 安全性檢查：檢測潛在的惡意內容
+            const maliciousPatterns = [
+                /<script/i, /javascript:/i, /data:/i, /vbscript:/i,
+                /on\w+\s*=/i, /eval\(/i, /function\(/i, /\${/, /<%/,
+                /\{\{/, /\[\[/, /@@/, /\$\(/
+            ];
+            
+            for (const pattern of maliciousPatterns) {
+                if (pattern.test(playerName)) {
+                    throw new Error('名字包含不允許的內容，請使用安全字符');
+                }
             }
             
             // 移除潛在的惡意字符
@@ -1441,6 +1455,7 @@ class ScrumPokerApp {
                 .replace(/[<>\"'&]/g, '') // 移除 HTML 字符
                 .replace(/javascript:/gi, '') // 移除 JavaScript 協議
                 .replace(/data:/gi, '') // 移除 data 協議
+                .replace(/vbscript:/gi, '') // 移除 VBScript 協議
                 .trim();
             
             // 檢查清理後是否為空
@@ -1598,31 +1613,40 @@ class ScrumPokerApp {
                 console.log('✅ GameTable 初始化完成，現在可以安全處理 Firebase 事件');
             }
             
-            // 🏠 根據模式設置房間服務
-            if (this.isLocalMode && this.localRoomService) {
-                console.log('🏠 正在加入本地房間...');
+            // 🏗️ 雙模式架構：使用統一房間資料提供者介面
+            if (this.roomProvider) {
+                console.log(`🏗️ 正在使用 ${this.appMode} 模式加入房間...`);
                 
-                // 初始化本地房間
-                await this.localRoomService.initialize(roomId);
+                // 使用統一介面加入房間
+                await this.joinRoomUnified(roomId, this.currentPlayer);
                 
-                // 設置本地房間事件監聽器
-                this.setupLocalRoomEventListeners();
+                console.log(`✅ ${this.appMode} 模式：已成功加入房間 ${roomId}`);
                 
-                // 加入本地房間
-                await this.localRoomService.joinRoom(roomId, this.currentPlayer);
-                
-                console.log('✅ 已成功加入本地房間');
-                
-            } else if (this.firebaseService) {
-                console.log('🔄 正在設置 Firebase 事件監聽器...');
-                this.setupFirebaseEventListeners();
-                
-                console.log('🔄 GameTable 已就緒，正在加入 Firebase 房間...');
-                await this.firebaseService.joinRoom(roomId, this.currentPlayer);
-                
-                // Phase 5: 設置 Firebase 學習建議監聽
-                if (this.adviceUI) {
+                // Phase 5: Firebase 特有功能（學習建議監聽）
+                if (this.appMode === 'firebase' && this.adviceUI) {
                     this.setupFirebaseLearningAdviceListener();
+                }
+                
+            } else {
+                // 降級：使用舊有邏輯（向後兼容）
+                console.warn('⚠️ 房間資料提供者未初始化，使用向後兼容模式');
+                
+                if (this.isLocalMode && this.localRoomService) {
+                    console.log('🏠 向後兼容：正在加入本地房間...');
+                    await this.localRoomService.initialize(roomId);
+                    this.setupLocalRoomEventListeners();
+                    await this.localRoomService.joinRoom(roomId, this.currentPlayer);
+                    console.log('✅ 向後兼容：已成功加入本地房間');
+                    
+                } else if (this.firebaseService) {
+                    console.log('🔄 向後兼容：正在設置 Firebase 事件監聽器...');
+                    this.setupFirebaseEventListeners();
+                    console.log('🔄 向後兼容：GameTable 已就緒，正在加入 Firebase 房間...');
+                    await this.firebaseService.joinRoom(roomId, this.currentPlayer);
+                    
+                    if (this.adviceUI) {
+                        this.setupFirebaseLearningAdviceListener();
+                    }
                 }
             }
             
@@ -4323,6 +4347,265 @@ class ScrumPokerApp {
             console.error('❌ 取得任務類型失敗:', error);
             return 'general';
         }
+    }
+    
+    // ========================================
+    // 雙模式架構支援方法
+    // ========================================
+    
+    /**
+     * 檢測應用模式
+     * @returns {string} 檢測到的模式 ('firebase' | 'local')
+     */
+    detectAppMode() {
+        try {
+            if (window.RoomProviderFactory && typeof window.RoomProviderFactory.detectMode === 'function') {
+                return window.RoomProviderFactory.detectMode();
+            }
+            
+            // 降級檢測邏輯
+            if (window.IS_PLAYGROUND === true || window.location.pathname.includes('playground.html')) {
+                console.log('🎮 檢測到 playground 模式');
+                return 'local';
+            }
+            
+            // 檢查 HTML data-mode 屬性
+            const htmlMode = document.documentElement.getAttribute('data-mode');
+            if (htmlMode === 'local' || htmlMode === 'firebase') {
+                console.log(`🏷️ 從 HTML data-mode 檢測到模式: ${htmlMode}`);
+                return htmlMode;
+            }
+            
+            const detectedMode = window.APP_MODE || 'firebase';
+            console.log(`📍 使用預設模式: ${detectedMode}`);
+            return detectedMode;
+        } catch (error) {
+            console.error('❌ 模式檢測失敗，使用預設 firebase 模式:', error);
+            return 'firebase';
+        }
+    }
+    
+    /**
+     * 等待 RoomProviderFactory 載入
+     * @returns {Promise<void>}
+     */
+    async waitForRoomProviderFactory() {
+        const maxWaitTime = 5000; // 最多等待 5 秒
+        const checkInterval = 100; // 每 100ms 檢查一次
+        let waitedTime = 0;
+        
+        while (!window.RoomProviderFactory && waitedTime < maxWaitTime) {
+            await new Promise(resolve => setTimeout(resolve, checkInterval));
+            waitedTime += checkInterval;
+        }
+        
+        if (!window.RoomProviderFactory) {
+            throw new Error('RoomProviderFactory 載入超時');
+        }
+        
+        console.log('✅ RoomProviderFactory 已載入');
+    }
+    
+    /**
+     * 建構資料提供者配置
+     * @returns {Promise<Object>} 提供者配置
+     */
+    async buildProviderConfig() {
+        const config = {};
+        
+        if (this.appMode === 'firebase') {
+            // Firebase 模式：嘗試取得 Firebase 配置
+            const firebaseConfig = await this.getFirebaseConfig();
+            if (firebaseConfig) {
+                config.firebaseConfig = firebaseConfig;
+            } else {
+                console.warn('⚠️ Firebase 模式但未找到配置，將在 UI 中提示設定');
+            }
+        } else if (this.appMode === 'local') {
+            // 本機模式：設定本機專用配置
+            config.maxPlayers = window.IS_PLAYGROUND ? 4 : 10; // 試用版限制人數
+            config.enablePersistence = !window.IS_PLAYGROUND; // 試用版不保存資料
+        }
+        
+        return config;
+    }
+    
+    /**
+     * 向後兼容：設置舊有服務引用
+     */
+    setupLegacyServiceReferences() {
+        if (this.roomProvider) {
+            if (this.roomProvider.type === 'firebase' && this.roomProvider.service) {
+                // 向後兼容：設置 firebaseService 引用
+                this.firebaseService = this.roomProvider.service;
+                this.isLocalMode = false;
+            } else if (this.roomProvider.type === 'local' && this.roomProvider.service) {
+                // 向後兼容：設置 localRoomService 引用
+                this.localRoomService = this.roomProvider.service;
+                this.isLocalMode = true;
+                this.isTrialMode = window.IS_PLAYGROUND || false;
+            }
+        }
+        
+        console.log('✅ 向後兼容服務引用已設置');
+    }
+    
+    /**
+     * 顯示當前模式狀態
+     */
+    displayModeStatus() {
+        const modeInfo = {
+            firebase: {
+                icon: '🔥',
+                name: 'Firebase 團隊協作模式',
+                features: ['無人數限制', '跨裝置即時同步', '雲端資料保存']
+            },
+            local: {
+                icon: '🏠',
+                name: window.IS_PLAYGROUND ? '本機試用模式' : '本機模式',
+                features: window.IS_PLAYGROUND 
+                    ? ['基本功能體驗', '本機多標籤頁同步', '限制4人使用']
+                    : ['本機協作', '瀏覽器儲存', '無網路依賴']
+            }
+        };
+        
+        const info = modeInfo[this.appMode];
+        if (info) {
+            console.log(`${info.icon} 當前模式: ${info.name}`);
+            console.log('📋 可用功能:', info.features.join(', '));
+            
+            // 可選：顯示 Toast 通知
+            if (this.showToast) {
+                this.showToast('info', `${info.icon} ${info.name}已啟用`, 3000);
+            }
+        }
+    }
+    
+    /**
+     * 處理資料提供者初始化失敗
+     * @param {Error} error - 失敗錯誤
+     */
+    async handleProviderInitializationFailure(error) {
+        console.error('🚨 資料提供者初始化失敗，執行降級策略:', error);
+        
+        if (this.appMode === 'firebase') {
+            // Firebase 失敗：降級到本機模式
+            console.log('🔄 Firebase 初始化失敗，降級到本機模式');
+            
+            try {
+                this.appMode = 'local';
+                const localConfig = await this.buildProviderConfig();
+                this.roomProvider = await window.RoomProviderFactory.createProvider('local', localConfig);
+                
+                this.setupLegacyServiceReferences();
+                this.displayModeStatus();
+                
+                if (this.showToast) {
+                    this.showToast('warning', '⚠️ Firebase 連線失敗，已切換到本機模式', 5000);
+                }
+                
+                console.log('✅ 成功降級到本機模式');
+            } catch (fallbackError) {
+                console.error('❌ 降級到本機模式也失敗:', fallbackError);
+                throw new Error('所有資料提供者初始化都失敗');
+            }
+        } else {
+            // 本機模式失敗：無法降級，直接拋出錯誤
+            throw error;
+        }
+    }
+    
+    /**
+     * 雙模式架構：統一的房間操作介面
+     */
+    
+    /**
+     * 加入房間（統一介面）
+     * @param {string} roomId - 房間 ID
+     * @param {Object} player - 玩家資訊
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async joinRoomUnified(roomId, player) {
+        if (!this.roomProvider) {
+            throw new Error('房間資料提供者未初始化');
+        }
+        
+        try {
+            // 初始化房間（如果需要）
+            const initResult = await this.roomProvider.initialize(roomId);
+            if (initResult && typeof initResult === 'object' && !initResult.success) {
+                throw new Error(initResult.error || '房間初始化失敗');
+            }
+            
+            // 加入房間
+            const joinResult = await this.roomProvider.joinRoom(roomId, player);
+            
+            // 處理新的回傳格式
+            let success = false;
+            if (typeof joinResult === 'object' && joinResult.hasOwnProperty('success')) {
+                success = joinResult.success;
+                if (!success && joinResult.error) {
+                    throw new Error(joinResult.error);
+                }
+            } else {
+                // 向後兼容舊格式
+                success = !!joinResult;
+            }
+            
+            if (success) {
+                // 設置事件監聽器
+                this.setupProviderEventListeners();
+                console.log(`✅ ${this.appMode} 模式：成功加入房間 ${roomId}`);
+                
+                // 顯示安全提示
+                if (this.appMode === 'firebase') {
+                    this.showToast('success', '🔐 已啟用安全驗證保護', 3000);
+                }
+            }
+            
+            return success;
+        } catch (error) {
+            console.error(`❌ ${this.appMode} 模式：加入房間失敗:`, error);
+            
+            // 顯示用戶友善的錯誤訊息
+            if (error.message.includes('無效的房間 ID')) {
+                this.showToast('error', '❌ 房間 ID 格式錯誤，請使用4-20個英數字', 5000);
+            } else if (error.message.includes('玩家名稱')) {
+                this.showToast('error', '❌ 玩家名稱格式錯誤，請檢查後重試', 5000);
+            } else {
+                this.showToast('error', '❌ 加入房間失敗：' + error.message, 5000);
+            }
+            
+            throw error;
+        }
+    }
+    
+    /**
+     * 設置資料提供者事件監聽器
+     */
+    setupProviderEventListeners() {
+        if (!this.roomProvider) return;
+        
+        // 統一的事件監聽設置
+        this.roomProvider.on('room:players-updated', (data) => {
+            if (this.gameTable && typeof this.gameTable.updatePlayers === 'function') {
+                this.gameTable.updatePlayers(data.players);
+            }
+        });
+        
+        this.roomProvider.on('room:votes-updated', (data) => {
+            if (this.gameTable && typeof this.gameTable.updateVotes === 'function') {
+                this.gameTable.updateVotes(data.votes);
+            }
+        });
+        
+        this.roomProvider.on('room:phase-changed', (data) => {
+            if (this.gameTable && typeof this.gameTable.updatePhase === 'function') {
+                this.gameTable.updatePhase(data.phase);
+            }
+        });
+        
+        console.log(`✅ ${this.appMode} 模式：事件監聽器已設置`);
     }
 }
 
