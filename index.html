@@ -543,6 +543,7 @@
     <script src="firebase-config.js" defer></script>
     <!-- 服務模組 -->
     <script src="src/services/StorageService.js" defer></script>
+    <script src="src/services/FirebaseConfigStorage.js" defer></script>
     <script src="src/services/LocalRoomService.js" defer></script>
     <script src="src/services/FirebaseService.js" defer></script>
     <script src="src/services/RoomProviderFactory.js" defer></script>
@@ -569,18 +570,68 @@
     <script>
         updateLoadingProgress(6, '準備就緒');
         
-        // 註冊 Service Worker 提升效能和離線體驗
+        // 註冊 Service Worker 提升效能和離線體驗（含版本檢查）
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('✅ Service Worker 註冊成功:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.log('❌ Service Worker 註冊失敗:', error);
+            window.addEventListener('load', async () => {
+                try {
+                    // 檢查是否有舊版本需要清除
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    console.log(`🔍 檢查到 ${registrations.length} 個 Service Worker 註冊`);
+                    
+                    // 註冊新的 Service Worker
+                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    console.log('✅ Service Worker 註冊成功:', registration.scope);
+                    
+                    // 檢查更新
+                    registration.addEventListener('updatefound', () => {
+                        console.log('🔄 發現 Service Worker 更新');
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('🆕 Service Worker 已更新，建議重新載入頁面');
+                                // 可選：自動重新載入或提示用戶
+                                // window.location.reload();
+                            }
+                        });
                     });
+                    
+                } catch (error) {
+                    console.log('❌ Service Worker 註冊失敗:', error);
+                }
             });
         }
+        
+        // 🧹 開發者工具：清除 Service Worker 快取（手動呼叫）
+        window.clearServiceWorkerCache = async () => {
+            try {
+                console.log('🧹 開始清除 Service Worker 快取...');
+                
+                // 取消註冊所有 Service Worker
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                    console.log('🗑️ Service Worker 已取消註冊:', registration.scope);
+                }
+                
+                // 清除所有快取
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                    console.log('🗑️ 快取已清除:', cacheName);
+                }
+                
+                console.log('✅ Service Worker 快取清除完成');
+                console.log('💡 建議重新載入頁面以完全生效');
+                
+                // 提示用戶重新載入
+                if (confirm('Service Worker 快取已清除。是否要重新載入頁面？')) {
+                    window.location.reload();
+                }
+                
+            } catch (error) {
+                console.error('❌ 清除 Service Worker 快取失敗:', error);
+            }
+        };
     </script>
 </body>
 </html>

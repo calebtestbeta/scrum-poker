@@ -5,7 +5,7 @@
  */
 
 const CACHE_NAME = 'scrum-poker-v3.0.0';
-const CACHE_VERSION = '20241229_performance';
+const CACHE_VERSION = '20250108_firebase-fix'; // 版本更新：修正 Firebase 連線驗證
 
 // 需要快取的核心資源
 const CORE_ASSETS = [

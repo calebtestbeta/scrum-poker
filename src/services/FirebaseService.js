@@ -87,9 +87,17 @@ class FirebaseService {
                 throw new Error('Firebase SDK 未載入');
             }
             
-            // 初始化 Firebase 應用
+            // 初始化 Firebase 應用（防止重複初始化）
             if (!firebase.apps.length) {
+                console.log('🔥 首次初始化 Firebase 應用...');
                 firebase.initializeApp(firebaseConfig);
+            } else {
+                console.log('♻️ Firebase 應用已存在，跳過重複初始化');
+                // 檢查現有應用配置是否匹配
+                const existingApp = firebase.app();
+                if (existingApp.options.projectId !== config.projectId) {
+                    console.warn(`⚠️ 專案 ID 不匹配: 現有=${existingApp.options.projectId}, 新的=${config.projectId}`);
+                }
             }
             
             // 取得資料庫參考

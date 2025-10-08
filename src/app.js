@@ -458,27 +458,100 @@ class ScrumPokerApp {
     }
     
     /**
-     * 驗證 Firebase 連線
+     * 驗證 Firebase 連線（強化版）
      */
     async verifyFirebaseConnection() {
         try {
-            if (!this.firebaseService || !this.firebaseService.database) {
-                throw new Error('Firebase 服務未正確初始化');
+            console.log('🔍 開始驗證 Firebase 連線...');
+            
+            // 檢查 Firebase 服務狀態
+            if (!this.firebaseService) {
+                throw new Error('FirebaseService 實例不存在');
             }
             
-            // 簡單的連線測試
+            if (!this.firebaseService.database) {
+                throw new Error('Firebase Database 實例未初始化');
+            }
+            
+            // 檢查 Firebase SDK 全域可用性
+            if (typeof firebase === 'undefined') {
+                throw new Error('Firebase SDK 全域物件不可用');
+            }
+            
+            // 檢查 Firebase 應用狀態
+            if (!firebase.apps.length) {
+                throw new Error('Firebase 應用尚未初始化');
+            }
+            
+            console.log('📡 測試 Firebase 資料庫連線狀態...');
+            
+            // 使用 `.info/connected` 測試連線（強化錯誤處理）
             const testRef = this.firebaseService.database.ref('.info/connected');
-            const snapshot = await testRef.once('value');
-            const connected = snapshot.val();
-            
-            if (!connected) {
-                throw new Error('Firebase 資料庫連線失敗');
+            if (!testRef) {
+                throw new Error('無法建立 .info/connected 參考');
             }
+            
+            // 設置連線測試超時
+            const connectionTestPromise = new Promise((resolve, reject) => {
+                testRef.once('value', (snapshot) => {
+                    try {
+                        if (!snapshot) {
+                            reject(new Error('連線測試回傳空的 snapshot'));
+                            return;
+                        }
+                        
+                        const connected = snapshot.val();
+                        console.log(`📊 Firebase 連線狀態: ${connected ? '✅ 已連線' : '❌ 未連線'}`);
+                        
+                        if (!connected) {
+                            reject(new Error('Firebase 資料庫顯示未連線狀態'));
+                            return;
+                        }
+                        
+                        resolve(true);
+                    } catch (snapshotError) {
+                        reject(new Error(`處理連線狀態 snapshot 失敗: ${snapshotError.message}`));
+                    }
+                }, (error) => {
+                    // Firebase once() 錯誤回調
+                    const errorInfo = {
+                        message: error.message || 'Firebase once() 呼叫失敗',
+                        code: error.code || 'unknown',
+                        details: error.details || 'no details'
+                    };
+                    console.error('❌ Firebase once() 呼叫錯誤:', errorInfo);
+                    reject(new Error(`Firebase 連線測試失敗: ${errorInfo.code} - ${errorInfo.message}`));
+                });
+            });
+            
+            // 8秒超時保護
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error('Firebase 連線驗證超時（8秒）'));
+                }, 8000);
+            });
+            
+            // 執行連線測試（帶超時）
+            await Promise.race([connectionTestPromise, timeoutPromise]);
             
             console.log('✅ Firebase 連線驗證成功');
             return true;
+            
         } catch (error) {
-            console.warn('⚠️ Firebase 連線驗證失敗:', error);
+            // 詳細錯誤訊息輸出
+            const errorDetails = {
+                message: error.message || 'Unknown error',
+                code: error.code || 'NO_CODE',
+                stack: error.stack || 'No stack trace',
+                firebaseServiceStatus: !!this.firebaseService,
+                databaseStatus: !!(this.firebaseService && this.firebaseService.database),
+                firebaseGlobalStatus: typeof firebase !== 'undefined',
+                firebaseAppsLength: typeof firebase !== 'undefined' ? firebase.apps.length : 0
+            };
+            
+            console.error('❌ Firebase 連線驗證失敗:', errorDetails);
+            console.warn(`⚠️ 錯誤總結: ${error.code || 'UNKNOWN_CODE'} - ${error.message}`);
+            
             return false;
         }
     }
@@ -1324,6 +1397,9 @@ class ScrumPokerApp {
             console.log('ℹ️ Cookie 中未找到保存的用戶資訊');
         }
         
+        // 🔧 Firebase 設定記憶功能：還原儲存的 Firebase 設定
+        this.restoreFirebaseConfig();
+        
         // 🏠 新架構：預設顯示 Firebase 設定，讓使用者選擇模式
         this.showFirebaseConfig();
         
@@ -2104,11 +2180,70 @@ class ScrumPokerApp {
     }
     
     /**
+     * 🔧 Firebase 設定記憶功能：還原儲存的設定
+     */
+    restoreFirebaseConfig() {
+        try {
+            console.log('🔧 開始還原 Firebase 設定...');
+            
+            // 檢查 FirebaseConfigStorage 是否可用
+            if (!window.firebaseConfigStorage) {
+                console.warn('⚠️ FirebaseConfigStorage 未載入，跳過還原');
+                return;
+            }
+            
+            // 還原設定
+            const savedConfig = window.firebaseConfigStorage.restoreFirebaseConfig();
+            if (!savedConfig) {
+                console.log('ℹ️ 未找到儲存的 Firebase 設定');
+                return;
+            }
+            
+            // 填入表單欄位
+            const projectIdInput = document.getElementById('projectId');
+            const apiKeyInput = document.getElementById('apiKey');
+            const rememberMeCheckbox = document.getElementById('rememberMe');
+            
+            if (projectIdInput && savedConfig.projectId) {
+                projectIdInput.value = savedConfig.projectId;
+                console.log('✅ 已還原 Project ID');
+            }
+            
+            if (apiKeyInput && savedConfig.apiKey) {
+                apiKeyInput.value = savedConfig.apiKey;
+                console.log('✅ 已還原 API Key');
+            }
+            
+            // 勾選 "記住我" 選項
+            if (rememberMeCheckbox) {
+                rememberMeCheckbox.checked = true;
+                console.log('✅ 已勾選記住我選項');
+            }
+            
+            // 觸發表單驗證
+            if (typeof this.validateProjectIdInput === 'function') {
+                this.validateProjectIdInput(true);
+            }
+            if (typeof this.validateApiKeyInput === 'function') {
+                this.validateApiKeyInput(true);
+            }
+            
+            console.log('✅ Firebase 設定還原完成');
+            this.showToast('success', '✅ 已還原先前儲存的 Firebase 設定', 3000);
+            
+        } catch (error) {
+            console.error('❌ 還原 Firebase 設定失敗:', error);
+            // 不顯示錯誤給用戶，避免干擾初始載入
+        }
+    }
+    
+    /**
      * 保存 Firebase 設定
      */
     async saveFirebaseConfig() {
         const projectId = document.getElementById('projectId')?.value?.trim();
         const apiKey = document.getElementById('apiKey')?.value?.trim();
+        const rememberMe = document.getElementById('rememberMe')?.checked;
         
         if (!projectId || !apiKey) {
             this.showError('請填入完整的 Firebase 設定');
@@ -2164,6 +2299,19 @@ class ScrumPokerApp {
         };
         
         try {
+            // 🔧 新增：使用 FirebaseConfigStorage 進行記憶功能
+            let storageSuccess = false;
+            if (rememberMe && window.firebaseConfigStorage) {
+                storageSuccess = window.firebaseConfigStorage.saveFirebaseConfig(projectId, apiKey);
+                if (storageSuccess) {
+                    console.log('✅ Firebase 設定已儲存到 localStorage（記憶功能）');
+                } else {
+                    console.warn('⚠️ localStorage 記憶功能儲存失敗');
+                }
+            } else if (rememberMe) {
+                console.warn('⚠️ FirebaseConfigStorage 未載入，跳過記憶功能');
+            }
+            
             // 儲存到 Cookie（主要儲存方式）
             const cookieSuccess = Utils.Cookie.setCookie('scrumPoker_firebaseConfig', config, {
                 days: 30,
@@ -2179,8 +2327,16 @@ class ScrumPokerApp {
             
             console.log('✅ Firebase 設定已成功儲存到 Cookie');
             
+            // 顯示儲存狀態給用戶
+            let successMessage = 'Firebase 設定已保存！點擊「連線到 Firebase」按鈕進行連線';
+            if (rememberMe && storageSuccess) {
+                successMessage += '（已啟用記憶功能）';
+            } else if (rememberMe && !storageSuccess) {
+                successMessage += '（記憶功能儲存失敗，但設定已保存）';
+            }
+            
             this.hideFirebaseConfig();
-            this.showToast('success', 'Firebase 設定已保存！點擊「連線到 Firebase」按鈕進行連線');
+            this.showToast('success', successMessage);
             
             // 不再自動重新初始化 Firebase，讓使用者手動連線
             console.log('💾 Firebase 設定已保存，請使用手動連線按鈕');
@@ -2290,15 +2446,24 @@ class ScrumPokerApp {
                 }
             }
             
-            // 2. 清除主要的 Cookie 配置
+            // 2. 🔧 新增：清除 FirebaseConfigStorage 記憶功能
+            let memoryCleared = false;
+            if (window.firebaseConfigStorage) {
+                memoryCleared = window.firebaseConfigStorage.clearFirebaseConfig();
+                console.log(`🔧 記憶功能 localStorage: ${memoryCleared ? '已清除' : '清除失敗'}`);
+            } else {
+                console.warn('⚠️ FirebaseConfigStorage 未載入，跳過記憶功能清除');
+            }
+            
+            // 3. 清除主要的 Cookie 配置
             const mainCookieDeleted = Utils.Cookie.deleteCookie('scrumPoker_firebaseConfig');
             console.log(`🍪 主要配置 Cookie: ${mainCookieDeleted ? '已清除' : '清除失敗'}`);
             
-            // 3. 清除本地模式標記 Cookie（如果存在）
+            // 4. 清除本地模式標記 Cookie（如果存在）
             const localModeDeleted = Utils.Cookie.deleteCookie('scrumPoker_localMode');
             console.log(`🏠 本地模式 Cookie: ${localModeDeleted ? '已清除' : '不存在或清除失敗'}`);
             
-            // 4. 清除舊版儲存資料（向後兼容）
+            // 5. 清除舊版儲存資料（向後兼容）
             let legacyDataCleaned = 0;
             
             // 清除 StorageService 中的舊資料
@@ -2358,11 +2523,12 @@ class ScrumPokerApp {
             this.showFirebaseConfig();
             
             // 7. 顯示成功訊息
-            const totalCleaned = (mainCookieDeleted ? 1 : 0) + (localModeDeleted ? 1 : 0) + legacyDataCleaned;
+            const totalCleaned = (memoryCleared ? 1 : 0) + (mainCookieDeleted ? 1 : 0) + (localModeDeleted ? 1 : 0) + legacyDataCleaned;
             this.showToast('success', `🧹 設定已清除（共 ${totalCleaned} 項）`);
             
             console.log('✅ Firebase 設定清除完成');
             console.log('📊 清除統計:', {
+                memoryStorage: memoryCleared,
                 mainCookie: mainCookieDeleted,
                 localModeCookie: localModeDeleted,
                 legacyData: legacyDataCleaned,
