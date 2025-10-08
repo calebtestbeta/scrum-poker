@@ -4,8 +4,8 @@
  * @version 3.0.0-performance
  */
 
-const CACHE_NAME = 'scrum-poker-v3.0.0';
-const CACHE_VERSION = '20250108_firebase-fix'; // 版本更新：修正 Firebase 連線驗證
+const CACHE_NAME = 'scrum-poker-v3.1.0';
+const CACHE_VERSION = '20250108_unified-firebase-config'; // 版本更新：統一 Firebase 配置管理
 
 // 需要快取的核心資源
 const CORE_ASSETS = [
@@ -22,8 +22,8 @@ const CORE_ASSETS = [
     './src/components/Card.js',
     './src/components/Player.js',
     './src/components/GameTable.js',
-    './src/app.js',
-    './firebase-config.js'
+    './src/managers/FirebaseConfigManager.js',
+    './src/app.js'
 ];
 
 // 外部資源（CDN）
@@ -412,4 +412,4 @@ async function syncPerformanceData() {
     console.log('📊 同步效能資料...');
 }
 
-console.log('🎮 Scrum Poker Service Worker v3.0.0 已載入');
+console.log('🎮 Scrum Poker Service Worker v3.1.0 已載入 - 統一 Firebase 配置管理');

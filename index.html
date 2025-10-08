@@ -539,11 +539,10 @@
     <script>
         updateLoadingProgress(3, '載入服務層');
     </script>
-    <!-- Firebase 設定 -->
-    <script src="firebase-config.js" defer></script>
+    <!-- Firebase 設定已整合到 FirebaseConfigManager -->
     <!-- 服務模組 -->
+    <script src="src/managers/FirebaseConfigManager.js" defer></script>
     <script src="src/services/StorageService.js" defer></script>
-    <script src="src/services/FirebaseConfigStorage.js" defer></script>
     <script src="src/services/LocalRoomService.js" defer></script>
     <script src="src/services/FirebaseService.js" defer></script>
     <script src="src/services/RoomProviderFactory.js" defer></script>

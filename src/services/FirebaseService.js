@@ -8,9 +8,10 @@
  * Firebase 服務類別
  */
 class FirebaseService {
-    constructor(config = null) {
-        this.version = '3.0.0-enhanced';
+    constructor(options = {}) {
+        this.version = '3.0.0-unified';
         this.db = null;
+        this.app = null; // Firebase 應用實例
         this.currentRoomRef = null;
         this.currentPlayerId = null;
         this.connectionState = 'disconnected'; // disconnected, connecting, connected, error
@@ -32,9 +33,14 @@ class FirebaseService {
             leaveRoom: { interval: 1000, maxAttempts: 3 } // 1秒內最多3次
         };
         
-        // 如果提供了配置，立即初始化
-        if (config) {
-            this.initialize(config).catch(error => {
+        // 統一架構：支援預初始化的 Firebase 實例
+        if (options.preInitialized) {
+            console.log('🔄 FirebaseService 使用預初始化的 Firebase 實例');
+            this.usePreInitializedFirebase(options.app, options.database);
+        } else if (options.config) {
+            // 向後兼容：舊方式初始化
+            console.log('🔄 FirebaseService 使用傳統初始化方式（向後兼容）');
+            this.initialize(options.config).catch(error => {
                 console.error('❌ 自動初始化失敗:', error);
             });
         }
@@ -54,7 +60,42 @@ class FirebaseService {
     }
     
     /**
-     * 初始化 Firebase 連線
+     * 使用預初始化的 Firebase 實例（新架構）
+     * @param {Object} app - Firebase 應用實例
+     * @param {Object} database - Firebase 資料庫實例
+     * @returns {boolean} 設置是否成功
+     */
+    usePreInitializedFirebase(app, database) {
+        try {
+            console.log('🔧 FirebaseService 接受預初始化的 Firebase 實例...');
+            
+            if (!app || !database) {
+                throw new Error('預初始化的 Firebase 實例不完整');
+            }
+            
+            // 使用預初始化的實例
+            this.app = app;
+            this.db = database;
+            this.connectionState = 'connected';
+            
+            // 設置連線狀態監聽
+            this.setupConnectionMonitoring();
+            
+            console.log('✅ FirebaseService 已成功使用預初始化的 Firebase 實例');
+            this.emitEvent('firebase:connected', { timestamp: Date.now() });
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ 使用預初始化 Firebase 實例失敗:', error);
+            this.connectionState = 'error';
+            this.emitEvent('firebase:error', { error, timestamp: Date.now() });
+            return false;
+        }
+    }
+    
+    /**
+     * 初始化 Firebase 連線（舊版本向後兼容）
      * @param {Object} config - Firebase 配置
      * @param {string} config.projectId - Firebase 專案 ID
      * @param {string} config.apiKey - Firebase API 金鑰
@@ -62,9 +103,24 @@ class FirebaseService {
      * @returns {Promise<boolean>} 初始化是否成功
      */
     async initialize(config) {
+        console.warn('⚠️ 使用舊版 FirebaseService.initialize()，建議升級到使用 FirebaseConfigManager');
+        
         try {
-            console.log('🔥 正在初始化 Firebase...');
+            console.log('🔥 正在初始化 Firebase（向後兼容模式）...');
             this.connectionState = 'connecting';
+            
+            // 檢查是否可以使用 FirebaseConfigManager
+            if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+                console.log('🔄 發現可用的 FirebaseConfigManager，使用統一管理實例');
+                
+                const app = window.firebaseConfigManager.getApp();
+                const database = window.firebaseConfigManager.getDatabase();
+                
+                return this.usePreInitializedFirebase(app, database);
+            }
+            
+            // 傳統初始化邏輯（向後兼容）
+            console.log('🔄 使用傳統 Firebase 初始化邏輯');
             
             // 驗證配置
             if (!config || !config.projectId || !config.apiKey) {
@@ -90,7 +146,7 @@ class FirebaseService {
             // 初始化 Firebase 應用（防止重複初始化）
             if (!firebase.apps.length) {
                 console.log('🔥 首次初始化 Firebase 應用...');
-                firebase.initializeApp(firebaseConfig);
+                this.app = firebase.initializeApp(firebaseConfig);
             } else {
                 console.log('♻️ Firebase 應用已存在，跳過重複初始化');
                 // 檢查現有應用配置是否匹配
@@ -98,6 +154,7 @@ class FirebaseService {
                 if (existingApp.options.projectId !== config.projectId) {
                     console.warn(`⚠️ 專案 ID 不匹配: 現有=${existingApp.options.projectId}, 新的=${config.projectId}`);
                 }
+                this.app = existingApp;
             }
             
             // 取得資料庫參考
@@ -120,12 +177,10 @@ class FirebaseService {
             // 設置連線狀態監聽
             this.setupConnectionMonitoring();
             
-            // 心跳機制將在加入房間後啟動
-            
             this.connectionState = 'connected';
             this.retryCount = 0;
             
-            console.log('✅ Firebase 初始化成功');
+            console.log('✅ Firebase 初始化成功（向後兼容模式）');
             this.emitEvent('firebase:connected', { timestamp: Date.now() });
             
             return true;
@@ -1360,10 +1415,20 @@ class FirebaseService {
     destroy() {
         this.cleanup();
         
-        // 斷開 Firebase 連線
-        if (this.db && typeof this.db.goOffline === 'function') {
-            this.db.goOffline();
+        // 統一架構：檢查是否使用預初始化實例
+        if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+            console.log('🔧 FirebaseService 使用統一管理的 Firebase，跳過直接銷毀');
+            // 不直接銷毀 Firebase 實例，由 FirebaseConfigManager 統一管理
+        } else {
+            // 舊版兼容：直接斷開 Firebase 連線
+            if (this.db && typeof this.db.goOffline === 'function') {
+                this.db.goOffline();
+            }
         }
+        
+        // 清理本地引用
+        this.app = null;
+        this.db = null;
         
         this.connectionState = 'disconnected';
         console.log('🔥 FirebaseService 已銷毀');

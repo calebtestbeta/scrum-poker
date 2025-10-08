@@ -69,7 +69,6 @@ function updateScore() {
 ```
 scrum-poker/
 ├── index.html              # 主頁面 - 登入和遊戲界面
-├── firebase-config.js      # Firebase 設定檔
 ├── firebase-rules.json     # Firebase 安全規則
 ├── package.json            # 專案設定和依賴
 ├── sw.js                   # Service Worker (PWA)
@@ -88,9 +87,16 @@ scrum-poker/
 │   │   ├── TouchManager.js # 觸控手勢管理
 │   │   └── Utils.js      # 通用工具函數
 │   │
+│   ├── managers/         # 統一管理器
+│   │   └── FirebaseConfigManager.js # Firebase 設定統一管理器
+│   │
 │   ├── services/         # 服務層
-│   │   ├── FirebaseService.js # Firebase 資料管理
-│   │   └── StorageService.js  # 本地儲存管理
+│   │   ├── FirebaseService.js     # Firebase 資料管理
+│   │   ├── LocalRoomService.js    # 本機房間服務
+│   │   ├── RoomProviderFactory.js # 房間資料提供者工廠
+│   │   ├── ScrumAdviceEngine.js   # 智慧建議引擎
+│   │   ├── ScrumAdviceUI.js       # 智慧建議界面
+│   │   └── StorageService.js      # 本地儲存管理
 │   │
 │   └── styles/           # 樣式文件
 │       ├── variables.css # CSS 變數定義

@@ -1,7 +1,8 @@
 /**
- * Scrum Poker 主應用程式 - v3.0.0 Vanilla JavaScript 版本
- * 整合所有組件和服務的主控制器 - 雙模式支援版本
- * @version 3.0.0-dual-mode
+ * Scrum Poker 主應用程式 - v3.1.0 Vanilla JavaScript 版本
+ * 整合所有組件和服務的主控制器 - 統一 Firebase 配置管理版本
+ * 使用 FirebaseConfigManager 進行集中化的 Firebase 設定與連線管理
+ * @version 3.1.0-unified-firebase-config
  */
 
 import { shortcutHintsManager } from './ui/ShortcutHints.js';
@@ -12,7 +13,7 @@ import { panelManager } from './ui/PanelManager.js';
  */
 class ScrumPokerApp {
     constructor() {
-        this.version = 'v3.0.0-dual-mode';
+        this.version = 'v3.1.0-unified-firebase-config';
         this.buildTime = new Date().toISOString().slice(0,10).replace(/-/g,'') + '_' + new Date().toTimeString().slice(0,5).replace(':','');
         
         // 應用狀態
@@ -293,7 +294,7 @@ class ScrumPokerApp {
     }
     
     /**
-     * 嘗試 Firebase 初始化（增強錯誤處理）
+     * 嘗試 Firebase 初始化 - 使用 FirebaseConfigManager 統一管理
      */
     async tryFirebaseInitialization() {
         const result = {
@@ -323,37 +324,85 @@ class ScrumPokerApp {
             result.diagnostics.config = {
                 projectId: userFirebaseConfig.projectId,
                 hasApiKey: !!userFirebaseConfig.apiKey,
-                apiKeyFormat: this.validateApiKeyFormat(userFirebaseConfig.apiKey)
+                apiKeyFormat: window.firebaseConfigManager ? 
+                    window.firebaseConfigManager.validateConfig({ projectId: '', apiKey: userFirebaseConfig.apiKey }).valid : 
+                    { valid: true }
             };
             
-            // 檢查 FirebaseService 可用性
-            if (!window.FirebaseService) {
-                throw new Error('FIREBASE_SERVICE_MISSING');
-            }
-            
-            // 初始化 Firebase 服務（帶重試機制）
-            this.firebaseService = new FirebaseService();
-            
-            // 設置事件監聽器
-            this.setupFirebaseEventListeners();
-            
-            // 帶超時的連線嘗試
-            const initializationPromise = this.firebaseService.initialize(userFirebaseConfig);
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('INITIALIZATION_TIMEOUT')), 15000);
-            });
-            
-            const initialized = await Promise.race([initializationPromise, timeoutPromise]);
-            
-            if (initialized) {
-                result.success = true;
-                result.diagnostics.connectionTime = Date.now();
-                console.log('✅ Firebase 團隊模式初始化成功');
+            // 🔧 使用 FirebaseConfigManager 進行統一初始化
+            if (window.firebaseConfigManager) {
+                console.log('🔧 使用 FirebaseConfigManager 進行 Firebase 初始化...');
                 
-                // 執行連線後驗證
-                await this.verifyFirebaseConnection();
+                // 使用 FirebaseConfigManager 初始化
+                const initSuccess = await window.firebaseConfigManager.initialize(userFirebaseConfig);
+                
+                if (initSuccess && window.firebaseConfigManager.isReady()) {
+                    // 從 FirebaseConfigManager 取得已初始化的服務實例
+                    this.firebaseService = window.firebaseConfigManager.getDatabase() ? {
+                        database: window.firebaseConfigManager.getDatabase(),
+                        initialize: () => Promise.resolve(true),
+                        destroy: () => window.firebaseConfigManager.destroy(),
+                        getConnectionState: () => window.firebaseConfigManager.getStatus()
+                    } : null;
+                    
+                    // 如果沒有 FirebaseService 包裝，嘗試建立
+                    if (!this.firebaseService && window.FirebaseService) {
+                        console.log('🔄 建立 FirebaseService 包裝器...');
+                        this.firebaseService = new FirebaseService();
+                        // 讓 FirebaseService 使用已初始化的 Firebase
+                        this.firebaseService.app = window.firebaseConfigManager.getApp();
+                        this.firebaseService.database = window.firebaseConfigManager.getDatabase();
+                    }
+                    
+                    if (this.firebaseService) {
+                        // 設置事件監聽器
+                        this.setupFirebaseEventListeners();
+                        
+                        result.success = true;
+                        result.diagnostics.connectionTime = Date.now();
+                        console.log('✅ Firebase 團隊模式初始化成功（使用 FirebaseConfigManager）');
+                        
+                        // 執行連線後驗證
+                        await this.verifyFirebaseConnection();
+                    } else {
+                        throw new Error('FIREBASE_SERVICE_WRAPPER_FAILED');
+                    }
+                } else {
+                    throw new Error('FIREBASE_CONFIG_MANAGER_INIT_FAILED');
+                }
             } else {
-                throw new Error('INITIALIZATION_FAILED');
+                // 備援：使用舊方式初始化
+                console.log('🔄 FirebaseConfigManager 不可用，使用備援初始化方式...');
+                
+                // 檢查 FirebaseService 可用性
+                if (!window.FirebaseService) {
+                    throw new Error('FIREBASE_SERVICE_MISSING');
+                }
+                
+                // 初始化 Firebase 服務（帶重試機制）
+                this.firebaseService = new FirebaseService();
+                
+                // 設置事件監聽器
+                this.setupFirebaseEventListeners();
+                
+                // 帶超時的連線嘗試
+                const initializationPromise = this.firebaseService.initialize(userFirebaseConfig);
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('INITIALIZATION_TIMEOUT')), 15000);
+                });
+                
+                const initialized = await Promise.race([initializationPromise, timeoutPromise]);
+                
+                if (initialized) {
+                    result.success = true;
+                    result.diagnostics.connectionTime = Date.now();
+                    console.log('✅ Firebase 團隊模式初始化成功（備援方式）');
+                    
+                    // 執行連線後驗證
+                    await this.verifyFirebaseConnection();
+                } else {
+                    throw new Error('INITIALIZATION_FAILED');
+                }
             }
             
         } catch (error) {
@@ -369,7 +418,8 @@ class ScrumPokerApp {
                 errorMessage: error.message,
                 timestamp: Date.now(),
                 userAgent: navigator.userAgent,
-                online: navigator.onLine
+                online: navigator.onLine,
+                firebaseConfigManager: !!window.firebaseConfigManager
             };
             
             // 清理失敗的服務實例
@@ -381,34 +431,21 @@ class ScrumPokerApp {
                 }
                 this.firebaseService = null;
             }
+            
+            // 清理 FirebaseConfigManager 失敗狀態
+            if (window.firebaseConfigManager && window.firebaseConfigManager.getStatus() === 'error') {
+                try {
+                    window.firebaseConfigManager.destroy();
+                    console.log('🧹 已重置 FirebaseConfigManager 狀態');
+                } catch (cleanupError) {
+                    console.warn('⚠️ 重置 FirebaseConfigManager 失敗:', cleanupError);
+                }
+            }
         }
         
         return result;
     }
     
-    /**
-     * 驗證 API Key 格式（安全性強化）
-     */
-    validateApiKeyFormat(apiKey) {
-        if (!apiKey) return { valid: false, reason: 'missing' };
-        if (typeof apiKey !== 'string') return { valid: false, reason: 'invalid_type' };
-        if (!apiKey.startsWith('AIza')) return { valid: false, reason: 'wrong_prefix' };
-        if (apiKey.length < 35) return { valid: false, reason: 'too_short' };
-        
-        // 安全性檢查：防止注入攻擊
-        const dangerousPatterns = [
-            /<script/i, /javascript:/i, /data:/i, /vbscript:/i,
-            /on\w+\s*=/i, /eval\(/i, /function\(/i, /\${/
-        ];
-        
-        for (const pattern of dangerousPatterns) {
-            if (pattern.test(apiKey)) {
-                return { valid: false, reason: 'potentially_malicious' };
-            }
-        }
-        
-        return { valid: true };
-    }
     
     /**
      * 分類 Firebase 錯誤
@@ -794,62 +831,36 @@ class ScrumPokerApp {
         }, 200); // 200ms 延遲，讓 DOM 完全準備好
     }
     
-    /**
-     * 建構 Firebase 設定物件
-     * @param {Object} config - 原始設定物件
-     * @returns {Object} Firebase 設定物件
-     */
-    buildFirebaseConfig(config) {
-        if (!config || !config.projectId || !config.apiKey) {
-            return null;
-        }
-        
-        return {
-            projectId: config.projectId,
-            apiKey: config.apiKey,
-            authDomain: `${config.projectId}.firebaseapp.com`,
-            databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`,
-            storageBucket: `${config.projectId}.appspot.com`
-        };
-    }
     
     /**
-     * 取得 Firebase 設定
+     * 取得 Firebase 設定 - 使用 FirebaseConfigManager 統一管理
      */
     async getFirebaseConfig() {
         try {
-            console.log('🔍 開始取得 Firebase 設定...');
+            console.log('🔍 使用 FirebaseConfigManager 取得 Firebase 設定...');
             
-            // 1. 優先從 Cookie 讀取（主要儲存方式）
-            const cookieConfig = Utils.Cookie.getCookie('scrumPoker_firebaseConfig');
-            if (cookieConfig && cookieConfig.projectId && cookieConfig.apiKey) {
-                console.log('✅ 從 Cookie 取得 Firebase 設定');
-                return this.buildFirebaseConfig(cookieConfig);
+            // 檢查 FirebaseConfigManager 是否可用
+            if (!window.firebaseConfigManager) {
+                console.warn('⚠️ FirebaseConfigManager 未載入');
+                return null;
             }
             
-            // 2. 從舊版 StorageService 讀取（向後兼容）
-            if (this.storageService) {
-                const config = await this.storageService.getItem('firebaseConfig');
-                if (config && config.projectId && config.apiKey) {
-                    console.log('✅ 從 StorageService 取得 Firebase 設定（舊資料）');
-                    return this.buildFirebaseConfig(config);
-                }
+            // 使用 FirebaseConfigManager 載入設定
+            const config = window.firebaseConfigManager.loadConfig();
+            if (config && config.projectId && config.apiKey) {
+                console.log('✅ 從 FirebaseConfigManager 取得 Firebase 設定');
+                // 使用 FirebaseConfigManager 的 buildConfig 方法
+                return window.firebaseConfigManager.buildConfig(config);
             }
             
-            // 3. 從舊版 Utils.Storage 讀取（向後兼容）
-            const legacyConfig = Utils.Storage.getItem('scrumPoker_firebaseConfig');
-            if (legacyConfig && legacyConfig.projectId && legacyConfig.apiKey) {
-                console.log('✅ 從 Utils.Storage 取得 Firebase 設定（舊資料）');
-                return this.buildFirebaseConfig(legacyConfig);
-            }
-            
-            console.log('ℹ️ 未找到有效的 Firebase 設定');
+            console.log('ℹ️ FirebaseConfigManager 未找到有效的 Firebase 設定');
             return null;
         } catch (error) {
-            console.error('❌ 取得 Firebase 設定失敗:', error);
+            console.error('❌ 使用 FirebaseConfigManager 取得 Firebase 設定失敗:', error);
             return null;
         }
     }
+    
     
     /**
      * 設置觸控手勢監聽器
@@ -1195,6 +1206,13 @@ class ScrumPokerApp {
             return;
         }
         
+        // 🔧 防呆檢查：確保 Firebase 已準備好
+        if (!this.isFirebaseReady()) {
+            console.warn('⚠️ Firebase 尚未準備好，延遲設置學習建議監聽器');
+            setTimeout(() => this.setupFirebaseLearningAdviceListener(), 2000);
+            return;
+        }
+        
         console.log('📚 設置 Firebase 學習建議監聽器...');
         
         // 監聽 Firebase 學習建議更新
@@ -1428,26 +1446,19 @@ class ScrumPokerApp {
                 return true;
             }
             
-            // 檢查 Cookie 中的 Firebase 設定
-            const cookieConfig = Utils.Cookie.getCookie('scrumPoker_firebaseConfig');
-            if (cookieConfig && cookieConfig.projectId && cookieConfig.apiKey) {
-                console.log('✅ Cookie 中存在有效的 Firebase 設定');
-                return true;
-            }
-            
-            // 檢查舊版 StorageService（向後兼容）
-            if (this.storageService) {
-                const config = await this.storageService.getItem('firebaseConfig');
+            // 🔧 統一架構：優先使用 FirebaseConfigManager 檢查設定
+            if (window.firebaseConfigManager) {
+                const config = window.firebaseConfigManager.loadConfig();
                 if (config && config.projectId && config.apiKey) {
-                    console.log('✅ StorageService 中存在有效設定（舊資料）');
+                    console.log('✅ FirebaseConfigManager 中存在有效的 Firebase 設定');
                     return true;
                 }
             }
             
-            // 檢查舊版 Utils.Storage（向後兼容）
-            const legacyConfig = Utils.Storage.getItem('scrumPoker_firebaseConfig');
-            if (legacyConfig && legacyConfig.projectId && legacyConfig.apiKey) {
-                console.log('✅ Utils.Storage 中存在有效設定（舊資料）');
+            // 備援：檢查 Cookie 中的 Firebase 設定（向後兼容）
+            const cookieConfig = Utils.Cookie.getCookie('scrumPoker_firebaseConfig');
+            if (cookieConfig && cookieConfig.projectId && cookieConfig.apiKey) {
+                console.log('✅ Cookie 中存在有效的 Firebase 設定（備援檢查）');
                 return true;
             }
             
@@ -1722,6 +1733,24 @@ class ScrumPokerApp {
                 } else if (this.firebaseService) {
                     console.log('🔄 向後兼容：正在設置 Firebase 事件監聽器...');
                     this.setupFirebaseEventListeners();
+                    
+                    // 🔧 isReady() 防呆：確保 Firebase 已準備好再加入房間
+                    if (window.firebaseConfigManager && !window.firebaseConfigManager.isReady()) {
+                        console.warn('⚠️ Firebase 尚未準備好，等待就緒...');
+                        
+                        // 等待 Firebase 準備就緒
+                        let waitCount = 0;
+                        const maxWait = 30; // 最多等待 3 秒
+                        while (!window.firebaseConfigManager.isReady() && waitCount < maxWait) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            waitCount++;
+                        }
+                        
+                        if (!window.firebaseConfigManager.isReady()) {
+                            throw new Error('Firebase 初始化超時，無法加入房間');
+                        }
+                    }
+                    
                     console.log('🔄 向後兼容：GameTable 已就緒，正在加入 Firebase 房間...');
                     await this.firebaseService.joinRoom(roomId, this.currentPlayer);
                     
@@ -1841,6 +1870,13 @@ class ScrumPokerApp {
             } else if (this.firebaseService && this.roomId && this.currentPlayer) {
                 console.log('🔄 開始 Firebase 投票同步...');
                 
+                // 🔧 防呆檢查：確保 Firebase 已準備好
+                if (!this.isFirebaseReady()) {
+                    console.warn('⚠️ Firebase 尚未準備好，跳過投票同步');
+                    this.showToast('warning', '⚠️ Firebase 連線尚未就緒，投票可能未同步', 3000);
+                    return;
+                }
+                
                 this.firebaseService.submitVote(this.roomId, this.currentPlayer.id, data.vote)
                     .then(() => {
                         console.log('✅ Firebase 投票同步成功');
@@ -1902,6 +1938,12 @@ class ScrumPokerApp {
         
         // 如果有 Firebase 服務，同步結果
         if (this.firebaseService && this.roomId) {
+            // 🔧 防呆檢查：確保 Firebase 已準備好
+            if (!this.isFirebaseReady()) {
+                console.warn('⚠️ Firebase 尚未準備好，跳過開牌同步');
+                return;
+            }
+            
             this.firebaseService.revealVotes(this.roomId);
         }
     }
@@ -1919,6 +1961,13 @@ class ScrumPokerApp {
             // 如果有 Firebase 服務，同步清除
             if (this.firebaseService && this.roomId) {
                 console.log('🔄 同步清除投票到 Firebase');
+                
+                // 🔧 防呆檢查：確保 Firebase 已準備好
+                if (!this.isFirebaseReady()) {
+                    console.warn('⚠️ Firebase 尚未準備好，跳過清除投票同步');
+                    return;
+                }
+                
                 this.firebaseService.clearVotes(this.roomId)
                     .then(() => {
                         console.log('✅ Firebase 清除投票同步成功');
@@ -2007,7 +2056,12 @@ class ScrumPokerApp {
             
             // 如果有 Firebase 服務，離開房間
             if (this.firebaseService && this.roomId && this.currentPlayer) {
-                await this.firebaseService.leaveRoom(this.roomId, this.currentPlayer.id);
+                // 🔧 防呆檢查：只在 Firebase 準備好時才離開房間
+                if (this.isFirebaseReady()) {
+                    await this.firebaseService.leaveRoom(this.roomId, this.currentPlayer.id);
+                } else {
+                    console.warn('⚠️ Firebase 未準備好，跳過離開房間操作');
+                }
             }
             
             // 銷毀遊戲桌面
@@ -2180,56 +2234,25 @@ class ScrumPokerApp {
     }
     
     /**
-     * 🔧 Firebase 設定記憶功能：還原儲存的設定
+     * 🔧 Firebase 設定記憶功能 - 使用 FirebaseConfigManager 統一管理
      */
     restoreFirebaseConfig() {
         try {
-            console.log('🔧 開始還原 Firebase 設定...');
+            console.log('🔧 開始還原 Firebase 設定（使用 FirebaseConfigManager）...');
             
-            // 檢查 FirebaseConfigStorage 是否可用
-            if (!window.firebaseConfigStorage) {
-                console.warn('⚠️ FirebaseConfigStorage 未載入，跳過還原');
-                return;
+            // 優先使用 FirebaseConfigManager
+            if (window.firebaseConfigManager) {
+                const savedConfig = window.firebaseConfigManager.loadConfig();
+                if (savedConfig) {
+                    this.fillFormWithConfig(savedConfig);
+                    console.log('✅ 已從 FirebaseConfigManager 還原 Firebase 設定');
+                    this.showToast('success', '✅ 已還原先前儲存的 Firebase 設定', 3000);
+                    return;
+                }
             }
             
-            // 還原設定
-            const savedConfig = window.firebaseConfigStorage.restoreFirebaseConfig();
-            if (!savedConfig) {
-                console.log('ℹ️ 未找到儲存的 Firebase 設定');
-                return;
-            }
             
-            // 填入表單欄位
-            const projectIdInput = document.getElementById('projectId');
-            const apiKeyInput = document.getElementById('apiKey');
-            const rememberMeCheckbox = document.getElementById('rememberMe');
-            
-            if (projectIdInput && savedConfig.projectId) {
-                projectIdInput.value = savedConfig.projectId;
-                console.log('✅ 已還原 Project ID');
-            }
-            
-            if (apiKeyInput && savedConfig.apiKey) {
-                apiKeyInput.value = savedConfig.apiKey;
-                console.log('✅ 已還原 API Key');
-            }
-            
-            // 勾選 "記住我" 選項
-            if (rememberMeCheckbox) {
-                rememberMeCheckbox.checked = true;
-                console.log('✅ 已勾選記住我選項');
-            }
-            
-            // 觸發表單驗證
-            if (typeof this.validateProjectIdInput === 'function') {
-                this.validateProjectIdInput(true);
-            }
-            if (typeof this.validateApiKeyInput === 'function') {
-                this.validateApiKeyInput(true);
-            }
-            
-            console.log('✅ Firebase 設定還原完成');
-            this.showToast('success', '✅ 已還原先前儲存的 Firebase 設定', 3000);
+            console.log('ℹ️ 未找到儲存的 Firebase 設定');
             
         } catch (error) {
             console.error('❌ 還原 Firebase 設定失敗:', error);
@@ -2238,7 +2261,42 @@ class ScrumPokerApp {
     }
     
     /**
-     * 保存 Firebase 設定
+     * 填入表單設定
+     * @param {Object} config - Firebase 設定
+     */
+    fillFormWithConfig(config) {
+        // 填入表單欄位
+        const projectIdInput = document.getElementById('projectId');
+        const apiKeyInput = document.getElementById('apiKey');
+        const rememberMeCheckbox = document.getElementById('rememberMe');
+        
+        if (projectIdInput && config.projectId) {
+            projectIdInput.value = config.projectId;
+            console.log('✅ 已還原 Project ID');
+        }
+        
+        if (apiKeyInput && config.apiKey) {
+            apiKeyInput.value = config.apiKey;
+            console.log('✅ 已還原 API Key');
+        }
+        
+        // 勾選 "記住我" 選項
+        if (rememberMeCheckbox) {
+            rememberMeCheckbox.checked = true;
+            console.log('✅ 已勾選記住我選項');
+        }
+        
+        // 觸發表單驗證
+        if (typeof this.validateProjectIdInput === 'function') {
+            this.validateProjectIdInput(true);
+        }
+        if (typeof this.validateApiKeyInput === 'function') {
+            this.validateApiKeyInput(true);
+        }
+    }
+    
+    /**
+     * 保存 Firebase 設定 - 使用 FirebaseConfigManager 統一管理
      */
     async saveFirebaseConfig() {
         const projectId = document.getElementById('projectId')?.value?.trim();
@@ -2250,41 +2308,20 @@ class ScrumPokerApp {
             return;
         }
         
-        console.log('💾 開始保存 Firebase 設定...', { 
+        console.log('💾 開始保存 Firebase 設定（使用 FirebaseConfigManager）...', { 
             projectId: projectId.substring(0, 10) + '...', 
             apiKeyPreview: apiKey.substring(0, 10) + '...' 
         });
         
-        // 驗證 Firebase 設定格式
+        // 驗證 Firebase 設定格式 - 統一使用 FirebaseConfigManager
         try {
-            // 驗證 Project ID 格式
-            if (!/^[a-z0-9-]+$/.test(projectId)) {
-                throw new Error('Project ID 格式無效（只能包含小寫字母、數字和連字符）');
-            }
-            
-            if (projectId.length < 3 || projectId.length > 30) {
-                throw new Error('Project ID 長度必須在 3-30 字符之間');
-            }
-            
-            // 驗證 API Key 格式（放寬規則）
-            if (!/^AIza[a-zA-Z0-9_-]{35,}$/.test(apiKey)) {
-                throw new Error('API Key 格式無效（應以 AIza 開頭且長度至少 39 字元）');
-            }
-            
-            // 檢查是否包含可疑內容
-            const suspiciousPatterns = [
-                /javascript:/i,
-                /data:/i,
-                /vbscript:/i,
-                /<script/i,
-                /eval\(/i,
-                /function\(/i
-            ];
-            
-            for (const pattern of suspiciousPatterns) {
-                if (pattern.test(projectId) || pattern.test(apiKey)) {
-                    throw new Error('設定包含不允許的內容');
+            if (window.firebaseConfigManager) {
+                const validation = window.firebaseConfigManager.validateConfig({ projectId, apiKey });
+                if (!validation.valid) {
+                    throw new Error(validation.errors.join(', '));
                 }
+            } else {
+                throw new Error('FirebaseConfigManager 未載入，無法驗證設定');
             }
             
         } catch (error) {
@@ -2299,52 +2336,54 @@ class ScrumPokerApp {
         };
         
         try {
-            // 🔧 新增：使用 FirebaseConfigStorage 進行記憶功能
-            let storageSuccess = false;
-            if (rememberMe && window.firebaseConfigStorage) {
-                storageSuccess = window.firebaseConfigStorage.saveFirebaseConfig(projectId, apiKey);
-                if (storageSuccess) {
-                    console.log('✅ Firebase 設定已儲存到 localStorage（記憶功能）');
+            let saveSuccess = false;
+            
+            // 🔧 優先使用 FirebaseConfigManager
+            if (window.firebaseConfigManager) {
+                saveSuccess = window.firebaseConfigManager.saveConfig(config, rememberMe);
+                if (saveSuccess) {
+                    console.log('✅ Firebase 設定已儲存到 FirebaseConfigManager');
                 } else {
-                    console.warn('⚠️ localStorage 記憶功能儲存失敗');
+                    console.warn('⚠️ FirebaseConfigManager 儲存失敗，使用備援方案');
                 }
-            } else if (rememberMe) {
-                console.warn('⚠️ FirebaseConfigStorage 未載入，跳過記憶功能');
             }
             
-            // 儲存到 Cookie（主要儲存方式）
-            const cookieSuccess = Utils.Cookie.setCookie('scrumPoker_firebaseConfig', config, {
-                days: 30,
-                secure: window.location.protocol === 'https:',
-                sameSite: 'Lax'
-            });
-            console.log('🍪 Cookie 儲存結果:', cookieSuccess);
-            
-            // 檢查儲存結果
-            if (!cookieSuccess) {
-                throw new Error('Cookie 儲存失敗');
+            // 備援：使用 Cookie 儲存
+            if (!saveSuccess) {
+                console.log('🔄 使用備援方案儲存 Firebase 設定...');
+                
+                // 儲存到 Cookie（備援儲存方式）
+                const cookieSuccess = Utils.Cookie.setCookie('scrumPoker_firebaseConfig', config, {
+                    days: 30,
+                    secure: window.location.protocol === 'https:',
+                    sameSite: 'Lax'
+                });
+                console.log('🍪 Cookie 儲存結果:', cookieSuccess);
+                
+                if (!cookieSuccess) {
+                    throw new Error('Cookie 儲存失敗');
+                }
+                
+                saveSuccess = true;
+                console.log('✅ Firebase 設定已成功儲存到 Cookie（備援方式）');
             }
-            
-            console.log('✅ Firebase 設定已成功儲存到 Cookie');
             
             // 顯示儲存狀態給用戶
             let successMessage = 'Firebase 設定已保存！點擊「連線到 Firebase」按鈕進行連線';
-            if (rememberMe && storageSuccess) {
+            if (rememberMe) {
                 successMessage += '（已啟用記憶功能）';
-            } else if (rememberMe && !storageSuccess) {
-                successMessage += '（記憶功能儲存失敗，但設定已保存）';
             }
             
             this.hideFirebaseConfig();
             this.showToast('success', successMessage);
             
-            // 不再自動重新初始化 Firebase，讓使用者手動連線
             console.log('💾 Firebase 設定已保存，請使用手動連線按鈕');
         } catch (error) {
             console.error('保存 Firebase 設定失敗:', error);
             this.showError('保存設定失敗');
         }
     }
+    
     
     /**
      * 手動連線到 Firebase
@@ -2446,13 +2485,16 @@ class ScrumPokerApp {
                 }
             }
             
-            // 2. 🔧 新增：清除 FirebaseConfigStorage 記憶功能
+            // 2. 清除相關的 localStorage 記憶功能（如有）
             let memoryCleared = false;
-            if (window.firebaseConfigStorage) {
-                memoryCleared = window.firebaseConfigStorage.clearFirebaseConfig();
-                console.log(`🔧 記憶功能 localStorage: ${memoryCleared ? '已清除' : '清除失敗'}`);
-            } else {
-                console.warn('⚠️ FirebaseConfigStorage 未載入，跳過記憶功能清除');
+            try {
+                if (localStorage.getItem('scrumPoker_firebaseConfig')) {
+                    localStorage.removeItem('scrumPoker_firebaseConfig');
+                    memoryCleared = true;
+                    console.log('🔧 記憶功能 localStorage: 已清除');
+                }
+            } catch (error) {
+                console.warn('⚠️ 清除 localStorage 記憶功能失敗:', error);
             }
             
             // 3. 清除主要的 Cookie 配置
@@ -2565,7 +2607,10 @@ class ScrumPokerApp {
         
         try {
             // 建立測試用 Firebase 配置
-            const testConfig = this.buildFirebaseConfig({ projectId, apiKey });
+            const testConfig = window.firebaseConfigManager ? 
+                window.firebaseConfigManager.buildConfig({ projectId, apiKey }) :
+                null;
+            
             if (!testConfig) {
                 throw new Error('無法建立 Firebase 配置');
             }
@@ -2968,19 +3013,21 @@ class ScrumPokerApp {
     }
     
     /**
-     * 檢查 Project ID 是否有效
+     * 檢查 Project ID 是否有效 - 統一使用 FirebaseConfigManager
      */
     isValidProjectId(projectId) {
-        if (!projectId || typeof projectId !== 'string') return false;
-        return /^[a-z0-9-]+$/.test(projectId) && projectId.length >= 3 && projectId.length <= 30;
+        if (!window.firebaseConfigManager) return false;
+        const validation = window.firebaseConfigManager.validateConfig({ projectId, apiKey: 'AIzaTest1234567890123456789012345678' });
+        return validation.valid || validation.errors.every(err => !err.includes('Project ID'));
     }
     
     /**
-     * 檢查 API Key 是否有效（放寬規則）
+     * 檢查 API Key 是否有效 - 統一使用 FirebaseConfigManager
      */
     isValidApiKey(apiKey) {
-        if (!apiKey || typeof apiKey !== 'string') return false;
-        return /^AIza[a-zA-Z0-9_-]{35,}$/.test(apiKey);
+        if (!window.firebaseConfigManager) return false;
+        const validation = window.firebaseConfigManager.validateConfig({ projectId: 'test-project', apiKey });
+        return validation.valid || validation.errors.every(err => !err.includes('API Key'));
     }
     
     /**
@@ -3675,6 +3722,12 @@ class ScrumPokerApp {
         try {
             if (this.firebaseService && this.roomId && this.currentPlayer) {
                 console.log('🔄 重新加入 Firebase 房間...');
+                
+                // 🔧 防呆檢查：確保 Firebase 已準備好
+                if (!this.isFirebaseReady()) {
+                    console.warn('⚠️ Firebase 尚未準備好，無法重新加入房間');
+                    throw new Error('Firebase 尚未準備好，無法重新加入房間');
+                }
                 
                 // 設置事件監聽器
                 this.setupFirebaseEventListeners();
@@ -4530,6 +4583,42 @@ class ScrumPokerApp {
         }
     }
     
+    /**
+     * 檢查 Firebase 是否準備好進行操作
+     * 統一架構：防止 joinRoom 早於 Firebase 連線的防呆機制
+     * @returns {boolean} Firebase 是否準備好
+     */
+    isFirebaseReady() {
+        // 檢查 FirebaseConfigManager 狀態
+        if (window.firebaseConfigManager && typeof window.firebaseConfigManager.isReady === 'function') {
+            const ready = window.firebaseConfigManager.isReady();
+            if (!ready) {
+                console.warn('⚠️ FirebaseConfigManager 報告未準備好:', window.firebaseConfigManager.getStatus());
+            }
+            return ready;
+        }
+        
+        // 降級檢查：直接檢查 FirebaseService 和連線狀態
+        if (!this.firebaseService) {
+            console.warn('⚠️ FirebaseService 未初始化');
+            return false;
+        }
+        
+        if (!this.firebaseService.database) {
+            console.warn('⚠️ Firebase Database 未初始化');
+            return false;
+        }
+        
+        // 檢查連線狀態
+        const connectionState = this.firebaseService.getConnectionState();
+        if (connectionState !== 'connected') {
+            console.warn(`⚠️ Firebase 連線狀態: ${connectionState}`);
+            return false;
+        }
+        
+        return true;
+    }
+    
     // ========================================
     // 雙模式架構支援方法
     // ========================================
@@ -4817,4 +4906,4 @@ document.addEventListener('DOMContentLoaded', () => {
 // 匯出應用類別
 window.ScrumPokerApp = ScrumPokerApp;
 
-console.log('🚀 Scrum Poker App 主控制器已載入 - v3.0.0-enhanced');
+console.log('🚀 Scrum Poker App 主控制器已載入 - v3.1.0-unified-firebase-config');
