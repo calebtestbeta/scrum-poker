@@ -95,27 +95,9 @@ class FirebaseService {
             // 取得資料庫參考
             this.db = firebase.database();
             
-            // 匿名身份驗證 - 解決權限問題
-            try {
-                console.log('🔐 正在進行匿名身份驗證...');
-                const authResult = await firebase.auth().signInAnonymously();
-                console.log('✅ 匿名身份驗證成功:', authResult.user.uid);
-                
-                // 等待身份驗證狀態穩定
-                await new Promise(resolve => {
-                    const unsubscribe = firebase.auth().onAuthStateChanged(user => {
-                        if (user) {
-                            console.log('✅ 身份驗證狀態確認:', user.uid);
-                            unsubscribe();
-                            resolve();
-                        }
-                    });
-                });
-                
-            } catch (authError) {
-                console.error('❌ 匿名身份驗證失敗:', authError);
-                throw new Error(`身份驗證失敗: ${authError.message}`);
-            }
+            // 【低安全性設計】跳過身份驗證 - 僅供內部使用
+            console.log('🔓 低安全性模式：跳過身份驗證步驟');
+            console.log('⚠️ 注意：此配置僅適用於內部環境，請勿用於生產環境');
             
             // 啟用離線持久化
             if (this.config.enablePersistence) {
