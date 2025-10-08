@@ -3,15 +3,15 @@
 
 // 雲端 Firebase 設定
 const firebaseConfig = {
-    // 請替換為你的 Firebase 專案設定
-    // 如果未設定，將自動回退到本地模擬模式
-    apiKey: "your-api-key-here",
+    // 【低安全性設計】請替換為您的 Firebase 專案設定
+    // 範例配置 - 請修改成您的實際值：
+    apiKey: "AIza...", // 從 Firebase Console 複製
     authDomain: "your-project-id.firebaseapp.com",
     databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
-    projectId: "your-project-id",
+    projectId: "your-project-id", // 您的專案 ID
     storageBucket: "your-project-id.appspot.com",
     messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:demo-app-id"
+    appId: "1:123456789012:web:your-app-id"
 };
 
 // 本地開發環境設定

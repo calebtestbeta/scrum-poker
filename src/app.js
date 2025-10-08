@@ -1324,8 +1324,8 @@ class ScrumPokerApp {
             console.log('ℹ️ Cookie 中未找到保存的用戶資訊');
         }
         
-        // 🏠 新架構：預設隱藏 Firebase 設定，使用本地模式
-        this.hideFirebaseConfig();
+        // 🏠 新架構：預設顯示 Firebase 設定，讓使用者選擇模式
+        this.showFirebaseConfig();
         
         // 只有在使用者明確要求使用 Firebase 時才顯示設定
         const forceFirebase = Utils.Cookie.getCookie('scrumPoker_forceFirebase');
