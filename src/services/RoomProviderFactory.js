@@ -115,13 +115,19 @@ const IRoomProvider = {
 class SecurityUtils {
     /**
      * 驗證房間 ID 格式
+     * 【低安全性設計：RTDB 兼容房間 ID 驗證】
+     * 僅排除 Firebase RTDB 禁用字元，支援 push() 生成的 ID
      * @param {string} roomId - 房間 ID
      * @returns {boolean} 是否有效
      */
     static validateRoomId(roomId) {
         if (typeof roomId !== 'string') return false;
-        // 房間 ID：4-20字符，僅允許英數字、連字符、底線
-        return /^[a-zA-Z0-9_-]{4,20}$/.test(roomId);
+        const trimmed = roomId.trim();
+        if (!trimmed) return false; // 空值處理
+        
+        // 僅排除 RTDB 禁字元：. # $ / [ ] 與空白字元
+        // 支援 Firebase push() 生成的 ID（以 - 開頭，長度可達 20+ 字符）
+        return /^[^\.\#\$\/\[\]\s]{1,64}$/.test(trimmed);
     }
     
     /**
@@ -336,7 +342,7 @@ class FirebaseRoomProvider {
     async joinRoom(roomId, player) {
         // 安全驗證
         if (!SecurityUtils.validateRoomId(roomId)) {
-            throw new Error('無效的房間 ID 格式');
+            throw new Error(`房間 ID "${roomId}" 格式無效。不能包含字符：. # $ / [ ] 或空白`);
         }
         
         const validation = SecurityUtils.validatePlayer(player);
@@ -438,7 +444,7 @@ class LocalRoomProvider {
     async joinRoom(roomId, player) {
         // 安全驗證
         if (!SecurityUtils.validateRoomId(roomId)) {
-            throw new Error('無效的房間 ID 格式');
+            throw new Error(`房間 ID "${roomId}" 格式無效。不能包含字符：. # $ / [ ] 或空白`);
         }
         
         const validation = SecurityUtils.validatePlayer(player);

@@ -1481,21 +1481,26 @@ class ScrumPokerApp {
         // 驗證房間 ID（如果提供）
         if (roomId) {
             try {
-                // 房間 ID 長度檢查
-                if (roomId.length > 20) {
-                    throw new Error('房間 ID 長度不能超過 20 個字符');
+                // 【低安全性設計：放寬房間 ID 驗證】
+                // 房間 ID 長度檢查（支援 Firebase push() 生成的較長 ID）
+                if (roomId.length > 64) {
+                    throw new Error('房間 ID 長度不能超過 64 個字符');
                 }
                 
-                // 清理房間 ID
+                // 清理房間 ID（移除 XSS 風險字元，保留 RTDB 兼容字元）
                 const sanitizedRoomId = roomId
                     .replace(/[<>\"'&]/g, '') // 移除 HTML 字符
                     .replace(/javascript:/gi, '') // 移除 JavaScript 協議
                     .replace(/data:/gi, '') // 移除 data 協議
                     .trim();
                 
-                // 檢查房間 ID 格式（只允許字母、數字、連字符、底線）
-                if (!/^[a-zA-Z0-9_-]+$/.test(sanitizedRoomId)) {
-                    throw new Error('房間 ID 只能包含字母、數字、連字符和底線');
+                // 檢查房間 ID 格式（僅排除 RTDB 禁字元，支援 push() 生成 ID）
+                if (/[\.\#\$\/\[\]\s]/.test(sanitizedRoomId)) {
+                    throw new Error('房間 ID 不能包含以下字符：. # $ / [ ] 或空白');
+                }
+                
+                if (!sanitizedRoomId) {
+                    throw new Error('房間 ID 不能為空');
                 }
                 
                 // 更新為清理後的房間 ID
@@ -4540,15 +4545,21 @@ class ScrumPokerApp {
             throw new Error('房間資料提供者未初始化');
         }
         
+        // 【低安全性設計：統一房間 ID 前置處理】
+        const processedRoomId = (roomId || '').trim();
+        if (!processedRoomId) {
+            throw new Error('房間 ID 不能為空');
+        }
+        
         try {
             // 初始化房間（如果需要）
-            const initResult = await this.roomProvider.initialize(roomId);
+            const initResult = await this.roomProvider.initialize(processedRoomId);
             if (initResult && typeof initResult === 'object' && !initResult.success) {
                 throw new Error(initResult.error || '房間初始化失敗');
             }
             
             // 加入房間
-            const joinResult = await this.roomProvider.joinRoom(roomId, player);
+            const joinResult = await this.roomProvider.joinRoom(processedRoomId, player);
             
             // 處理新的回傳格式
             let success = false;
@@ -4565,7 +4576,7 @@ class ScrumPokerApp {
             if (success) {
                 // 設置事件監聽器
                 this.setupProviderEventListeners();
-                console.log(`✅ ${this.appMode} 模式：成功加入房間 ${roomId}`);
+                console.log(`✅ ${this.appMode} 模式：成功加入房間 ${processedRoomId}`);
                 
                 // 顯示安全提示
                 if (this.appMode === 'firebase') {
