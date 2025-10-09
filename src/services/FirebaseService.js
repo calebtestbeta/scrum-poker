@@ -1422,7 +1422,17 @@ class FirebaseService {
         } else {
             // 舊版兼容：直接斷開 Firebase 連線
             if (this.db && typeof this.db.goOffline === 'function') {
-                this.db.goOffline();
+                try {
+                    // 檢查資料庫是否已被刪除
+                    if (this.db.app && this.db.app.isDeleted_) {
+                        console.warn('⚠️ [FirebaseService] 略過 goOffline，資料庫已被刪除');
+                    } else {
+                        this.db.goOffline();
+                        console.log('📡 [FirebaseService] 已執行 goOffline');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ [FirebaseService] goOffline 時發生例外:', error.message || error);
+                }
             }
         }
         
