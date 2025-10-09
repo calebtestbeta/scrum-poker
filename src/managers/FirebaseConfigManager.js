@@ -441,14 +441,18 @@ class FirebaseConfigManager {
             }, timeout);
             
             const connectedRef = this.database.ref('.info/connected');
-            const listener = connectedRef.on('value', (snapshot) => {
+            let listener = null;
+            
+            const callback = (snapshot) => {
                 const connected = snapshot.val();
                 if (connected) {
                     clearTimeout(timeoutId);
                     connectedRef.off('value', listener);
                     resolve(true);
                 }
-            });
+            };
+            
+            listener = connectedRef.on('value', callback);
         });
     }
     
