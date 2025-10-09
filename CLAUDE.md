@@ -158,10 +158,13 @@ auth.signInAnonymously()
 // 自動清除機制
 const cleanupInterval = 24 * 60 * 60 * 1000; // 24 小時
 
-// 錯誤處理
-firebase.database().ref().on('error', (error) => {
-    console.error('Firebase 連線錯誤:', error);
-});
+// 錯誤處理 - 使用 FirebaseConfigManager
+if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+    const database = window.firebaseConfigManager.getDatabase();
+    database.ref().on('error', (error) => {
+        console.error('Firebase 連線錯誤:', error);
+    });
+}
 ```
 
 ## 事件驅動架構
@@ -287,19 +290,26 @@ window.eventBus.on('game:vote-submitted', (data) => {
    // 自動斷線無活動使用者
    const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 分鐘
    
-   // 批次更新減少 API 呼叫
+   // 批次更新減少 API 呼叫 - 使用 FirebaseConfigManager
    const updates = {};
    updates[`rooms/${roomId}/players/${playerId}`] = playerData;
-   firebase.database().ref().update(updates);
+   
+   if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+       const database = window.firebaseConfigManager.getDatabase();
+       database.ref().update(updates);
+   }
    ```
 
 2. **資料清理**
    ```javascript
-   // 定期清理過期房間
+   // 定期清理過期房間 - 使用 FirebaseConfigManager
    const cutoffTime = Date.now() - (24 * 60 * 60 * 1000);
-   firebase.database().ref('rooms')
-       .orderByChild('last_activity')
-       .endAt(cutoffTime)
+   
+   if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+       const database = window.firebaseConfigManager.getDatabase();
+       database.ref('rooms')
+           .orderByChild('last_activity')
+           .endAt(cutoffTime)
        .once('value', snapshot => {
            // 清理邏輯
        });
@@ -363,7 +373,13 @@ window.eventBus.on('game:vote-submitted', (data) => {
    ```javascript
    async function addGameData(roomId, data) {
        try {
-           const ref = firebase.database().ref(`rooms/${roomId}/custom_data`);
+           // 使用 FirebaseConfigManager 統一介面
+           if (!window.firebaseConfigManager || !window.firebaseConfigManager.isReady()) {
+               throw new Error('Firebase 尚未準備好');
+           }
+           
+           const database = window.firebaseConfigManager.getDatabase();
+           const ref = database.ref(`rooms/${roomId}/custom_data`);
            await ref.push(data);
            console.log('資料新增成功');
        } catch (error) {
@@ -376,7 +392,14 @@ window.eventBus.on('game:vote-submitted', (data) => {
 2. **即時監聽**
    ```javascript
    function setupDataListener(roomId) {
-       const ref = firebase.database().ref(`rooms/${roomId}`);
+       // 使用 FirebaseConfigManager 統一介面
+       if (!window.firebaseConfigManager || !window.firebaseConfigManager.isReady()) {
+           console.error('Firebase 尚未準備好，無法設置監聽器');
+           return;
+       }
+       
+       const database = window.firebaseConfigManager.getDatabase();
+       const ref = database.ref(`rooms/${roomId}`);
        ref.on('value', (snapshot) => {
            const data = snapshot.val();
            if (data) {
@@ -561,11 +584,15 @@ window.eventBus.on('game:vote-submitted', (data) => {
    // 限制查詢結果數量
    ref.limitToLast(10).once('value');
    
-   // 批次更新
+   // 批次更新 - 使用 FirebaseConfigManager
    const updates = {};
    updates[`rooms/${roomId}/phase`] = 'finished';
    updates[`rooms/${roomId}/last_activity`] = Date.now();
-   firebase.database().ref().update(updates);
+   
+   if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+       const database = window.firebaseConfigManager.getDatabase();
+       database.ref().update(updates);
+   }
    ```
 
 3. **事件監聽器管理**

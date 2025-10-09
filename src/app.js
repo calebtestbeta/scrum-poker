@@ -345,13 +345,16 @@ class ScrumPokerApp {
                         getConnectionState: () => window.firebaseConfigManager.getStatus()
                     } : null;
                     
-                    // 如果沒有 FirebaseService 包裝，嘗試建立
+                    // 如果沒有 FirebaseService 包裝，使用統一架構建立
                     if (!this.firebaseService && window.FirebaseService) {
-                        console.log('🔄 建立 FirebaseService 包裝器...');
-                        this.firebaseService = new FirebaseService();
-                        // 讓 FirebaseService 使用已初始化的 Firebase
-                        this.firebaseService.app = window.firebaseConfigManager.getApp();
-                        this.firebaseService.database = window.firebaseConfigManager.getDatabase();
+                        console.log('🔄 建立 FirebaseService 包裝器（統一架構）...');
+                        // 使用預初始化實例模式
+                        this.firebaseService = new FirebaseService({
+                            preInitialized: true,
+                            app: window.firebaseConfigManager.getApp(),
+                            database: window.firebaseConfigManager.getDatabase()
+                        });
+                        console.log('✅ FirebaseService 已使用預初始化實例建立');
                     }
                     
                     if (this.firebaseService) {
@@ -379,8 +382,28 @@ class ScrumPokerApp {
                     throw new Error('FIREBASE_SERVICE_MISSING');
                 }
                 
-                // 初始化 Firebase 服務（帶重試機制）
-                this.firebaseService = new FirebaseService();
+                // 初始化 Firebase 服務（帶重試機制）- 使用統一架構
+                console.log('⚠️ 使用備援模式，但仍嘗試整合 FirebaseConfigManager...');
+                
+                // 檢查是否有可用的 FirebaseConfigManager
+                if (window.firebaseConfigManager) {
+                    // 嘗試使用預初始化模式，即使在備援情況下
+                    try {
+                        this.firebaseService = new FirebaseService({
+                            preInitialized: true,
+                            app: window.firebaseConfigManager.getApp(),
+                            database: window.firebaseConfigManager.getDatabase()
+                        });
+                        console.log('✅ 備援模式中使用了 FirebaseConfigManager 的預初始化實例');
+                    } catch (error) {
+                        console.warn('⚠️ 無法使用預初始化實例，回退到傳統模式:', error);
+                        this.firebaseService = new FirebaseService();
+                    }
+                } else {
+                    // 完全備援模式
+                    console.log('⚠️ FirebaseConfigManager 不可用，使用完全備援模式');
+                    this.firebaseService = new FirebaseService();
+                }
                 
                 // 設置事件監聽器
                 this.setupFirebaseEventListeners();
@@ -2634,45 +2657,61 @@ class ScrumPokerApp {
                 throw new Error('Firebase SDK 未載入，請檢查網路連線並重新整理頁面');
             }
             
-            const testService = new FirebaseService();
+            // 使用 FirebaseConfigManager 進行統一的連線測試
+            console.log('🧪 使用 FirebaseConfigManager 進行連線測試...');
             
             // 設置測試超時
             const testTimeout = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('連線測試超時（10秒）')), 10000);
             });
             
-            // 進行連線測試
-            const testResult = await Promise.race([
-                testService.initialize(testConfig),
-                testTimeout
-            ]);
+            // 建立臨時的 FirebaseConfigManager 實例進行測試
+            const testManager = new window.FirebaseConfigManager();
             
-            if (testResult) {
-                console.log('✅ Firebase 連線測試成功');
-                this.showToast('success', '🔥 Firebase 連線測試成功！可以儲存設定');
+            try {
+                // 進行初始化測試
+                const initResult = await Promise.race([
+                    testManager.initialize(testConfig),
+                    testTimeout
+                ]);
                 
-                // 簡單驗證資料庫讀寫權限
-                try {
-                    // 防呆：確認 Database 實例已正確初始化
-                    if (!testService.database || typeof testService.database.ref !== 'function') {
-                        throw new Error('Firebase Database 實例未正確初始化');
-                    }
+                if (initResult) {
+                    console.log('✅ FirebaseConfigManager 初始化成功');
                     
-                    const testRef = testService.database.ref('connection-test');
-                    await testRef.set({ timestamp: Date.now(), test: true });
-                    await testRef.remove();
-                    console.log('✅ Firebase 讀寫權限驗證成功');
-                } catch (permissionError) {
-                    console.warn('⚠️ Firebase 讀寫權限可能有問題:', permissionError);
-                    this.showToast('warning', '⚠️ 連線成功，但資料庫權限可能需要檢查');
+                    // 進行連線測試
+                    const connectionTest = await testManager.testConnection();
+                    
+                    if (connectionTest.success) {
+                        console.log('✅ Firebase 連線測試成功');
+                        this.showToast('success', '🔥 Firebase 連線測試成功！可以儲存設定');
+                        
+                        // 簡單驗證資料庫讀寫權限
+                        try {
+                            const database = testManager.getDatabase();
+                            if (!database || typeof database.ref !== 'function') {
+                                throw new Error('Firebase Database 實例未正確初始化');
+                            }
+                            
+                            const testRef = database.ref('connection-test');
+                            await testRef.set({ timestamp: Date.now(), test: true });
+                            await testRef.remove();
+                            console.log('✅ Firebase 讀寫權限驗證成功');
+                        } catch (permissionError) {
+                            console.warn('⚠️ Firebase 讀寫權限可能有問題:', permissionError);
+                            this.showToast('warning', '⚠️ 連線成功，但資料庫權限可能需要檢查');
+                        }
+                    } else {
+                        throw new Error(`Firebase 連線測試失敗: ${connectionTest.error}`);
+                    }
+                } else {
+                    throw new Error('Firebase 初始化失敗');
                 }
-            } else {
-                throw new Error('Firebase 連線測試失敗');
-            }
-            
-            // 清理測試服務
-            if (testService && typeof testService.destroy === 'function') {
-                testService.destroy();
+            } finally {
+                // 清理測試管理器實例
+                if (testManager && typeof testManager.destroy === 'function') {
+                    await testManager.destroy();
+                    console.log('🧹 測試管理器已清理');
+                }
             }
             
         } catch (error) {

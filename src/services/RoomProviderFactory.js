@@ -234,12 +234,29 @@ class RoomProviderFactory {
             throw new Error('FirebaseService 未載入或不可用');
         }
         
-        const firebaseService = new FirebaseService();
+        let firebaseService;
         
-        if (config.firebaseConfig) {
-            const initialized = await firebaseService.initialize(config.firebaseConfig);
-            if (!initialized) {
-                throw new Error('Firebase 初始化失敗');
+        // 優先使用 FirebaseConfigManager 的預初始化實例
+        if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+            console.log('🔄 RoomProviderFactory 使用 FirebaseConfigManager 預初始化實例');
+            
+            firebaseService = new FirebaseService({
+                preInitialized: true,
+                app: window.firebaseConfigManager.getApp(),
+                database: window.firebaseConfigManager.getDatabase()
+            });
+            
+            console.log('✅ FirebaseRoomProvider 已使用統一架構建立');
+        } else {
+            // 備援：使用傳統初始化方式
+            console.log('⚠️ FirebaseConfigManager 不可用，RoomProviderFactory 使用備援模式');
+            firebaseService = new FirebaseService();
+            
+            if (config.firebaseConfig) {
+                const initialized = await firebaseService.initialize(config.firebaseConfig);
+                if (!initialized) {
+                    throw new Error('Firebase 初始化失敗');
+                }
             }
         }
         
