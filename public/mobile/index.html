@@ -1,0 +1,2614 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Scrum Poker - Mobile</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer crossorigin="anonymous" onerror="console.error('Firebase SDK 載入失敗')"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer crossorigin="anonymous" onerror="console.error('Firebase Database SDK 載入失敗')"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer crossorigin="anonymous" onerror="console.error('Firebase Auth SDK 載入失敗')"></script>
+    
+    <!-- 共用樣式 -->
+    <link rel="stylesheet" href="../shared/styles/base.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 行動版主布局 */
+        .mobile-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* App Bar */
+        .app-bar {
+            background: white;
+            border-bottom: 1px solid #ddd;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .room-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .phase-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            background: #ffc107;
+            color: white;
+        }
+
+        .connection-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+            transition: all 0.3s ease;
+            background: #dc3545;
+            color: white;
+        }
+
+        .connection-status.connected {
+            background: #28a745;
+            color: white;
+        }
+
+        .connection-status.connecting {
+            background: #ffc107;
+            color: white;
+        }
+
+        .connection-status.local {
+            background: #6c757d;
+            color: white;
+        }
+
+        /* Tab 導航 */
+        .tab-nav {
+            background: white;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 16px 8px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6c757d;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: #007bff;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #007bff;
+        }
+
+        /* Tab 內容容器 */
+        .tab-content {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .tab-panel {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .tab-panel.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Vote Tab 樣式 */
+        .story-section {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #ddd;
+        }
+
+        .story-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .story-desc {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .story-type-selector {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+        }
+
+        .story-type-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #495057;
+            margin-bottom: 6px;
+        }
+
+        .story-type-select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .story-type-select:hover {
+            border-color: #007bff;
+        }
+
+        .story-type-select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .cards-section {
+            background: white;
+            padding: 20px 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cards-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .cards-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .cards-subtitle {
+            color: #6c757d;
+            font-size: 12px;
+        }
+
+        /* 2列網格卡牌 */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            aspect-ratio: 3/4;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            min-height: 50px;
+        }
+
+        .card:active {
+            transform: scale(0.95);
+        }
+
+        .card.selected {
+            border-color: #007bff;
+            background: #007bff;
+            color: white;
+        }
+
+        /* 底部操作區 */
+        .vote-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid #ddd;
+            margin-top: auto;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-primary { background: #007bff; color: white; border-color: #007bff; }
+        .btn-secondary { background: #6c757d; color: white; border-color: #6c757d; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .my-vote {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        /* Smart Advice - Mobile */
+        .advice-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-top: 16px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .advice-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            user-select: none;
+        }
+
+        .advice-toggle:hover {
+            background: #e9ecef;
+        }
+
+        .advice-toggle-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .advice-toggle-icon {
+            font-size: 12px;
+            color: #6c757d;
+            transition: transform 0.2s;
+        }
+
+        .advice-toggle.collapsed .advice-toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .advice-content {
+            padding: 12px 16px;
+            line-height: 1.5;
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+        }
+
+        .advice-content.collapsed {
+            max-height: 0;
+            padding: 0 16px;
+        }
+
+        .advice-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6c757d;
+            font-size: 13px;
+        }
+
+        .advice-loading .loading-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #e9ecef;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .advice-text {
+            white-space: pre-line;
+            font-size: 13px;
+            color: #495057;
+        }
+
+        .advice-keywords {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .advice-keyword {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .my-vote-value {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Players Tab 樣式 */
+        .players-header {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .player-item {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .player-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .player-status.online { background: #28a745; }
+        .player-status.voting { background: #ffc107; }
+        .player-status.offline { background: #dc3545; }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .player-role {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .player-vote {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Stats Tab 樣式 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .range-card {
+            grid-column: 1 / -1;
+        }
+
+        /* 簡易條圖 */
+        .chart-section {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-bottom: 16px;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .chart-bars {
+            display: flex;
+            align-items: end;
+            gap: 4px;
+            height: 60px;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: #007bff;
+            border-radius: 2px 2px 0 0;
+            min-height: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .chart-bar:hover {
+            opacity: 1;
+        }
+
+        .suggestions-section {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        .suggestions-btn {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .placeholder {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        /* 小螢幕適配 */
+        @media (max-width: 320px) {
+            .card-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* Toast 通知系統 - Mobile 版本 */
+        .toast-container {
+            position: fixed;
+            top: 60px;
+            left: 16px;
+            right: 16px;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: white;
+            border-left: 4px solid #007bff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+            padding: 12px 16px;
+            transform: translateY(-100px);
+            transition: transform 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        .toast.success { border-left-color: #28a745; }
+        .toast.error { border-left-color: #dc3545; }
+        .toast.warning { border-left-color: #ffc107; }
+        .toast.info { border-left-color: #17a2b8; }
+
+        .toast-header {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .toast-body {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .toast.success .toast-header { color: #28a745; }
+        .toast.error .toast-header { color: #dc3545; }
+        .toast.warning .toast-header { color: #856404; }
+        .toast.info .toast-header { color: #0c5460; }
+        
+        /* Firebase 配置模態框樣式 */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 16px;
+        }
+        
+        .modal-backdrop.hidden {
+            display: none;
+        }
+        
+        .modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .firebase-config-modal {
+            max-width: 450px;
+        }
+        
+        .modal-header {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .modal-header h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .text-secondary {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            font-family: monospace;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .text-muted {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            display: block;
+        }
+        
+        .config-status-section {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .status-icon {
+            font-size: 16px;
+        }
+        
+        .modal-footer {
+            padding: 16px 20px 20px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #0056b3;
+            border-color: #0056b3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+            border-color: #545b62;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: #666;
+            border-color: #ddd;
+        }
+        
+        .btn-outline:hover {
+            background: #f8f9fa;
+            border-color: #bbb;
+        }
+        
+        /* Checkbox 樣式 */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-layout">
+        <!-- App Bar -->
+        <header class="app-bar">
+            <div class="app-title">🃏 Scrum Poker</div>
+            <div class="room-info">
+                <span id="roomName">IOT</span>
+                <span class="phase-badge" id="phaseBadge">voting</span>
+                <span class="connection-status" id="connectionStatus">🔴 離線</span>
+                <button class="btn btn-outline" id="shareBtn" title="分享房間" style="margin-left: 8px; padding: 4px 8px; font-size: 12px;">📤</button>
+                <button class="btn btn-outline" id="editProfileBtn" title="編輯個人資訊" style="margin-left: 8px; padding: 4px 8px; font-size: 12px;">👤</button>
+                <button class="btn btn-outline" id="diagnosticBtn" title="系統診斷" style="margin-left: 8px; padding: 4px 8px; font-size: 12px;">🔧</button>
+            </div>
+        </header>
+
+        <!-- Tab 導航 -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="vote">Vote</button>
+            <button class="tab-btn" data-tab="players">Players</button>
+            <button class="tab-btn" data-tab="stats">Stats</button>
+        </nav>
+
+        <!-- Tab 內容 -->
+        <div class="tab-content">
+            <!-- Vote Tab -->
+            <div class="tab-panel active" id="vote-panel">
+                <div class="story-section">
+                    <div class="story-title">Story / Topic Header</div>
+                    <div class="story-desc">請描述需要估點的用戶故事或任務...</div>
+                    
+                    <!-- Story Type 選擇器 -->
+                    <div class="story-type-selector">
+                        <label for="storyTypeMobile" class="story-type-label">任務类型 (選填):</label>
+                        <select id="storyTypeMobile" class="story-type-select">
+                            <option value="">-- 請選擇任務類型 --</option>
+                            <option value="frontend">🎨 前端開發</option>
+                            <option value="backend">⚙️ 後端開發</option>
+                            <option value="manual_testing">🧪 手動測試</option>
+                            <option value="automation_testing">🤖 自動化測試</option>
+                            <option value="study">📚 研究學習</option>
+                            <option value="mobile">📱 手機程式</option>
+                            <option value="design">🎨 UI/UX 設計</option>
+                            <option value="devops">🚀 DevOps</option>
+                            <option value="general">🎯 通用任務</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="cards-section">
+                    <div class="cards-header">
+                        <div class="cards-title">選擇您的估點</div>
+                        <div class="cards-subtitle">點擊下方卡牌進行投票</div>
+                    </div>
+                    
+                    <div class="card-grid">
+                        <div class="card" data-value="0">0</div>
+                        <div class="card" data-value="1">1</div>
+                        <div class="card" data-value="2">2</div>
+                        <div class="card" data-value="3">3</div>
+                        <div class="card" data-value="5">5</div>
+                        <div class="card" data-value="8">8</div>
+                        <div class="card" data-value="13">13</div>
+                        <div class="card" data-value="21">21</div>
+                        <div class="card" data-value="34">34</div>
+                        <div class="card" data-value="55">55</div>
+                        <div class="card" data-value="89">89</div>
+                        <div class="card" data-value="?">?</div>
+                    </div>
+
+                    <div class="vote-footer">
+                        <div class="action-btns" id="actionBtns">
+                            <!-- 條件式顯示按鈕 -->
+                        </div>
+                        <div class="my-vote">
+                            我的投票: <span class="my-vote-value" id="myVote">未投票</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smart Advice -->
+                <div class="advice-container" id="adviceContainerMobile" style="display: none;">
+                    <div class="advice-toggle" id="adviceToggle">
+                        <span class="advice-toggle-text">🧠 智慧建議</span>
+                        <span class="advice-toggle-icon">▼</span>
+                    </div>
+                    <div class="advice-content" id="adviceContentMobile">
+                        <div class="advice-loading">
+                            <div class="loading-spinner"></div>
+                            <span>正在分析投票結果...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Players Tab -->
+            <div class="tab-panel" id="players-panel">
+                <div class="players-header">玩家列表</div>
+                <div id="playersList">
+                    <!-- 假資料玩家 -->
+                    <div class="player-item">
+                        <div class="player-status online"></div>
+                        <div class="player-info">
+                            <div class="player-name">ddd</div>
+                            <div class="player-role">(dev)</div>
+                        </div>
+                        <div class="player-vote">34 ✓</div>
+                    </div>
+                    <div class="player-item">
+                        <div class="player-status voting"></div>
+                        <div class="player-info">
+                            <div class="player-name">caleb</div>
+                            <div class="player-role">(qa)</div>
+                        </div>
+                        <div class="player-vote">[—]</div>
+                    </div>
+                    <div class="player-item">
+                        <div class="player-status offline"></div>
+                        <div class="player-info">
+                            <div class="player-name">other</div>
+                            <div class="player-role">(offline)</div>
+                        </div>
+                        <div class="player-vote">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Tab -->
+            <div class="tab-panel" id="stats-panel">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgValue">13</div>
+                        <div class="stat-label">平均分數</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="votesCount">2/4</div>
+                        <div class="stat-label">投票進度</div>
+                    </div>
+                    <div class="stat-card range-card">
+                        <div class="stat-value" id="rangeValue">[min=8, max=21]</div>
+                        <div class="stat-label">分數範圍</div>
+                    </div>
+                </div>
+
+                <div class="chart-section">
+                    <div class="chart-title">投票分布</div>
+                    <div class="chart-bars" id="chartBars">
+                        <!-- 假資料條圖 -->
+                        <div class="chart-bar" style="height: 20%"></div>
+                        <div class="chart-bar" style="height: 40%"></div>
+                        <div class="chart-bar" style="height: 60%"></div>
+                        <div class="chart-bar" style="height: 30%"></div>
+                        <div class="chart-bar" style="height: 80%"></div>
+                        <div class="chart-bar" style="height: 10%"></div>
+                    </div>
+                </div>
+
+                <div class="suggestions-section" id="suggestionsSection">
+                    <div class="placeholder">統計資料將在投票完成後顯示</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Firebase 配置表單模態框 -->
+    <div class="modal-backdrop hidden" id="firebaseConfigModal">
+        <div class="modal firebase-config-modal">
+            <div class="modal-header">
+                <h3>🔥 Firebase 團隊協作設定</h3>
+                <p class="text-secondary">設定 Firebase 以啟用即時同步功能</p>
+            </div>
+            <div class="modal-body">
+                <form id="firebaseConfigForm">
+                    <div class="input-group">
+                        <label for="modalProjectId" class="input-label">Firebase Project ID</label>
+                        <input type="text" id="modalProjectId" class="input-field" placeholder="my-scrum-poker-app" autocomplete="off">
+                        <small class="text-muted">位置：Firebase 控制台 > 專案設定 > 一般 > 專案 ID</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="modalApiKey" class="input-label">Firebase Web API Key</label>
+                        <input type="text" id="modalApiKey" class="input-field" placeholder="AIzaSyD..." autocomplete="off">
+                        <small class="text-muted">位置：Firebase 控制台 > 專案設定 > 一般 > 網頁 API 金鑰</small>
+                    </div>
+                    
+                    <div class="config-status-section">
+                        <div class="status-indicator" id="configStatusIndicator">
+                            <span class="status-icon">⚪</span>
+                            <span class="status-text">等待輸入</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancelConfigBtn">取消</button>
+                <button type="button" class="btn btn-secondary" id="useLocalModeBtn">使用本地模式</button>
+                <button type="button" class="btn btn-primary" id="saveFirebaseConfigBtn" disabled>連接 Firebase</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 使用者資訊輸入模態框 -->
+    <div class="modal-backdrop hidden" id="userInfoModal">
+        <div class="modal firebase-config-modal">
+            <div class="modal-header">
+                <h3>👤 加入 Scrum Poker 房間</h3>
+                <p class="text-secondary" id="userInfoRoomName">請輸入您的個人資訊以加入房間</p>
+            </div>
+            <div class="modal-body">
+                <form id="userInfoForm">
+                    <div class="input-group">
+                        <label for="modalUserName" class="input-label">您的姓名 <span style="color: #dc3545;">*</span></label>
+                        <input type="text" id="modalUserName" class="input-field" placeholder="請輸入您的姓名" autocomplete="off" required>
+                        <small class="text-muted">此名稱將顯示給房間內的其他成員</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="modalUserRole" class="input-label">您的角色 <span style="color: #dc3545;">*</span></label>
+                        <select id="modalUserRole" class="input-field" required>
+                            <option value="">請選擇您的角色</option>
+                            <option value="dev">👨‍💻 開發者 (Developer)</option>
+                            <option value="qa">🐛 測試人員 (QA)</option>
+                            <option value="scrum_master">👥 Scrum Master</option>
+                            <option value="po">📋 Product Owner</option>
+                            <option value="pm">📊 專案經理 (PM)</option>
+                            <option value="designer">🎨 設計師 (Designer)</option>
+                            <option value="other">🔧 其他</option>
+                        </select>
+                        <small class="text-muted">角色用於識別團隊成員職責</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="rememberUserInfo" checked>
+                            <span>記住我的資訊</span>
+                        </label>
+                        <small class="text-muted">下次使用時自動填入（僅儲存在您的瀏覽器中）</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancelUserInfoBtn">取消</button>
+                <button type="button" class="btn btn-primary" id="saveUserInfoBtn" disabled>加入房間</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 共用工具 -->
+    <script src="../shared/utils/querystring.js"></script>
+    <script src="../shared/utils/fmt.js"></script>
+    
+    <!-- Firebase 相關檔案 -->
+    <script src="../../src/managers/FirebaseConfigManager.js"></script>
+    <script src="../../src/services/FirebaseService.js"></script>
+    <script src="../shared/firebase-adapter.js"></script>
+
+    <!-- Smart Advice 相關檔案 -->
+    <script src="../../src/services/AdviceTemplateLoader.js"></script>
+    <script src="../../src/services/ScrumAdviceEngine.js"></script>
+
+    <script>
+        // 行動版 UI 控制器
+        class MobileUI {
+            constructor() {
+                this.params = QueryStringUtils.parseParams();
+                this.currentTab = 'vote';
+                this.selectedCard = null;
+                this.gamePhase = 'voting'; // voting, revealing, finished
+                this.firebaseAdapter = null;
+                this.isFirebaseConnected = false;
+                this.myPlayerId = null;
+                this.roomData = {
+                    phase: 'voting',
+                    players: {},
+                    votes: {}
+                };
+                
+                // 初始化智慧建議引擎
+                this.adviceEngine = new ScrumAdviceEngine();
+                this.isAdviceCollapsed = true;
+                
+                this.init();
+            }
+            
+            async init() {
+                console.log('📱 Mobile UI 初始化', this.params);
+                
+                // 檢查使用者資訊是否完整
+                if (!this.hasValidUserInfo()) {
+                    console.log('❓ 缺少使用者資訊，顯示輸入模態框');
+                    const userInfoCompleted = await this.showUserInfoModal();
+                    if (!userInfoCompleted) {
+                        console.log('❌ 使用者取消輸入，終止初始化');
+                        return;
+                    }
+                }
+                
+                this.updateRoomInfo();
+                this.setupTabNavigation();
+                this.setupCardSelection();
+                this.updateActionButtons();
+                this.setupDiagnosticButton();
+                this.setupShareButton();
+                this.setupEditProfileButton();
+                
+                // 初始化 Firebase
+                await this.initializeFirebase();
+                
+                // Firebase 初始化完成後，確保狀態同步
+                if (!this.isFirebaseConnected) {
+                    this.updateConnectionStatus('local', 'Firebase 連線失敗，使用本地模式');
+                } else {
+                    this.updateConnectionStatus('connected', 'Firebase 已連線，開始同步資料');
+                }
+                
+                // 確保卡牌初始狀態正確（投票階段應啟用）
+                this.updateCardsState(this.gamePhase);
+            }
+            
+            // Toast 通知系統
+            showToast(type, header, message) {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `
+                    <div class="toast-header">${header}</div>
+                    <div class="toast-body">${message}</div>
+                `;
+                
+                container.appendChild(toast);
+                
+                // 觸發動畫
+                setTimeout(() => toast.classList.add('show'), 100);
+                
+                // 自動移除
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        if (container.contains(toast)) {
+                            container.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+            
+            updateRoomInfo() {
+                document.getElementById('roomName').textContent = this.params.room;
+                document.title = `Scrum Poker - ${this.params.room} (Mobile)`;
+            }
+            
+            setupTabNavigation() {
+                const tabBtns = document.querySelectorAll('.tab-btn');
+                const tabPanels = document.querySelectorAll('.tab-panel');
+                
+                tabBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const targetTab = btn.dataset.tab;
+                        
+                        // 更新按鈕狀態
+                        tabBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        
+                        // 更新面板顯示
+                        tabPanels.forEach(panel => panel.classList.remove('active'));
+                        document.getElementById(`${targetTab}-panel`).classList.add('active');
+                        
+                        this.currentTab = targetTab;
+                        console.log(`切換到 ${targetTab} 頁面`);
+                        
+                        // 特殊處理
+                        if (targetTab === 'stats') {
+                            this.updateStatsDisplay();
+                        }
+                    });
+                });
+            }
+            
+            async initializeFirebase() {
+                try {
+                    console.log('🔥 嘗試初始化 Firebase Adapter...');
+                    this.updateConnectionStatus('connecting', '正在初始化 Firebase...');
+                    
+                    // 檢查 Firebase Adapter 是否可用
+                    if (typeof window.createFirebaseAdapter !== 'function') {
+                        console.warn('⚠️ Firebase Adapter 未載入，使用本地模式');
+                        this.updateConnectionStatus('local', 'Firebase Adapter 未載入，使用本地模式');
+                        return false;
+                    }
+                    
+                    // 檢查 FirebaseConfigManager 並嘗試初始化
+                    if (window.firebaseConfigManager && !window.firebaseConfigManager.isReady()) {
+                        console.log('🔧 嘗試載入 Firebase 設定...');
+                        this.updateConnectionStatus('connecting', '載入 Firebase 設定中...');
+                        
+                        // 嘗試載入已儲存的設定
+                        const savedConfig = window.firebaseConfigManager.loadConfig();
+                        
+                        if (savedConfig) {
+                            console.log('📂 找到已儲存的 Firebase 設定，開始初始化...');
+                            this.updateConnectionStatus('connecting', '使用已儲存設定連線中...');
+                            await window.firebaseConfigManager.initialize(savedConfig);
+                        } else {
+                            // 顯示 Firebase 配置表單
+                            console.log('❓ 未找到 Firebase 設定，顯示配置表單...');
+                            this.updateConnectionStatus('connecting', '等待 Firebase 設定...');
+                            
+                            return new Promise((resolve) => {
+                                this.showFirebaseConfigModal(resolve);
+                            });
+                        }
+                    }
+                    
+                    // 建立 Firebase Adapter 實例
+                    this.firebaseAdapter = window.createFirebaseAdapter();
+                    
+                    // 準備玩家資訊
+                    const player = {
+                        name: this.params.name,
+                        role: this.params.role
+                    };
+                    
+                    // 初始化 Firebase 連線
+                    console.log('🔗 正在連接 Firebase...', { 
+                        room: this.params.room, 
+                        player: player 
+                    });
+                    this.updateConnectionStatus('connecting', '連接 Firebase 房間中...');
+                    
+                    this.isFirebaseConnected = await this.firebaseAdapter.init(this.params.room, player);
+                    
+                    if (this.isFirebaseConnected) {
+                        console.log('✅ Firebase 連線成功');
+                        this.updateConnectionStatus('connected', 'Firebase 連線成功');
+                        
+                        // 保存我的玩家 ID
+                        this.myPlayerId = this.firebaseAdapter.generatePlayerId(player);
+                        console.log('👤 我的玩家 ID:', this.myPlayerId);
+                        
+                        // 設置房間資料監聽
+                        this.setupFirebaseListeners();
+                        
+                        return true;
+                    } else {
+                        console.warn('⚠️ Firebase 連線失敗，使用本地模式');
+                        this.updateConnectionStatus('local', 'Firebase 連線失敗，切換至本地模式');
+                        return false;
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Firebase 初始化失敗:', error);
+                    this.isFirebaseConnected = false;
+                    this.updateConnectionStatus('offline', 'Firebase 初始化失敗');
+                    return false;
+                }
+            }
+            
+            setupFirebaseListeners() {
+                if (!this.firebaseAdapter) return;
+                
+                console.log('👂 設置 Firebase 房間監聽器...');
+                
+                // 監聽房間資料更新
+                this.firebaseAdapter.subscribeRoom(this.params.room, (roomData) => {
+                    console.log('📡 收到房間資料更新:', roomData);
+                    this.handleRoomDataUpdate(roomData);
+                });
+            }
+            
+            handleRoomDataUpdate(roomData) {
+                // 更新遊戲階段
+                if (roomData.phase && roomData.phase !== this.roomData.phase) {
+                    console.log(`📋 階段變更: ${this.roomData.phase} → ${roomData.phase}`);
+                    const oldPhase = this.roomData.phase;
+                    this.roomData.phase = roomData.phase;
+                    
+                    // 更新階段顯示
+                    this.updatePhaseDisplay(roomData.phase, roomData.revealedAt);
+                    
+                    // 更新卡牌狀態
+                    this.updateCardsState(roomData.phase);
+                    
+                    // 階段變化時的特殊處理
+                    this.handlePhaseTransition(oldPhase, roomData.phase);
+                }
+                
+                // 更新玩家列表
+                if (roomData.players) {
+                    this.roomData.players = roomData.players;
+                    this.updatePlayersDisplay();
+                }
+                
+                // 更新投票資料
+                if (roomData.votes) {
+                    this.roomData.votes = roomData.votes;
+                    
+                    // 同步「我的投票」UI 狀態
+                    this.syncMyVoteUI(roomData.votes);
+                    
+                    // 更新統計顯示（即時同步）
+                    this.updateStatsDisplay();
+                    console.log('📊 Firebase 投票資料更新觸發統計更新');
+                }
+                
+                // 更新按鈕權限控制
+                this.updateActionButtons();
+            }
+            
+            // 同步「我的投票」UI 狀態
+            syncMyVoteUI(votes) {
+                if (!this.myPlayerId || !votes) return;
+                
+                const myVote = votes[this.myPlayerId];
+                console.log('🔄 同步我的投票 UI:', { playerId: this.myPlayerId, vote: myVote });
+                
+                // 重置所有卡牌選擇
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+                this.selectedCard = null;
+                
+                if (myVote && myVote.value !== null && myVote.value !== undefined) {
+                    // 找到對應的卡牌並選中
+                    const cardElement = document.querySelector(`[data-value="${myVote.value}"]`);
+                    if (cardElement) {
+                        cardElement.classList.add('selected');
+                        this.selectedCard = myVote.value;
+                        document.getElementById('myVote').textContent = myVote.value;
+                        console.log(`✅ 已選中卡牌: ${myVote.value}`);
+                    } else {
+                        console.warn(`⚠️ 找不到對應的卡牌元素: ${myVote.value}`);
+                        document.getElementById('myVote').textContent = '未投票';
+                    }
+                } else {
+                    document.getElementById('myVote').textContent = '未投票';
+                }
+            }
+            
+            setupCardSelection() {
+                const cards = document.querySelectorAll('.card');
+                
+                cards.forEach(card => {
+                    card.addEventListener('click', () => {
+                        this.selectCard(card);
+                    });
+                });
+                
+                // Story Type 選擇器
+                const storyTypeSelect = document.getElementById('storyTypeMobile');
+                if (storyTypeSelect) {
+                    storyTypeSelect.addEventListener('change', (e) => {
+                        console.log('📋 Story Type 已變更:', e.target.value);
+                        this.currentStoryType = e.target.value;
+                    });
+                }
+                
+                // 智慧建議切換
+                const adviceToggle = document.getElementById('adviceToggle');
+                if (adviceToggle) {
+                    adviceToggle.addEventListener('click', () => {
+                        this.toggleAdvice();
+                    });
+                }
+            }
+            
+            async selectCard(cardElement) {
+                const value = cardElement.dataset.value;
+                
+                // 轉換投票值類型
+                let voteValue = value;
+                if (value !== '?' && !isNaN(value)) {
+                    voteValue = parseInt(value, 10);
+                }
+                
+                console.log(`🎯 選擇卡牌: ${voteValue} (類型: ${typeof voteValue})`);
+                
+                // 更新 UI 選擇狀態
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+                cardElement.classList.add('selected');
+                this.selectedCard = voteValue;
+                
+                // 更新顯示
+                document.getElementById('myVote').textContent = value;
+                
+                // 觸覺反饋
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+                
+                // 提交投票
+                if (this.isFirebaseConnected) {
+                    try {
+                        console.log('📤 提交投票到 Firebase...');
+                        const success = await this.firebaseAdapter.submitVote(voteValue);
+                        
+                        if (success) {
+                            console.log('✅ 投票提交成功');
+                            this.showToast('success', '投票成功', `已選擇 ${value}`);
+                        } else {
+                            console.error('❌ 投票提交失敗');
+                            this.showToast('error', '投票失敗', '請稍後重試');
+                            // 重置 UI 選擇
+                            cardElement.classList.remove('selected');
+                            this.selectedCard = null;
+                            document.getElementById('myVote').textContent = '未投票';
+                        }
+                    } catch (error) {
+                        console.error('❌ 投票提交發生錯誤:', error);
+                        this.showToast('error', '投票錯誤', error.message || '網路連線問題');
+                        // 重置 UI 選擇
+                        cardElement.classList.remove('selected');
+                        this.selectedCard = null;
+                        document.getElementById('myVote').textContent = '未投票';
+                    }
+                } else {
+                    // 本地模式
+                    console.log('🏠 本地模式投票');
+                    this.showToast('info', '本地投票', `選擇了 ${value} (離線模式)`);
+                }
+                
+                this.updateActionButtons();
+            }
+            
+            updateActionButtons() {
+                const actionBtns = document.getElementById('actionBtns');
+                
+                // 清空現有按鈕
+                actionBtns.innerHTML = '';
+                
+                // 根據遊戲規則：所有角色都可以操作 Reveal/Reset 按鈕
+                if (this.gamePhase === 'voting') {
+                    actionBtns.innerHTML = `
+                        <button class="btn btn-primary" onclick="mobileUI.revealCards()">Reveal</button>
+                        <button class="btn btn-secondary" onclick="mobileUI.resetVotes()">Reset</button>
+                    `;
+                } else if (this.gamePhase === 'revealing') {
+                    actionBtns.innerHTML = '<div class="placeholder">開牌中...</div>';
+                } else if (this.gamePhase === 'finished') {
+                    actionBtns.innerHTML = `
+                        <button class="btn btn-secondary" onclick="mobileUI.resetVotes()">Reset</button>
+                    `;
+                }
+            }
+            
+            async revealCards() {
+                console.log('🃏 開牌');
+                
+                if (this.isFirebaseConnected) {
+                    try {
+                        const success = await this.firebaseAdapter.reveal();
+                        
+                        if (success) {
+                            console.log('✅ 開牌成功');
+                            this.showToast('success', '開牌成功', '所有投票已揭曉');
+                        } else {
+                            console.error('❌ 開牌失敗');
+                            this.showToast('error', '開牌失敗', '請稍後重試');
+                        }
+                    } catch (error) {
+                        console.error('❌ 開牌發生錯誤:', error);
+                        this.showToast('error', '開牌錯誤', error.message || '網路連線問題');
+                    }
+                } else {
+                    // 本地模式
+                    this.gamePhase = 'revealing';
+                    document.getElementById('phaseBadge').textContent = 'revealing';
+                    document.getElementById('phaseBadge').style.background = '#007bff';
+                    
+                    this.updateActionButtons();
+                    this.showToast('info', '本地開牌', '離線模式開牌');
+                    
+                    // 模擬開牌過程
+                    setTimeout(() => {
+                        this.gamePhase = 'finished';
+                        document.getElementById('phaseBadge').textContent = 'finished';
+                        document.getElementById('phaseBadge').style.background = '#28a745';
+                        
+                        // 顯示建議按鈕
+                        document.getElementById('suggestionsSection').innerHTML = `
+                            <button class="suggestions-btn" onclick="mobileUI.showSuggestions()">
+                                Show Suggestions
+                            </button>
+                        `;
+                        
+                        this.updateActionButtons();
+                    }, 2000);
+                }
+            }
+            
+            async resetVotes() {
+                console.log('🔄 重置投票');
+                
+                if (this.isFirebaseConnected) {
+                    try {
+                        const success = await this.firebaseAdapter.clearVotes();
+                        
+                        if (success) {
+                            console.log('✅ 重置投票成功');
+                            this.showToast('success', '重置成功', '開始新一輪投票');
+                            
+                            // 重置本地 UI
+                            this.resetLocalUI();
+                        } else {
+                            console.error('❌ 重置投票失敗');
+                            this.showToast('error', '重置失敗', '請稍後重試');
+                        }
+                    } catch (error) {
+                        console.error('❌ 重置投票發生錯誤:', error);
+                        this.showToast('error', '重置錯誤', error.message || '網路連線問題');
+                    }
+                } else {
+                    // 本地模式
+                    this.resetLocalUI();
+                    this.showToast('info', '本地重置', '離線模式重置');
+                }
+            }
+            
+            resetLocalUI() {
+                // 重置卡牌選擇
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+                this.selectedCard = null;
+                
+                // 重置階段
+                this.gamePhase = 'voting';
+                document.getElementById('phaseBadge').textContent = 'voting';
+                document.getElementById('phaseBadge').style.background = '#ffc107';
+                
+                // 重置投票顯示
+                document.getElementById('myVote').textContent = '未投票';
+                
+                // 重置統計資料
+                this.resetStatsDisplay();
+                
+                // 重置建議區
+                document.getElementById('suggestionsSection').innerHTML = `
+                    <div class="placeholder">統計資料將在投票完成後顯示</div>
+                `;
+                
+                this.updateActionButtons();
+            }
+            
+            // 更新階段顯示
+            updatePhaseDisplay(phase, revealedAt) {
+                const phaseBadge = document.getElementById('phaseBadge');
+                const phaseColors = {
+                    'voting': '#ffc107',
+                    'revealing': '#007bff', 
+                    'finished': '#28a745'
+                };
+                
+                const phaseTexts = {
+                    'voting': '投票中',
+                    'revealing': '開牌中',
+                    'finished': '已完成'
+                };
+                
+                if (phaseBadge) {
+                    phaseBadge.textContent = phaseTexts[phase] || phase;
+                    phaseBadge.style.background = phaseColors[phase] || '#6c757d';
+                }
+                
+                // 如果有揭示時間，顯示額外資訊
+                if (revealedAt && (phase === 'revealing' || phase === 'finished')) {
+                    const revealTime = new Date(revealedAt);
+                    const timeStr = revealTime.toLocaleTimeString('zh-TW', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    console.log(`🕐 開牌時間: ${timeStr}`);
+                }
+            }
+
+            updateConnectionStatus(status, message) {
+                const indicator = document.getElementById('connectionStatus');
+                if (!indicator) return;
+                
+                const statusConfig = {
+                    'offline': { text: '🔴 離線', className: '' },
+                    'connecting': { text: '🟡 連線中', className: 'connecting' },
+                    'connected': { text: '🟢 已連線', className: 'connected' },
+                    'local': { text: '⚪ 本地模式', className: 'local' }
+                };
+                
+                const config = statusConfig[status] || statusConfig['offline'];
+                indicator.textContent = config.text;
+                indicator.className = `connection-status ${config.className}`;
+                
+                console.log(`🔗 Mobile 連線狀態更新: ${status} - ${config.text}`);
+                
+                // 如果有訊息，顯示 toast
+                if (message) {
+                    const toastType = status === 'connected' ? 'success' : 
+                                     status === 'connecting' ? 'info' : 'warning';
+                    this.showToast(toastType, '連線狀態', message);
+                }
+            }
+            
+            // 更新卡牌狀態
+            updateCardsState(phase) {
+                const cards = document.querySelectorAll('.card');
+                const isDisabled = phase === 'revealing' || phase === 'finished';
+                
+                cards.forEach(card => {
+                    if (isDisabled) {
+                        card.classList.add('disabled');
+                        card.style.pointerEvents = 'none';
+                        card.style.opacity = '0.6';
+                    } else {
+                        card.classList.remove('disabled');
+                        card.style.pointerEvents = 'auto';
+                        card.style.opacity = '1';
+                    }
+                });
+                
+                console.log(`🎴 卡牌狀態更新: ${isDisabled ? '禁用' : '啟用'} (階段: ${phase})`);
+            }
+            
+            // 處理階段轉換
+            handlePhaseTransition(oldPhase, newPhase) {
+                console.log(`🔄 階段轉換: ${oldPhase} → ${newPhase}`);
+                
+                if (newPhase === 'revealing') {
+                    this.showToast('info', '開牌中', '正在揭示所有投票結果...');
+                    // 開牌中時更新統計（可能有新的投票資料）
+                    this.updateStatsDisplay();
+                } else if (newPhase === 'finished') {
+                    this.showToast('success', '開牌完成', '所有投票已揭曉');
+                    // 進入完成狀態會自動更新統計
+                    this.showFinishedState();
+                } else if (newPhase === 'voting' && oldPhase !== 'voting') {
+                    this.showToast('info', '新一輪開始', '開始新的投票回合');
+                    // 重新開始投票時重置統計
+                    this.resetStatsDisplay();
+                }
+                
+                console.log(`📊 階段轉換完成，統計資料已同步更新`);
+            }
+            
+            // 更新玩家顯示
+            updatePlayersDisplay() {
+                const playersList = document.getElementById('playersList');
+                if (!playersList || !this.roomData.players) return;
+                
+                const playersArray = Object.entries(this.roomData.players).map(([id, data]) => ({
+                    id,
+                    ...data
+                }));
+                
+                // 按加入時間排序
+                playersArray.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+                
+                playersList.innerHTML = playersArray.map(player => {
+                    const status = this.getPlayerStatus(player);
+                    const vote = this.getPlayerVoteDisplay(player.id);
+                    
+                    return `
+                        <div class="player-item">
+                            <div class="player-status ${status}"></div>
+                            <div class="player-info">
+                                <div class="player-name">${player.name}</div>
+                                <div class="player-role">(${player.role})</div>
+                            </div>
+                            <div class="player-vote">${vote}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+                console.log(`👥 玩家列表更新: ${playersArray.length} 位玩家`);
+            }
+            
+            // 取得玩家狀態
+            getPlayerStatus(player) {
+                if (!player.online) return 'offline';
+                
+                const hasVoted = this.roomData.votes && this.roomData.votes[player.id];
+                if (hasVoted) return 'online';
+                
+                return 'voting';
+            }
+            
+            // 取得玩家投票顯示
+            getPlayerVoteDisplay(playerId) {
+                const vote = this.roomData.votes && this.roomData.votes[playerId];
+                const phase = this.roomData.phase;
+                
+                if (!vote) {
+                    return '等待中';
+                }
+                
+                // 如果是開牌階段，顯示投票值
+                if (phase === 'revealing' || phase === 'finished') {
+                    return `${vote.value} ✓`;
+                }
+                
+                // 投票階段只顯示已投票狀態  
+                return '[—]';
+            }
+            
+            // 顯示完成狀態
+            showFinishedState() {
+                console.log('🏁 進入完成狀態，更新統計和建議');
+                
+                // 更新統計顯示（開牌完成時）
+                this.updateStatsDisplay();
+                
+                // 更新建議區域
+                const suggestionsSection = document.getElementById('suggestionsSection');
+                if (suggestionsSection && this.roomData.phase === 'finished') {
+                    suggestionsSection.innerHTML = `
+                        <button class="suggestions-btn" onclick="mobileUI.showSuggestions()">
+                            Show Suggestions
+                        </button>
+                    `;
+                }
+                
+                console.log('✅ 完成狀態更新完畢');
+            }
+            
+            updateStatsDisplay() {
+                try {
+                    console.log('📊 開始更新統計顯示...');
+                    
+                    // 檢查必要的 DOM 元素
+                    const avgElement = document.getElementById('avgValue');
+                    const votesCountElement = document.getElementById('votesCount');
+                    const rangeElement = document.getElementById('rangeValue');
+                    
+                    if (!avgElement || !votesCountElement || !rangeElement) {
+                        console.error('❌ 統計 DOM 元素缺失，無法更新統計');
+                        return;
+                    }
+                    
+                    // 更新統計數據
+                    if (!this.roomData.votes || Object.keys(this.roomData.votes).length === 0) {
+                        console.log('📊 無投票資料，重置統計顯示');
+                        avgElement.textContent = '--';
+                        votesCountElement.textContent = '0/0';
+                        rangeElement.textContent = '--';
+                        this.resetChart();
+                        return;
+                    }
+                    
+                    // 計算統計
+                    const votes = Object.values(this.roomData.votes);
+                    const numericVotes = votes
+                        .map(vote => vote.value)
+                        .filter(value => typeof value === 'number' && !isNaN(value));
+                    
+                    const totalPlayers = Object.keys(this.roomData.players || {}).length;
+                    const votedCount = votes.length;
+                    
+                    console.log(`📊 統計資料: 總玩家=${totalPlayers}, 已投票=${votedCount}, 數值投票=${numericVotes.length}`);
+                    
+                    // 更新投票進度
+                    votesCountElement.textContent = `${votedCount}/${totalPlayers}`;
+                    
+                    if (numericVotes.length === 0) {
+                        console.log('📊 無數值投票，顯示佔位符');
+                        avgElement.textContent = '--';
+                        rangeElement.textContent = '--';
+                        this.resetChart();
+                        return;
+                    }
+                    
+                    // 計算平均值
+                    const average = numericVotes.reduce((sum, val) => sum + val, 0) / numericVotes.length;
+                    avgElement.textContent = average.toFixed(1);
+                    
+                    // 計算範圍
+                    const min = Math.min(...numericVotes);
+                    const max = Math.max(...numericVotes);
+                    rangeElement.textContent = `[min=${min}, max=${max}]`;
+                    
+                    // 更新圖表
+                    this.updateChart(numericVotes);
+                    
+                    console.log('✅ 統計更新完成:', { 
+                        average: average.toFixed(1), 
+                        range: `${min}-${max}`, 
+                        votes: votedCount,
+                        totalPlayers: totalPlayers 
+                    });
+                    
+                } catch (error) {
+                    console.error('❌ 統計更新失敗:', error);
+                    // 發生錯誤時重置為安全狀態
+                    this.resetStatsDisplay();
+                }
+            }
+            
+            // 重置統計顯示
+            resetStatsDisplay() {
+                try {
+                    console.log('🧹 重置統計資料顯示');
+                    
+                    // 檢查並重置統計數據
+                    const avgElement = document.getElementById('avgValue');
+                    const votesCountElement = document.getElementById('votesCount');
+                    const rangeElement = document.getElementById('rangeValue');
+                    
+                    if (avgElement) avgElement.textContent = '--';
+                    if (votesCountElement) votesCountElement.textContent = '0/0';
+                    if (rangeElement) rangeElement.textContent = '--';
+                    
+                    // 重置圖表
+                    this.resetChart();
+                    
+                    console.log('✅ 統計資料已重置');
+                    
+                } catch (error) {
+                    console.error('❌ 統計重置失敗:', error);
+                }
+            }
+            
+            // 更新圖表
+            updateChart(numericVotes) {
+                try {
+                    const chartBars = document.getElementById('chartBars');
+                    if (!chartBars) {
+                        console.warn('⚠️ 圖表容器元素不存在');
+                        return;
+                    }
+                    
+                    if (!numericVotes || numericVotes.length === 0) {
+                        console.log('📊 無數值投票資料，重置圖表');
+                        this.resetChart();
+                        return;
+                    }
+                    
+                    // 計算投票分布
+                    const distribution = {};
+                    numericVotes.forEach(vote => {
+                        distribution[vote] = (distribution[vote] || 0) + 1;
+                    });
+                    
+                    const maxCount = Math.max(...Object.values(distribution));
+                    const entries = Object.entries(distribution).sort((a, b) => Number(a[0]) - Number(b[0]));
+                    
+                    // 生成條圖
+                    chartBars.innerHTML = entries.map(([value, count]) => {
+                        const height = (count / maxCount) * 100;
+                        return `<div class="chart-bar" style="height: ${height}%" title="${value}: ${count}票"></div>`;
+                    }).join('');
+                    
+                    console.log(`📊 圖表更新完成: ${entries.length} 個投票數值，最高 ${maxCount} 票`);
+                    
+                } catch (error) {
+                    console.error('❌ 圖表更新失敗:', error);
+                    this.resetChart();
+                }
+            }
+            
+            // 重置圖表
+            resetChart() {
+                try {
+                    const chartBars = document.getElementById('chartBars');
+                    if (chartBars) {
+                        // 恢復到初始的空白狀態
+                        chartBars.innerHTML = `
+                            <div class="chart-bar" style="height: 0%"></div>
+                            <div class="chart-bar" style="height: 0%"></div>
+                            <div class="chart-bar" style="height: 0%"></div>
+                            <div class="chart-bar" style="height: 0%"></div>
+                            <div class="chart-bar" style="height: 0%"></div>
+                            <div class="chart-bar" style="height: 0%"></div>
+                        `;
+                        console.log('📊 圖表已重置為空白狀態');
+                    } else {
+                        console.warn('⚠️ 圖表容器元素不存在，無法重置');
+                    }
+                } catch (error) {
+                    console.error('❌ 圖表重置失敗:', error);
+                }
+            }
+            
+            showSuggestions() {
+                alert('智慧建議功能即將推出！\n\n根據當前投票結果，建議:\n• 任務複雜度較高，建議拆分\n• 團隊對估點有共識\n• 可進行下一輪估點');
+            }
+            
+            // 分享房間功能
+            shareRoom() {
+                console.log('📤 準備分享房間連結...');
+                
+                // 使用 QueryStringUtils 生成乾淨的分享連結（只包含房間 ID）
+                const shareUrl = QueryStringUtils.generateShareLink(this.params);
+                console.log(`🔗 生成分享連結: ${shareUrl}`);
+                
+                if (navigator.share) {
+                    // 使用原生 Share API
+                    console.log('📱 使用原生 Share API');
+                    navigator.share({
+                        title: 'Scrum Poker Room',
+                        text: `加入 Scrum Poker 房間: ${this.params.room}`,
+                        url: shareUrl
+                    }).then(() => {
+                        console.log('✅ 原生分享成功');
+                        this.showToast('success', '分享成功', '房間連結已分享');
+                    }).catch((error) => {
+                        console.log('⚠️ 原生分享被取消或失敗:', error);
+                        // 如果用戶取消分享，不顯示錯誤 toast
+                        if (error.name !== 'AbortError') {
+                            this.showToast('error', '分享失敗', '請重試或手動複製連結');
+                        }
+                    });
+                } else {
+                    // Fallback: 複製到剪貼板
+                    console.log('📋 使用 Clipboard API fallback');
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        console.log('✅ 剪貼板複製成功');
+                        this.showToast('success', '複製成功', '房間連結已複製到剪貼板');
+                    }).catch(() => {
+                        console.log('⚠️ 剪貼板 API 失敗，使用 prompt fallback');
+                        // 最終 fallback: 使用 prompt 讓用戶手動複製
+                        prompt('請複製此連結:', shareUrl);
+                    });
+                }
+            }
+            
+            // 使用者資訊管理
+            hasValidUserInfo() {
+                return this.params.name && this.params.name.trim() !== '' && 
+                       this.params.role && this.params.role.trim() !== '';
+            }
+            
+            loadUserPreferences() {
+                try {
+                    const saved = localStorage.getItem('scrumPoker_userPreferences');
+                    if (saved) {
+                        const preferences = JSON.parse(saved);
+                        console.log('📂 載入已儲存的使用者偏好:', preferences);
+                        return preferences;
+                    }
+                } catch (error) {
+                    console.warn('⚠️ 載入使用者偏好失敗:', error);
+                }
+                return null;
+            }
+            
+            saveUserPreferences(userInfo, remember = true) {
+                if (!remember) return;
+                
+                try {
+                    const preferences = {
+                        name: userInfo.name,
+                        role: userInfo.role,
+                        savedAt: Date.now()
+                    };
+                    localStorage.setItem('scrumPoker_userPreferences', JSON.stringify(preferences));
+                    console.log('💾 使用者偏好已儲存:', preferences);
+                } catch (error) {
+                    console.warn('⚠️ 儲存使用者偏好失敗:', error);
+                }
+            }
+            
+            async showUserInfoModal() {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('userInfoModal');
+                    const userNameInput = document.getElementById('modalUserName');
+                    const userRoleSelect = document.getElementById('modalUserRole');
+                    const rememberCheckbox = document.getElementById('rememberUserInfo');
+                    const roomNameDisplay = document.getElementById('userInfoRoomName');
+                    const saveBtn = document.getElementById('saveUserInfoBtn');
+                    const cancelBtn = document.getElementById('cancelUserInfoBtn');
+                    
+                    // 載入已儲存的偏好
+                    const savedPreferences = this.loadUserPreferences();
+                    if (savedPreferences) {
+                        userNameInput.value = savedPreferences.name || '';
+                        userRoleSelect.value = savedPreferences.role || 'dev';
+                        rememberCheckbox.checked = true;
+                    } else {
+                        userNameInput.value = '';
+                        userRoleSelect.value = 'dev';
+                        rememberCheckbox.checked = true;
+                    }
+                    
+                    // 更新房間名稱顯示
+                    roomNameDisplay.textContent = `請輸入您的個人資訊以加入房間: ${this.params.room}`;
+                    
+                    // 顯示模態框
+                    modal.classList.remove('hidden');
+                    userNameInput.focus();
+                    
+                    // 輸入驗證
+                    const validateInputs = () => {
+                        const name = userNameInput.value.trim();
+                        const role = userRoleSelect.value;
+                        
+                        saveBtn.disabled = !(name && role);
+                    };
+                    
+                    // 綁定驗證事件
+                    userNameInput.addEventListener('input', validateInputs);
+                    userRoleSelect.addEventListener('change', validateInputs);
+                    
+                    // 初始驗證
+                    validateInputs();
+                    
+                    // 保存按鈕處理
+                    const handleSave = () => {
+                        const name = userNameInput.value.trim();
+                        const role = userRoleSelect.value;
+                        const remember = rememberCheckbox.checked;
+                        
+                        if (!name || !role) {
+                            this.showToast('error', '輸入錯誤', '請填寫完整的使用者資訊');
+                            return;
+                        }
+                        
+                        // 驗證名稱格式
+                        try {
+                            const sanitizedName = this.validateAndSanitizeName(name);
+                            
+                            // 更新參數
+                            this.params.name = sanitizedName;
+                            this.params.role = role;
+                            
+                            // 儲存偏好設定
+                            this.saveUserPreferences({ name: sanitizedName, role }, remember);
+                            
+                            // 隱藏模態框
+                            modal.classList.add('hidden');
+                            cleanup(); // 在保存成功時清理
+                            
+                            console.log('✅ 使用者資訊已更新:', { name: sanitizedName, role });
+                            this.showToast('success', '資訊已更新', `歡迎 ${sanitizedName} (${role})`);
+                            
+                            resolve(true);
+                            
+                        } catch (error) {
+                            this.showToast('error', '輸入錯誤', error.message);
+                        }
+                    };
+                    
+                    // 清理事件監聽器
+                    const cleanup = () => {
+                        userNameInput.removeEventListener('input', validateInputs);
+                        userRoleSelect.removeEventListener('change', validateInputs);
+                        userNameInput.removeEventListener('keydown', handleKeydown);
+                        saveBtn.onclick = null;
+                        cancelBtn.onclick = null;
+                    };
+                    
+                    // 取消按鈕處理
+                    const handleCancel = () => {
+                        modal.classList.add('hidden');
+                        cleanup(); // 在取消時清理
+                        resolve(false);
+                    };
+                    
+                    // 綁定按鈕事件
+                    saveBtn.onclick = handleSave;
+                    cancelBtn.onclick = handleCancel;
+                    
+                    // Enter 鍵提交
+                    const handleKeydown = (event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            if (!saveBtn.disabled) {
+                                handleSave();
+                            }
+                        } else if (event.key === 'Escape') {
+                            handleCancel();
+                        }
+                    };
+                    
+                    userNameInput.addEventListener('keydown', handleKeydown);
+                });
+            }
+            
+            validateAndSanitizeName(name) {
+                if (!name || typeof name !== 'string') {
+                    throw new Error('名稱格式錯誤');
+                }
+                
+                // 清理潛在的惡意字符
+                const sanitized = name
+                    .replace(/[<>"'&]/g, '') // 移除 HTML 字符
+                    .replace(/javascript:/gi, '') // 移除 JavaScript 協議
+                    .trim();
+                
+                if (sanitized.length === 0) {
+                    throw new Error('名稱不能為空');
+                }
+                
+                if (sanitized.length > 20) {
+                    throw new Error('名稱過長（最多 20 字符）');
+                }
+                
+                // 允許中文、英文、數字、空格、底線、連字符
+                if (!/^[a-zA-Z0-9\u4e00-\u9fff\s_-]+$/.test(sanitized)) {
+                    throw new Error('名稱包含不允許的字符');
+                }
+                
+                return sanitized;
+            }
+            
+            // Firebase 配置模態框控制
+            showFirebaseConfigModal(resolveCallback) {
+                const modal = document.getElementById('firebaseConfigModal');
+                const projectIdInput = document.getElementById('modalProjectId');
+                const apiKeyInput = document.getElementById('modalApiKey');
+                const statusIndicator = document.getElementById('configStatusIndicator');
+                const saveBtn = document.getElementById('saveFirebaseConfigBtn');
+                const cancelBtn = document.getElementById('cancelConfigBtn');
+                const localModeBtn = document.getElementById('useLocalModeBtn');
+                
+                // 重置表單
+                projectIdInput.value = '';
+                apiKeyInput.value = '';
+                this.updateConfigStatus('等待輸入', '⚪');
+                saveBtn.disabled = true;
+                
+                // 顯示模態框
+                modal.classList.remove('hidden');
+                projectIdInput.focus();
+                
+                // 輸入驗證
+                const validateInputs = () => {
+                    const projectId = projectIdInput.value.trim();  
+                    const apiKey = apiKeyInput.value.trim();
+                    
+                    if (projectId && apiKey) {
+                        // 基本格式驗證
+                        const isProjectIdValid = /^[a-z0-9-]+$/.test(projectId);
+                        const isApiKeyValid = /^AIza[a-zA-Z0-9_-]{35,}$/.test(apiKey);
+                        
+                        if (isProjectIdValid && isApiKeyValid) {
+                            this.updateConfigStatus('格式正確', '✅');
+                            saveBtn.disabled = false;
+                        } else {
+                            this.updateConfigStatus('格式錯誤', '❌');
+                            saveBtn.disabled = true;
+                        }
+                    } else {
+                        this.updateConfigStatus('請填寫完整', '⚠️');
+                        saveBtn.disabled = true;
+                    }
+                };
+                
+                // 綁定事件
+                projectIdInput.addEventListener('input', validateInputs);
+                apiKeyInput.addEventListener('input', validateInputs);
+                
+                // 保存按鈕
+                saveBtn.onclick = async () => {
+                    const projectId = projectIdInput.value.trim();
+                    const apiKey = apiKeyInput.value.trim();
+                    
+                    if (!projectId || !apiKey) {
+                        this.showToast('error', '輸入錯誤', '請填寫完整的 Firebase 配置');
+                        return;
+                    }
+                    
+                    const config = { projectId, apiKey };
+                    
+                    try {
+                        this.updateConfigStatus('連接中...', '🔄');
+                        this.updateConnectionStatus('connecting', '正在連接 Firebase...');
+                        saveBtn.disabled = true;
+                        
+                        console.log('🔧 使用表單設定初始化 Firebase...');
+                        await window.firebaseConfigManager.initialize(config);
+                        
+                        if (window.firebaseConfigManager.isReady()) {
+                            // 記住設定
+                            window.firebaseConfigManager.saveConfig(config, true);
+                            console.log('✅ Firebase 設定已保存');
+                            
+                            this.updateConfigStatus('連接成功', '✅');
+                            this.updateConnectionStatus('connected', 'Firebase 配置成功');
+                            modal.classList.add('hidden');
+                            resolveCallback(true);
+                        } else {
+                            console.warn('⚠️ Firebase 初始化未完成');
+                            this.updateConfigStatus('連接失敗', '❌');
+                            this.updateConnectionStatus('offline', 'Firebase 初始化未完成');
+                            this.showToast('error', '連接失敗', 'Firebase 初始化未完成');
+                            saveBtn.disabled = false;
+                        }
+                    } catch (error) {
+                        console.error('❌ Firebase 初始化失敗:', error);
+                        this.updateConfigStatus('連接失敗', '❌');
+                        this.updateConnectionStatus('offline', 'Firebase 連接失敗');
+                        this.showToast('error', '連接失敗', '請檢查 Project ID 和 API Key 是否正確');
+                        saveBtn.disabled = false;
+                    }
+                };
+                
+                // 取消按鈕
+                cancelBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolveCallback(false);
+                };
+                
+                // 本地模式按鈕
+                localModeBtn.onclick = () => {
+                    console.log('ℹ️ 用戶選擇本地模式');
+                    this.updateConnectionStatus('local', '用戶選擇本地模式');
+                    modal.classList.add('hidden');
+                    resolveCallback(false);
+                };
+                
+                // ESC 鍵關閉
+                const handleEscape = (event) => {
+                    if (event.key === 'Escape') {
+                        modal.classList.add('hidden');
+                        resolveCallback(false);
+                        document.removeEventListener('keydown', handleEscape);
+                    }
+                };
+                document.addEventListener('keydown', handleEscape);
+            }
+            
+            updateConfigStatus(text, icon) {
+                const statusIndicator = document.getElementById('configStatusIndicator');
+                if (statusIndicator) {
+                    statusIndicator.innerHTML = `
+                        <span class="status-icon">${icon}</span>
+                        <span class="status-text">${text}</span>
+                    `;
+                }
+            }
+            
+            // 設置診斷按鈕
+            setupDiagnosticButton() {
+                const diagnosticBtn = document.getElementById('diagnosticBtn');
+                if (diagnosticBtn) {
+                    diagnosticBtn.addEventListener('click', () => {
+                        this.showDiagnosticReport();
+                    });
+                }
+            }
+            
+            // 設置分享按鈕
+            setupShareButton() {
+                const shareBtn = document.getElementById('shareBtn');
+                if (shareBtn) {
+                    shareBtn.addEventListener('click', () => {
+                        this.shareRoom();
+                    });
+                    console.log('📤 Share 按鈕監聽器已設置');
+                } else {
+                    console.error('❌ 找不到 Share 按鈕元素');
+                }
+            }
+            
+            // 設置編輯個人資訊按鈕
+            setupEditProfileButton() {
+                const editProfileBtn = document.getElementById('editProfileBtn');
+                if (editProfileBtn) {
+                    editProfileBtn.addEventListener('click', () => {
+                        this.editUserProfile();
+                    });
+                    console.log('👤 Edit Profile 按鈕監聽器已設置');
+                } else {
+                    console.error('❌ 找不到 Edit Profile 按鈕元素');
+                }
+            }
+            
+            async editUserProfile() {
+                console.log('👤 編輯使用者個人資訊');
+                
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('userInfoModal');
+                    const userNameInput = document.getElementById('modalUserName');
+                    const userRoleSelect = document.getElementById('modalUserRole');
+                    const rememberCheckbox = document.getElementById('rememberUserInfo');
+                    const roomNameDisplay = document.getElementById('userInfoRoomName');
+                    const saveBtn = document.getElementById('saveUserInfoBtn');
+                    const cancelBtn = document.getElementById('cancelUserInfoBtn');
+                    
+                    // 預填當前使用者資訊
+                    userNameInput.value = this.params.name || '';
+                    userRoleSelect.value = this.params.role || 'dev';
+                    rememberCheckbox.checked = true;
+                    
+                    // 更新標題顯示
+                    roomNameDisplay.textContent = `編輯個人資訊 - ${this.params.room} 房間`;
+                    
+                    // 更新按鈕文字
+                    saveBtn.textContent = '更新資訊';
+                    
+                    // 顯示模態框
+                    modal.classList.remove('hidden');
+                    userNameInput.focus();
+                    userNameInput.select(); // 選中現有文字方便編輯
+                    
+                    // 輸入驗證
+                    const validateInputs = () => {
+                        const name = userNameInput.value.trim();
+                        const role = userRoleSelect.value;
+                        
+                        saveBtn.disabled = !(name && role);
+                    };
+                    
+                    // 綁定驗證事件
+                    userNameInput.addEventListener('input', validateInputs);
+                    userRoleSelect.addEventListener('change', validateInputs);
+                    
+                    // 初始驗證
+                    validateInputs();
+                    
+                    // 保存按鈕處理
+                    const handleSave = async () => {
+                        const name = userNameInput.value.trim();
+                        const role = userRoleSelect.value;
+                        const remember = rememberCheckbox.checked;
+                        
+                        if (!name || !role) {
+                            this.showToast('error', '輸入錯誤', '請填寫完整的使用者資訊');
+                            return;
+                        }
+                        
+                        // 檢查是否有變更
+                        const hasChanged = name !== this.params.name || role !== this.params.role;
+                        
+                        if (!hasChanged) {
+                            this.showToast('info', '無變更', '個人資訊未變更');
+                            modal.classList.add('hidden');
+                            saveBtn.textContent = '加入房間'; // 恢復原始文字
+                            cleanup(); // 在無變更時也要清理
+                            resolve(false);
+                            return;
+                        }
+                        
+                        // 驗證名稱格式
+                        try {
+                            const sanitizedName = this.validateAndSanitizeName(name);
+                            const oldName = this.params.name;
+                            const oldRole = this.params.role;
+                            
+                            // 更新參數
+                            this.params.name = sanitizedName;
+                            this.params.role = role;
+                            
+                            // 儲存偏好設定
+                            this.saveUserPreferences({ name: sanitizedName, role }, remember);
+                            
+                            // 隱藏模態框
+                            modal.classList.add('hidden');
+                            saveBtn.textContent = '加入房間'; // 恢復原始文字
+                            cleanup(); // 在保存成功時清理
+                            
+                            console.log('✅ 使用者資訊已更新:', { 
+                                from: { name: oldName, role: oldRole },
+                                to: { name: sanitizedName, role } 
+                            });
+                            
+                            this.showToast('success', '資訊已更新', `個人資訊已更新為 ${sanitizedName} (${role})`);
+                            
+                            // 更新 UI 顯示
+                            this.updateRoomInfo();
+                            
+                            // 如果 Firebase 已連線，同步更新玩家資訊
+                            if (this.isFirebaseConnected && this.firebaseAdapter) {
+                                try {
+                                    await this.updatePlayerInfoInFirebase(sanitizedName, role);
+                                } catch (error) {
+                                    console.warn('⚠️ Firebase 玩家資訊同步失敗:', error);
+                                    this.showToast('warning', '同步警告', 'Firebase 同步失敗，但本地資訊已更新');
+                                }
+                            }
+                            
+                            resolve(true);
+                            
+                        } catch (error) {
+                            this.showToast('error', '輸入錯誤', error.message);
+                        }
+                    };
+                    
+                    // 清理事件監聽器
+                    const cleanup = () => {
+                        userNameInput.removeEventListener('input', validateInputs);
+                        userRoleSelect.removeEventListener('change', validateInputs);
+                        userNameInput.removeEventListener('keydown', handleKeydown);
+                        saveBtn.onclick = null;
+                        cancelBtn.onclick = null;
+                    };
+                    
+                    // 取消按鈕處理
+                    const handleCancel = () => {
+                        modal.classList.add('hidden');
+                        saveBtn.textContent = '加入房間'; // 恢復原始文字
+                        cleanup(); // 在取消時清理
+                        resolve(false);
+                    };
+                    
+                    // 綁定按鈕事件
+                    saveBtn.onclick = handleSave;
+                    cancelBtn.onclick = handleCancel;
+                    
+                    // Enter 鍵提交
+                    const handleKeydown = (event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            if (!saveBtn.disabled) {
+                                handleSave();
+                            }
+                        } else if (event.key === 'Escape') {
+                            handleCancel();
+                        }
+                    };
+                    
+                    userNameInput.addEventListener('keydown', handleKeydown);
+                });
+            }
+            
+            async updatePlayerInfoInFirebase(name, role) {
+                if (!this.firebaseAdapter || !this.myPlayerId) {
+                    throw new Error('Firebase 或玩家 ID 不可用');
+                }
+                
+                try {
+                    console.log('🔄 更新 Firebase 玩家資訊...', { name, role });
+                    
+                    // 使用 firebaseAdapter 更新玩家資訊
+                    const success = await this.firebaseAdapter.updatePlayerInfo(this.myPlayerId, {
+                        name: name,
+                        role: role,
+                        lastUpdated: Date.now()
+                    });
+                    
+                    if (success) {
+                        console.log('✅ Firebase 玩家資訊同步成功');
+                        this.showToast('success', '同步成功', '個人資訊已同步至雲端');
+                    } else {
+                        throw new Error('Firebase 更新失敗');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Firebase 玩家資訊同步失敗:', error);
+                    throw error;
+                }
+            }
+            
+            // 顯示診斷報告
+            showDiagnosticReport() {
+                console.group('🔧 Mobile 系統診斷報告');
+                
+                // 基本環境資訊
+                console.log('📋 基本資訊:');
+                console.log(`   URL: ${window.location.href}`);
+                console.log(`   User Agent: ${navigator.userAgent}`);
+                console.log(`   Screen: ${screen.width}x${screen.height}`);
+                console.log(`   Viewport: ${window.innerWidth}x${window.innerHeight}`);
+                console.log(`   Online: ${navigator.onLine}`);
+                console.log(`   Touch Support: ${('ontouchstart' in window) ? '✅' : '❌'}`);
+                
+                // 程式狀態
+                console.log('🎮 程式狀態:');
+                console.log(`   房間 ID: ${this.params?.room || 'N/A'}`);
+                console.log(`   玩家名稱: ${this.params?.name || 'N/A'}`);
+                console.log(`   玩家角色: ${this.params?.role || 'N/A'}`);
+                console.log(`   選中卡牌: ${this.selectedCard || 'N/A'}`);
+                console.log(`   遊戲階段: ${this.gamePhase || 'N/A'}`);
+                console.log(`   當前分頁: ${this.currentTab || 'N/A'}`);
+                console.log(`   房間資料階段: ${this.roomData?.phase || 'N/A'}`);
+                console.log(`   玩家數量: ${Object.keys(this.roomData?.players || {}).length}`);
+                console.log(`   投票數量: ${Object.keys(this.roomData?.votes || {}).length}`);
+                
+                // Firebase 狀態
+                console.log('🔥 Firebase 狀態:');
+                console.log(`   已連線: ${this.isFirebaseConnected ? '✅' : '❌'}`);
+                console.log(`   我的玩家 ID: ${this.myPlayerId || 'N/A'}`);
+                console.log(`   Firebase SDK: ${typeof firebase !== 'undefined' ? '✅' : '❌'}`);
+                console.log(`   ConfigManager: ${!!window.firebaseConfigManager ? '✅' : '❌'}`);
+                console.log(`   ConfigManager Ready: ${window.firebaseConfigManager?.isReady() ? '✅' : '❌'}`);
+                console.log(`   Firebase Adapter: ${!!this.firebaseAdapter ? '✅' : '❌'}`);
+                
+                // 連線狀態
+                const connectionStatus = document.getElementById('connectionStatus')?.textContent || 'N/A';
+                const phaseStatus = document.getElementById('phaseBadge')?.textContent || 'N/A';
+                console.log('🔗 UI 狀態:');
+                console.log(`   連線狀態: "${connectionStatus}"`);
+                console.log(`   階段狀態: "${phaseStatus}"`);
+                
+                // DOM 元素檢查
+                console.log('🏗️ DOM 元素:');
+                const criticalElements = [
+                    '#roomName', '#phaseBadge', '#connectionStatus', '#diagnosticBtn',
+                    '.tab-btn', '.card', '#playersList', '#actionBtns',
+                    '#vote-panel', '#players-panel', '#stats-panel'
+                ];
+                
+                criticalElements.forEach(selector => {
+                    const element = document.querySelector(selector);
+                    const count = document.querySelectorAll(selector).length;
+                    console.log(`   ${selector}: ${element ? `✅ (${count})` : '❌'}`);
+                });
+                
+                // 分頁狀態檢查
+                console.log('📱 分頁狀態:');
+                const tabs = document.querySelectorAll('.tab-btn');
+                tabs.forEach(tab => {
+                    const tabName = tab.dataset.tab;
+                    const isActive = tab.classList.contains('active');
+                    console.log(`   ${tabName}: ${isActive ? '✅ 活躍' : '⚪ 非活躍'}`);
+                });
+                
+                // 錯誤檢查
+                const errors = [];
+                if (!this.params?.room) errors.push('缺少房間 ID');
+                if (!this.params?.name) errors.push('缺少玩家名稱');
+                if (!this.currentTab) errors.push('未設定當前分頁');
+                
+                console.log('❗ 潛在問題:');
+                if (errors.length > 0) {
+                    errors.forEach(error => console.log(`   ❌ ${error}`));
+                } else {
+                    console.log('   ✅ 未發現明顯問題');
+                }
+                
+                console.groupEnd();
+                
+                // 顯示 Toast 通知
+                this.showToast('info', '診斷完成', '診斷報告已輸出到控制台，按 F12 查看詳細資訊');
+            }
+            
+            toggleAdvice() {
+                const adviceToggle = document.getElementById('adviceToggle');
+                const adviceContent = document.getElementById('adviceContentMobile');
+                
+                this.isAdviceCollapsed = !this.isAdviceCollapsed;
+                
+                if (this.isAdviceCollapsed) {
+                    adviceToggle.classList.add('collapsed');
+                    adviceContent.classList.add('collapsed');
+                } else {
+                    adviceToggle.classList.remove('collapsed');
+                    adviceContent.classList.remove('collapsed');
+                }
+                
+                console.log('🧠 智慧建議切換:', this.isAdviceCollapsed ? '收起' : '展開');
+            }
+            
+            async generateSmartAdvice() {
+                console.log('🧠 開始生成智慧建議 (Mobile)...');
+                
+                try {
+                    // 顯示建議容器
+                    const adviceContainer = document.getElementById('adviceContainerMobile');
+                    const adviceContent = document.getElementById('adviceContentMobile');
+                    
+                    adviceContainer.style.display = 'block';
+                    adviceContent.innerHTML = `
+                        <div class="advice-loading">
+                            <div class="loading-spinner"></div>
+                            <span>正在分析投票結果...</span>
+                        </div>
+                    `;
+                    
+                    // 收集投票資料
+                    const mockVotes = {
+                        'player1': { value: 3, timestamp: Date.now(), player_role: 'dev' },
+                        'player2': { value: 5, timestamp: Date.now(), player_role: 'qa' },
+                        'player3': { value: 8, timestamp: Date.now(), player_role: 'scrum_master' },
+                        'player4': { value: 5, timestamp: Date.now(), player_role: 'po' }
+                    };
+                    
+                    // 計算統計資料
+                    const statistics = this.adviceEngine.calculateVotingStatistics(mockVotes);
+                    
+                    // 生成建議
+                    const options = {
+                        playerRoles: ['dev', 'qa', 'scrum_master', 'po'],
+                        votesByRole: [
+                            { role: 'dev', value: 3 },
+                            { role: 'qa', value: 5 },
+                            { role: 'scrum_master', value: 8 },
+                            { role: 'po', value: 5 }
+                        ]
+                    };
+                    
+                    const advice = await this.adviceEngine.generateAdvice(
+                        this.currentStoryType || 'general',
+                        statistics,
+                        options
+                    );
+                    
+                    // 顯示建議
+                    this.displayAdviceMobile(advice);
+                    
+                } catch (error) {
+                    console.error('❌ 生成智慧建議失敗:', error);
+                    
+                    // 顯示錯誤訊息
+                    const adviceContent = document.getElementById('adviceContentMobile');
+                    adviceContent.innerHTML = `
+                        <div class="advice-text" style="color: #dc3545;">
+                            ❌ 建議生成失敗：${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            displayAdviceMobile(advice) {
+                const adviceContent = document.getElementById('adviceContentMobile');
+                
+                let keywordsHtml = '';
+                if (advice.keywords && advice.keywords.length > 0) {
+                    keywordsHtml = `
+                        <div class="advice-keywords">
+                            ${advice.keywords.map(keyword => 
+                                `<span class="advice-keyword">${keyword}</span>`
+                            ).join('')}
+                        </div>
+                    `;
+                }
+                
+                adviceContent.innerHTML = `
+                    <div class="advice-text">${advice.content}</div>
+                    ${keywordsHtml}
+                `;
+                
+                console.log('✅ 智慧建議已顯示 (Mobile):', advice.title);
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.mobileUI = new MobileUI();
+        });
+        
+        // 除錯用
+        window.debugMobile = () => {
+            return {
+                params: window.mobileUI?.params,
+                currentTab: window.mobileUI?.currentTab,
+                selectedCard: window.mobileUI?.selectedCard,
+                gamePhase: window.mobileUI?.gamePhase,
+                switchTab: (tab) => {
+                    document.querySelector(`[data-tab="${tab}"]`).click();
+                },
+                selectCard: (value) => {
+                    document.querySelector(`[data-value="${value}"]`).click();
+                }
+            };
+        };
+    </script>
+</body>
+</html>

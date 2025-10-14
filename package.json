@@ -2,12 +2,23 @@
   "name": "scrum-poker",
   "version": "1.0.0",
   "description": "敏捷開發團隊的 Scrum Poker 估點工具",
-  "main": "index.html",
+  "main": "public/redirect.html",
   "scripts": {
     "start": "http-server -p 8080 -c-1 --cors",
     "dev": "concurrently \"firebase emulators:start\" \"http-server -p 8080 -c-1 --cors\"",
     "firebase": "firebase emulators:start",
-    "serve": "http-server -p 8080 -c-1 --cors"
+    "serve": "http-server -p 8080 -c-1 --cors",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:cross-device": "playwright test tests/e2e-cross-device.spec.js",
+    "test:cross-device:headed": "playwright test tests/e2e-cross-device.spec.js --headed",
+    "test:firebase": "dotenv -e .env.test -- playwright test tests/e2e-cross-device.spec.js",
+    "test:firebase:headed": "dotenv -e .env.test -- playwright test tests/e2e-cross-device.spec.js --headed",
+    "test:local": "playwright test tests/e2e-cross-device.spec.js",
+    "test:report": "playwright show-report",
+    "install-playwright": "playwright install"
   },
   "keywords": [
     "scrum",
@@ -22,7 +33,10 @@
   "author": "Scrum Poker Team",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
     "concurrently": "^8.2.0",
+    "dotenv": "^16.3.0",
+    "dotenv-cli": "^7.3.0",
     "firebase-tools": "^12.5.0",
     "http-server": "^14.1.1",
     "live-server": "^1.2.2"
@@ -30,7 +44,7 @@
   "dependencies": {},
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/scrum-poker.git"
+    "url": "https://github.com/calebtestbeta/scrum-poker.git"
   },
   "engines": {
     "node": ">=16.0.0",

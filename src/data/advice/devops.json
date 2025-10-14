@@ -1,0 +1,36 @@
+{
+  "category": "devops",
+  "displayName": "DevOps",
+  "icon": "🚀",
+  "description": "DevOps 任務的估點建議",
+  "templates": {
+    "highVariance": {
+      "title": "🚀 DevOps 架構複雜度分歧",
+      "content": "DevOps 任務複雜度評估分歧，需討論：\n• 部署環境和基礎設施需求\n• 自動化管道設計複雜度\n• 監控和日誌系統整合\n• 安全性和合規性要求",
+      "keywords": ["部署環境", "自動化管道", "監控系統", "安全合規"]
+    },
+    "lowVariance": {
+      "title": "⚙️ DevOps 策略方向明確",
+      "content": "DevOps 計畫評估一致！建議：\n• 建立標準化的部署流程\n• 確保環境配置的可重現性\n• 實作適當的監控告警\n• 規劃災難恢復和備份策略",
+      "keywords": ["部署流程", "環境配置", "監控告警", "災難恢復"]
+    },
+    "highEstimate": {
+      "title": "🛠️ 複雜 DevOps 基礎建設",
+      "content": "這是個具挑戰性的 DevOps 任務！\n• 設計完整的 CI/CD 管道\n• 建立多環境部署策略\n• 實作綜合監控和日誌系統\n• 規劃擴展性和高可用性",
+      "keywords": ["CI/CD管道", "多環境部署", "監控日誌", "高可用性"]
+    },
+    "lowEstimate": {
+      "title": "⚡ 基礎 DevOps 配置",
+      "content": "基礎 DevOps 任務，聚焦核心流程：\n• 建立基本的自動化部署\n• 配置基礎的監控機制\n• 確保環境配置文件化\n• 測試基本的備份恢復",
+      "keywords": ["自動化部署", "基礎監控", "配置文件", "備份恢復"]
+    }
+  },
+  "technologies": ["Docker", "Kubernetes", "Jenkins", "GitLab CI", "AWS/Azure/GCP", "Terraform"],
+  "commonChallenges": [
+    "容器化程式配置",
+    "微服務部署和服務發現",
+    "監控和告警系統設計",
+    "自動化部署管道",
+    "災難恢復和備份策略"
+  ]
+}

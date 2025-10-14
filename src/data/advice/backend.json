@@ -1,0 +1,36 @@
+{
+  "category": "backend",
+  "displayName": "後端開發",
+  "icon": "⚙️",
+  "description": "後端相關任務的估點建議",
+  "templates": {
+    "highVariance": {
+      "title": "⚙️ 後端架構討論時間",
+      "content": "後端複雜度評估分歧，需要技術討論：\n• 資料庫設計是否合理\n• API 設計複雜度評估\n• 第三方服務整合難度\n• 效能和擴展性考量",
+      "keywords": ["資料庫設計", "API設計", "第三方整合", "效能擴展"]
+    },
+    "lowVariance": {
+      "title": "🛠️ 後端團隊心有靈犀",
+      "content": "後端團隊評估一致，很棒！記得：\n• 遵循 RESTful API 設計原則\n• 確保適當的錯誤處理\n• 考慮資料驗證和安全性\n• 撰寫充分的單元測試",
+      "keywords": ["RESTful API", "錯誤處理", "資料安全", "單元測試"]
+    },
+    "highEstimate": {
+      "title": "🚀 後端火箭科學等級",
+      "content": "這個後端任務相當有挑戰性！建議：\n• 詳細設計資料庫 schema\n• 考慮使用快取機制\n• 預先規劃 API 版本控制\n• 設計適當的監控和日誌",
+      "keywords": ["資料庫設計", "快取機制", "API版本控制", "監控日誌"]
+    },
+    "lowEstimate": {
+      "title": "⚡ 後端輕量級任務",
+      "content": "看起來是個簡單的後端任務！仍需注意：\n• 確保資料驗證完整\n• 考慮併發處理情況\n• 撰寫基本的整合測試\n• 檢查安全性最佳實務",
+      "keywords": ["資料驗證", "併發處理", "整合測試", "安全實務"]
+    }
+  },
+  "technologies": ["Node.js", "Python/Django", "Java/Spring", "Go", "PostgreSQL", "Redis"],
+  "commonChallenges": [
+    "API設計和版本控制",
+    "資料庫效能優化",
+    "併發處理和競態條件",
+    "微服務架構整合",
+    "安全性和資料保護"
+  ]
+}

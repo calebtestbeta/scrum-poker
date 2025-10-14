@@ -1,0 +1,36 @@
+{
+  "category": "frontend",
+  "displayName": "前端開發",
+  "icon": "🎨",
+  "description": "前端相關任務的估點建議",
+  "templates": {
+    "highVariance": {
+      "title": "🎨 前端複雜度見解分歧",
+      "content": "團隊對前端任務複雜度看法差異較大。建議：\n• 前端架構師分享技術細節\n• 考慮 UI/UX 複雜度vs實作難度\n• 評估第三方套件整合需求\n• 討論瀏覽器相容性要求",
+      "keywords": ["前端架構", "UI/UX", "瀏覽器相容性", "套件整合"]
+    },
+    "lowVariance": {
+      "title": "💻 前端團隊步調一致",
+      "content": "太好了！前端團隊對複雜度有共識。記得：\n• 保持程式碼風格統一\n• 重複使用現有元件\n• 注意響應式設計細節\n• 別忘了無障礙設計 (a11y)",
+      "keywords": ["程式碼風格", "元件重用", "響應式設計", "無障礙設計"]
+    },
+    "highEstimate": {
+      "title": "🔥 前端挑戰等級：地獄模式",
+      "content": "這個前端任務看起來不簡單！建議：\n• 分解成更小的子任務\n• 建立原型驗證可行性\n• 預留時間處理跨瀏覽器問題\n• 考慮使用成熟的 UI 框架",
+      "keywords": ["任務分解", "原型驗證", "跨瀏覽器", "UI框架"]
+    },
+    "lowEstimate": {
+      "title": "⚡ 前端快速通關",
+      "content": "看起來是個輕鬆的前端任務！不過別大意：\n• 確認設計稿完整無誤\n• 檢查是否有隱藏的互動邏輯\n• 測試不同裝置的顯示效果\n• 記得做基本的效能優化",
+      "keywords": ["設計稿確認", "互動邏輯", "多裝置測試", "效能優化"]
+    }
+  },
+  "technologies": ["React", "Vue.js", "Angular", "TypeScript", "Sass/SCSS", "Webpack"],
+  "commonChallenges": [
+    "跨瀏覽器相容性問題",
+    "Mobile-first 響應式設計",
+    "第三方套件整合衝突",
+    "效能優化和Bundle大小控制",
+    "無障礙設計(a11y)實作"
+  ]
+}
