@@ -1,6 +1,6 @@
 {
   "name": "scrum-poker",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "description": "敏捷開發團隊的 Scrum Poker 估點工具",
   "main": "public/redirect.html",
   "scripts": {

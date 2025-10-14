@@ -1,29 +1,30 @@
 /**
  * Scrum Poker Service Worker
  * 提供快取策略和離線支援，提升應用效能
- * @version 3.0.0-performance
+ * @version 3.2.0-production
  */
 
-const CACHE_NAME = 'scrum-poker-v3.1.0';
-const CACHE_VERSION = '20250108_unified-firebase-config'; // 版本更新：統一 Firebase 配置管理
+const CACHE_NAME = 'scrum-poker-v3.2.0';
+const CACHE_VERSION = '20250114_v3.2.0-production'; // 版本更新：v3.2.0 生產版本統一
 
-// 需要快取的核心資源
+// 需要快取的核心資源 - 更新為 Desktop/Mobile 雙版本架構
 const CORE_ASSETS = [
     './',
-    './index.html',
-    './src/styles/variables.css',
-    './src/styles/main.css',
-    './src/core/EventBus.js',
-    './src/core/GameState.js',
-    './src/core/Utils.js',
-    './src/services/FirebaseService.js',
-    './src/services/StorageService.js',
-    './src/core/TouchManager.js',
-    './src/components/Card.js',
-    './src/components/Player.js',
-    './src/components/GameTable.js',
+    './public/redirect.html',
+    './public/desktop/index.html',
+    './public/mobile/index.html',
+    './public/shared/firebase-adapter.js',
+    './public/shared/styles/base.css',
+    './public/shared/utils/fmt.js',
+    './public/shared/utils/querystring.js',
     './src/managers/FirebaseConfigManager.js',
-    './src/app.js'
+    './src/services/FirebaseService.js',
+    './src/services/AdviceTemplateLoader.js',
+    './src/services/ScrumAdviceEngine.js',
+    './src/data/advice/general.json',
+    './src/data/advice/frontend.json',
+    './src/data/advice/backend.json',
+    './src/data/advice/testing.json'
 ];
 
 // 外部資源（CDN）
@@ -161,10 +162,10 @@ async function handleRequest(request) {
     } catch (error) {
         console.error('❌ 請求處理失敗:', error);
         
-        // 回退到離線頁面（如果有的話）
+        // 回退到離線頁面（重定向頁面或離線訊息）
         if (request.mode === 'navigate') {
             const cache = await caches.open(CACHE_NAME);
-            return await cache.match('./index.html') || 
+            return await cache.match('./public/redirect.html') || 
                    new Response('離線模式：無法連接到伺服器', {
                        status: 503,
                        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
@@ -248,7 +249,7 @@ async function networkFirstWithCacheFallback(request, cacheName) {
     } catch (error) {
         // 網路失敗，回退到任何可用的 HTML 頁面
         const cachedResponse = await cache.match(request) ||
-                              await cache.match('./index.html') ||
+                              await cache.match('./public/redirect.html') ||
                               await cache.match('./');
         
         if (cachedResponse) {
@@ -412,4 +413,4 @@ async function syncPerformanceData() {
     console.log('📊 同步效能資料...');
 }
 
-console.log('🎮 Scrum Poker Service Worker v3.1.0 已載入 - 統一 Firebase 配置管理');
+console.log('🎮 Scrum Poker Service Worker v3.2.0 已載入 - 生產環境程式碼清理');

@@ -6,6 +6,7 @@ firebase-config.production.js
 .env
 .env.local
 .env.production
+.env.test
 
 # 日誌文件
 *.log
@@ -45,3 +46,7 @@ firebase-debug.*.log
 
 # PWA 相關
 sw.js.map
+
+# Playwright 測試報告
+playwright-report/
+test-results/

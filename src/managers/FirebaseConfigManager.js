@@ -22,6 +22,9 @@ class FirebaseConfigManager {
         this.connectionRef = null;
         this.connectionListener = null;
         
+        // Singleton FirebaseService 實例快取
+        this._firebaseService = null;
+        
         // 錯誤狀態
         this.lastError = null;
         this.initializationAttempts = 0;
@@ -325,12 +328,20 @@ class FirebaseConfigManager {
             // 設置連線狀態監聽
             this.setupConnectionListener();
             
-            // 等待連線確認
+            // 🎯 加強連線驗證：等待真正的連線確認
             const connected = await this.waitForConnection();
             if (connected) {
-                this.status = 'connected';
-                console.log('✅ [FirebaseConfigManager] Firebase 初始化完成並已連線');
-                return true;
+                // 進行額外的讀寫測試確保連線真正可用
+                const readWriteTest = await this.testReadWriteAccess();
+                if (readWriteTest) {
+                    this.status = 'connected';
+                    console.log('✅ [FirebaseConfigManager] Firebase 初始化完成，連線與讀寫測試成功');
+                    return true;
+                } else {
+                    this.status = 'error';
+                    console.error('❌ [FirebaseConfigManager] Firebase 連線但讀寫測試失敗');
+                    return false;
+                }
             } else {
                 this.status = 'disconnected';
                 console.warn('⚠️ [FirebaseConfigManager] Firebase 初始化完成但連線失敗');
@@ -532,6 +543,19 @@ class FirebaseConfigManager {
                 console.log('👂 [FirebaseConfigManager] 連線監聽器已移除');
             }
             
+            // 銷毀 Singleton FirebaseService 實例
+            if (this._firebaseService) {
+                try {
+                    if (typeof this._firebaseService.destroy === 'function') {
+                        this._firebaseService.destroy();
+                    }
+                    console.log('🗑️ [FirebaseConfigManager] Singleton FirebaseService 實例已銷毀');
+                } catch (error) {
+                    console.warn('⚠️ [FirebaseConfigManager] FirebaseService 銷毀警告:', error);
+                }
+                this._firebaseService = null;
+            }
+            
             // 銷毀 Firebase 應用
             if (this.app) {
                 try {
@@ -546,6 +570,7 @@ class FirebaseConfigManager {
             this.status = 'uninitialized';
             this.app = null;
             this.database = null;
+            this._firebaseService = null;
             this.lastError = null;
             this.initializationAttempts = 0;
             
@@ -554,6 +579,68 @@ class FirebaseConfigManager {
             
         } catch (error) {
             console.error('❌ [FirebaseConfigManager] 銷毀資源失敗:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * 🎯 測試 Firebase 讀寫權限
+     * 確保連線不只是網路連通，而是真正可以操作資料庫
+     * @returns {Promise<boolean>} 讀寫測試是否成功
+     */
+    async testReadWriteAccess() {
+        try {
+            console.log('🧪 [FirebaseConfigManager] 開始 Firebase 讀寫權限測試...');
+            
+            if (!this.database) {
+                console.error('❌ [FirebaseConfigManager] 資料庫實例不存在');
+                return false;
+            }
+            
+            // 使用測試路徑進行讀寫測試
+            const testPath = 'connection-test';
+            const testData = {
+                timestamp: Date.now(),
+                test: true,
+                source: 'FirebaseConfigManager'
+            };
+            
+            // 測試寫入權限
+            try {
+                const testRef = this.database.ref(testPath);
+                await testRef.set(testData);
+                console.log('✅ [FirebaseConfigManager] Firebase 寫入測試成功');
+                
+                // 測試讀取權限
+                const snapshot = await testRef.once('value');
+                const readData = snapshot.val();
+                
+                if (readData && readData.timestamp === testData.timestamp) {
+                    console.log('✅ [FirebaseConfigManager] Firebase 讀取測試成功');
+                    
+                    // 清理測試資料
+                    await testRef.remove();
+                    console.log('🧹 [FirebaseConfigManager] 測試資料已清理');
+                    
+                    return true;
+                } else {
+                    console.error('❌ [FirebaseConfigManager] Firebase 讀取測試失敗：資料不匹配');
+                    return false;
+                }
+                
+            } catch (permissionError) {
+                // 檢查是否為權限錯誤
+                if (permissionError.code === 'PERMISSION_DENIED') {
+                    console.error('❌ [FirebaseConfigManager] Firebase 權限不足，請檢查資料庫規則');
+                    console.error('💡 [FirebaseConfigManager] 建議規則：{ "rules": { ".read": "auth != null", ".write": "auth != null" } }');
+                } else {
+                    console.error('❌ [FirebaseConfigManager] Firebase 讀寫測試失敗:', permissionError);
+                }
+                return false;
+            }
+            
+        } catch (error) {
+            console.error('❌ [FirebaseConfigManager] 讀寫權限測試執行失敗:', error);
             return false;
         }
     }
@@ -638,9 +725,95 @@ class FirebaseConfigManager {
             hasApp: !!this.app,
             hasDatabase: !!this.database,
             isReady: this.isReady(),
+            hasSingletonService: !!this._firebaseService,
             initializationAttempts: this.initializationAttempts,
             lastError: this.lastError?.message || null
         };
+    }
+    
+    /**
+     * 驗證完整的初始化流程狀態
+     * @returns {Object} 初始化狀態檢查結果
+     */
+    validateInitializationState() {
+        const result = {
+            valid: true,
+            issues: [],
+            summary: {}
+        };
+        
+        // 檢查 Firebase 應用狀態
+        if (!this.app) {
+            result.valid = false;
+            result.issues.push('Firebase 應用未初始化');
+        } else {
+            result.summary.appId = this.app.options?.projectId || 'unknown';
+        }
+        
+        // 檢查資料庫狀態
+        if (!this.database) {
+            result.valid = false;
+            result.issues.push('Firebase 資料庫未初始化');
+        }
+        
+        // 檢查連線狀態
+        if (this.status !== 'connected') {
+            result.valid = false;
+            result.issues.push(`Firebase 狀態不正確: ${this.status}`);
+        }
+        
+        // 檢查 Singleton 服務狀態
+        if (!this._firebaseService) {
+            result.issues.push('Singleton FirebaseService 尚未建立（將在首次呼叫時建立）');
+        } else {
+            result.summary.singletonCreated = true;
+        }
+        
+        result.summary.status = this.status;
+        result.summary.ready = this.isReady();
+        
+        return result;
+    }
+    
+    /**
+     * 統一提供 FirebaseService 實例 - Singleton 模式
+     * 確保所有模組使用同一個正確配置的 FirebaseService
+     * @returns {Object|null} FirebaseService 實例
+     */
+    getFirebaseService() {
+        if (!this.isReady()) {
+            console.warn('⚠️ [FirebaseConfigManager] Firebase 尚未準備好，無法提供 FirebaseService');
+            return null;
+        }
+        
+        // Singleton 模式：如果已經建立過實例，直接回傳
+        if (this._firebaseService) {
+            console.log('♻️ [FirebaseConfigManager] 回傳現有的 FirebaseService 實例 (Singleton)');
+            return this._firebaseService;
+        }
+        
+        if (!window.FirebaseService) {
+            console.error('❌ [FirebaseConfigManager] FirebaseService 類別未載入');
+            return null;
+        }
+        
+        try {
+            console.log('🔧 [FirebaseConfigManager] 首次建立 FirebaseService 實例 (Singleton)...');
+            
+            this._firebaseService = new window.FirebaseService({
+                preInitialized: true,
+                app: this.app,
+                database: this.database
+            });
+            
+            console.log('✅ [FirebaseConfigManager] Singleton FirebaseService 實例已建立');
+            return this._firebaseService;
+            
+        } catch (error) {
+            console.error('❌ [FirebaseConfigManager] 建立 FirebaseService 失敗:', error);
+            this._firebaseService = null;
+            return null;
+        }
     }
 }
 

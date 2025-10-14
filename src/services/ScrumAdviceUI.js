@@ -61,8 +61,11 @@ class ScrumAdviceUI {
             // 綁定 DOM 元素
             this.bindDOMElements();
             
-            // 設定事件監聽
-            this.setupEventListeners();
+            // 設定 DOM 事件監聽
+            this.setupDOMEventListeners();
+            
+            // 設定遊戲狀態監聽器
+            this.setupGameStateListeners();
             
             // 設定快捷鍵
             this.setupKeyboardShortcuts();
@@ -129,9 +132,55 @@ class ScrumAdviceUI {
     }
     
     /**
-     * 設定事件監聽
+     * 設定遊戲狀態監聽器 - 確保所有玩家同步看到統計
      */
-    setupEventListeners() {
+    setupGameStateListeners() {
+        if (!window.eventBus) {
+            console.warn('⚠️ EventBus 不存在，無法設定遊戲狀態監聽');
+            return;
+        }
+        
+        // 監聽開牌事件 - 所有玩家都會收到這個事件
+        window.eventBus.on('game:votes-revealed', (data) => {
+            console.log('🎨 ScrumAdviceUI 接收到開牌事件:', data);
+            this.handleVotesRevealed(data);
+        });
+        
+        // 監聽遊戲階段變更
+        window.eventBus.on('phase:changed', (data) => {
+            if (data.newPhase === 'revealing' || data.newPhase === 'finished') {
+                console.log('🎨 ScrumAdviceUI 检測到開牌階段:', data.newPhase);
+                // 如果進入開牌階段但沒有統計資料，顯示載入狀態
+                if (!this.currentAdvice) {
+                    this.showLoadingState();
+                    this.showSmartAdviceSection();
+                }
+            } else if (data.newPhase === 'voting') {
+                // 重新開始投票時重置建議
+                this.resetAdvice();
+            }
+        });
+        
+        // 監聽 GameState 的統計更新
+        if (window.gameState) {
+            window.gameState.subscribe('stateChanged', (data) => {
+                if (data.updates.statistics) {
+                    console.log('🎨 ScrumAdviceUI 接收到統計更新:', data.updates.statistics);
+                    // 如果有統計更新但沒有建議，嘗試生成建議
+                    if (!this.currentAdvice && data.newState.phase === 'finished') {
+                        this.generateAdviceFromGameState(data.newState);
+                    }
+                }
+            });
+        }
+        
+        console.log('🎨 ScrumAdviceUI 遊戲狀態監聽器已設定');
+    }
+    
+    /**
+     * 設定 DOM 事件監聽
+     */
+    setupDOMEventListeners() {
         // 顯示完整建議按鈕
         if (this.elements.showFullAdviceBtn) {
             this.elements.showFullAdviceBtn.addEventListener('click', this.boundHandlers.showFullAdvice);
@@ -159,6 +208,8 @@ class ScrumAdviceUI {
                 }
             });
         }
+        
+        console.log('🎨 ScrumAdviceUI DOM 事件監聽器已設定');
     }
     
     /**
@@ -337,10 +388,16 @@ class ScrumAdviceUI {
     updateAdvicePreview(advice) {
         if (!this.elements.advicePreview) return;
         
+        // 增加錯誤處理：檢查 advice 參數是否存在且有 content 屬性
+        if (!advice || !advice.content) {
+            console.warn('⚠️ updateAdvicePreview: 建議物件不完整', advice);
+            return;
+        }
+        
         const snippet = advice.content.split('\n')[0]; // 取第一行作為預覽
         
         this.elements.advicePreview.innerHTML = `
-            <div class="advice-preview-title">${advice.title}</div>
+            <div class="advice-preview-title">${advice.title || '智慧建議'}</div>
             <div class="advice-preview-snippet">${snippet}</div>
         `;
     }
@@ -351,6 +408,14 @@ class ScrumAdviceUI {
     showSmartAdviceSection() {
         if (this.elements.smartAdviceSection) {
             this.elements.smartAdviceSection.classList.remove('hidden');
+        }
+        
+        // 如果有標籤管理器且建議有內容，自動切換到建議標籤
+        if (window.railTabManager && this.currentAdvice) {
+            setTimeout(() => {
+                window.railTabManager.showTab('advice');
+                console.log('🧠 自動切換到建議標籤');
+            }, 500);
         }
     }
     
@@ -471,6 +536,92 @@ class ScrumAdviceUI {
     }
     
     /**
+     * 處理開牌事件 - 所有玩家同步觸發
+     * @param {Object} data - 開牌事件數據
+     */
+    async handleVotesRevealed(data) {
+        try {
+            console.log('🎨 處理開牌事件 - 所有玩家同步觸發');
+            
+            // 檢查是否有統計資料
+            if (!data.statistics) {
+                console.warn('⚠️ 開牌事件缺少統計資料');
+                return;
+            }
+            
+            // 顯示載入狀態
+            this.showLoadingState();
+            this.showSmartAdviceSection();
+            
+            // 嘗試從事件數據生成建議
+            const voteData = {
+                statistics: data.statistics,
+                votes: this.convertPlayersToVotes(data.players || []),
+                players: data.players || []
+            };
+            
+            // 獲取遊戲狀態
+            const gameState = window.gameState ? window.gameState.getState() : {};
+            
+            // 生成建議（所有玩家都執行，但只有觸發者保存到 Firebase）
+            await this.generateAdviceFromVotes(voteData, gameState);
+            
+            console.log('✅ ScrumAdviceUI 開牌事件處理完成');
+            
+        } catch (error) {
+            console.error('❌ ScrumAdviceUI 處理開牌事件失敗:', error);
+            this.showErrorState('建議生成失敗，請稍後再試');
+        }
+    }
+    
+    /**
+     * 從 GameState 生成建議
+     * @param {Object} gameState - 遊戲狀態
+     */
+    async generateAdviceFromGameState(gameState) {
+        try {
+            if (!gameState.statistics || !gameState.players) {
+                console.warn('⚠️ GameState 缺少必要資料');
+                return;
+            }
+            
+            const voteData = {
+                statistics: gameState.statistics,
+                votes: this.convertPlayersToVotes(gameState.players),
+                players: gameState.players
+            };
+            
+            await this.generateAdviceFromVotes(voteData, gameState);
+            
+        } catch (error) {
+            console.error('❌ 從 GameState 生成建議失敗:', error);
+        }
+    }
+    
+    /**
+     * 轉換玩家資料為投票資料格式
+     * @param {Array} players - 玩家陣列
+     * @returns {Object} 投票資料物件
+     */
+    convertPlayersToVotes(players) {
+        const votes = {};
+        
+        if (Array.isArray(players)) {
+            players.forEach(player => {
+                if (player.hasVoted && player.vote !== null && player.vote !== undefined) {
+                    votes[player.id] = {
+                        value: player.vote,
+                        timestamp: Date.now(),
+                        player_role: player.role || 'other'
+                    };
+                }
+            });
+        }
+        
+        return votes;
+    }
+    
+    /**
      * 重置建議狀態
      */
     resetAdvice() {
@@ -481,6 +632,8 @@ class ScrumAdviceUI {
         if (this.elements.advicePreview) {
             this.elements.advicePreview.innerHTML = '<p class="text-muted">點擊「開牌」後查看建議</p>';
         }
+        
+        console.log('🎨 ScrumAdviceUI 已重置');
     }
     
     /**

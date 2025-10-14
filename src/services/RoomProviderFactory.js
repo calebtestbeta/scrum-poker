@@ -106,7 +106,16 @@ const IRoomProvider = {
      * @param {string} roomId - 房間 ID
      * @returns {Promise<Object>} 投票狀態
      */
-    getVotes: async (roomId) => {}
+    getVotes: async (roomId) => {},
+    
+    // === 統計資料管理 ===
+    /**
+     * 保存統計資料
+     * @param {string} roomId - 房間 ID
+     * @param {Object} statisticsData - 統計資料
+     * @returns {Promise<boolean>} 是否保存成功
+     */
+    saveStatistics: async (roomId, statisticsData) => {}
 };
 
 /**
@@ -199,13 +208,35 @@ class SecurityUtils {
  * 負責根據不同模式創建對應的資料層服務
  */
 class RoomProviderFactory {
+    // 靜態屬性：存儲當前的房間提供者實例
+    static currentProvider = null;
     /**
-     * 創建房間資料提供者
-     * @param {string} mode - 模式 ('firebase' | 'local')
-     * @param {Object} config - 配置選項
-     * @returns {Promise<Object>} 房間資料提供者實例
+     * 設置房間提供者實例（由主應用註冊）
+     * @param {Object} providerInstance - 房間提供者實例
+     */
+    static setRoomProvider(providerInstance) {
+        console.log('🏭 [RoomProviderFactory] 註冊房間提供者:', providerInstance?.type || 'unknown');
+        RoomProviderFactory.currentProvider = providerInstance;
+    }
+    
+    /**
+     * 取得當前房間提供者實例
+     * @returns {Object|null} 房間提供者實例
+     */
+    static getRoomProvider() {
+        if (!RoomProviderFactory.currentProvider) {
+            console.warn('⚠️ [RoomProviderFactory] 尚未註冊房間提供者，請先呼叫 setRoomProvider()');
+            return null;
+        }
+        return RoomProviderFactory.currentProvider;
+    }
+    
+    /**
+     * 創建房間資料提供者 - 已廢棄，請使用 setRoomProvider/getRoomProvider
+     * @deprecated 請改用依賴注入模式
      */
     static async createProvider(mode, config = {}) {
+        console.warn('⚠️ [RoomProviderFactory] createProvider() 已廢棄，請使用 setRoomProvider/getRoomProvider 模式');
         
         try {
             switch (mode) {
@@ -225,42 +256,31 @@ class RoomProviderFactory {
     }
     
     /**
-     * 創建 Firebase 資料提供者
+     * 創建 Firebase 資料提供者 - 已廢棄，請使用 Singleton 模式
      * @param {Object} config - Firebase 配置
      * @returns {Promise<Object>} Firebase 提供者實例
+     * @deprecated 請透過主應用的 FirebaseConfigManager 取得 Singleton 實例並使用 setRoomProvider 註冊
      */
     static async createFirebaseProvider(config) {
-        if (!window.FirebaseService) {
-            throw new Error('FirebaseService 未載入或不可用');
-        }
+        console.warn('⚠️ [RoomProviderFactory] createFirebaseProvider 已廢棄，應使用 Singleton 模式');
         
-        let firebaseService;
-        
-        // 優先使用 FirebaseConfigManager 的預初始化實例
+        // 🔄 優先使用 FirebaseConfigManager 的 Singleton 實例
         if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
-            console.log('🔄 RoomProviderFactory 使用 FirebaseConfigManager 預初始化實例');
+            console.log('🔄 [RoomProviderFactory] 使用 FirebaseConfigManager Singleton 實例');
             
-            firebaseService = new FirebaseService({
-                preInitialized: true,
-                app: window.firebaseConfigManager.getApp(),
-                database: window.firebaseConfigManager.getDatabase()
-            });
-            
-            console.log('✅ FirebaseRoomProvider 已使用統一架構建立');
-        } else {
-            // 備援：使用傳統初始化方式
-            console.log('⚠️ FirebaseConfigManager 不可用，RoomProviderFactory 使用備援模式');
-            firebaseService = new FirebaseService();
-            
-            if (config.firebaseConfig) {
-                const initialized = await firebaseService.initialize(config.firebaseConfig);
-                if (!initialized) {
-                    throw new Error('Firebase 初始化失敗');
-                }
+            const firebaseService = window.firebaseConfigManager.getFirebaseService();
+            if (!firebaseService) {
+                throw new Error('無法從 FirebaseConfigManager 取得 Singleton FirebaseService');
             }
+            
+            console.log('✅ [RoomProviderFactory] FirebaseRoomProvider 使用 Singleton 架構建立');
+            return new FirebaseRoomProvider(firebaseService);
         }
         
-        return new FirebaseRoomProvider(firebaseService);
+        // 【已廢棄】備援模式
+        console.error('❌ [RoomProviderFactory] FirebaseConfigManager 不可用且備援模式已廢棄');
+        console.error('❌ [RoomProviderFactory] 請確保 FirebaseConfigManager 正確初始化');
+        throw new Error('Firebase 提供者建立失敗：需要使用 Singleton 模式');
     }
     
     /**
@@ -318,7 +338,8 @@ class RoomProviderFactory {
         const requiredMethods = [
             'initialize', 'destroy', 'joinRoom', 'leaveRoom',
             'submitVote', 'revealVotes', 'clearVotes',
-            'on', 'off', 'getRoomState', 'getPlayers', 'getVotes'
+            'on', 'off', 'getRoomState', 'getPlayers', 'getVotes',
+            'saveStatistics'
         ];
         
         for (const method of requiredMethods) {
@@ -404,8 +425,28 @@ class FirebaseRoomProvider {
         return await this.service.submitVote(roomId, playerId, vote);
     }
     
+    async reveal() {
+        // Firebase Adapter 便利方法：不需要傳入 roomId
+        const roomId = this.service.getCurrentRoomId();
+        if (!roomId) {
+            throw new Error('無法確定當前房間 ID');
+        }
+        console.log(`🃏 Firebase Adapter: 開牌房間 ${roomId}`);
+        return await this.service.revealVotes(roomId);
+    }
+    
     async revealVotes(roomId) {
         return await this.service.revealVotes(roomId);
+    }
+    
+    async reset() {
+        // Firebase Adapter 便利方法：不需要傳入 roomId
+        const roomId = this.service.getCurrentRoomId();
+        if (!roomId) {
+            throw new Error('無法確定當前房間 ID');
+        }
+        console.log(`🔄 Firebase Adapter: 重置房間 ${roomId}`);
+        return await this.service.clearVotes(roomId);
     }
     
     async clearVotes(roomId) {
@@ -433,6 +474,15 @@ class FirebaseRoomProvider {
     async getVotes(roomId) {
         // Firebase 的投票狀態透過事件更新，這裡回傳快取狀態
         return this.service.currentVotes || {};
+    }
+    
+    async saveStatistics(roomId, statisticsData) {
+        // 安全驗證
+        if (!SecurityUtils.validateRoomId(roomId)) {
+            throw new Error(`房間 ID "${roomId}" 格式無效。不能包含字符：. # $ / [ ] 或空白`);
+        }
+        
+        return await this.service.saveStatistics(roomId, statisticsData);
     }
 }
 
@@ -560,6 +610,21 @@ class LocalRoomProvider {
             return await this.service.getVotes(roomId);
         }
         return this.service.votes || {};
+    }
+    
+    async saveStatistics(roomId, statisticsData) {
+        // 本機模式不需要實際保存統計資料，但提供介面一致性
+        console.log('📊 本機模式：統計資料已記錄但不持久化', statisticsData);
+        
+        // 通過事件通知統計資料已"保存"
+        if (window.eventBus) {
+            window.eventBus.emit('statistics:saved', {
+                roomId,
+                statistics: statisticsData
+            });
+        }
+        
+        return true;
     }
 }
 

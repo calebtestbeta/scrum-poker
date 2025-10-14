@@ -2,23 +2,23 @@
 
 ## 專案說明
 
-這是一個基於 **Vanilla JavaScript** 開發的 **Scrum Poker 敏捷估點工具**，主要用於軟體開發團隊進行 Story Point 估點會議。專案提供直觀的撲克牌估點界面，支援多人即時協作，並具備智慧建議系統來協助團隊做出更好的技術決策。
+這是一個基於 **Vanilla JavaScript** 開發的 **Scrum Poker 敏捷估點工具**，採用 **Desktop/Mobile 雙版本架構**，為軟體開發團隊提供跨裝置的估點協作體驗。專案具備自動裝置檢測、Firebase 即時同步與智慧建議系統，協助團隊做出更好的技術決策。
 
 ### 主要技術棧
-- **前端框架**: Vanilla JavaScript + CSS (v3.0.0-vanilla)
-- **架構模式**: 事件驅動架構 (EventBus)
-- **資料儲存**: Firebase Realtime Database + Cookie
+- **前端框架**: Vanilla JavaScript + CSS (v3.2.0-production)
+- **架構模式**: Desktop/Mobile 雙版本 + 自動重定向
+- **資料儲存**: Firebase Realtime Database + LocalStorage
 - **身份驗證**: Firebase Anonymous Auth
-- **部署平台**: 靜態網頁託管
+- **部署平台**: 靜態網頁託管 (GitHub Pages / Netlify)
 
 ### 核心功能
-- 即時多人估點系統
-- CSS 動畫化卡牌互動
-- 智慧任務類型建議
-- 投票結果統計分析
-- 跨裝置響應式設計
-- 本地/離線模式支援
-- 狀態持久化機制
+- 🎯 **自動裝置檢測** - 智慧重定向至桌面版或行動版
+- 🔥 **Firebase 即時協作** - 多人同步投票與開牌
+- 🧠 **智慧建議系統** - 基於任務類型的技術建議
+- 📊 **即時統計分析** - 投票分佈與結果視覺化
+- 📱 **跨裝置設計** - 桌面/平板/手機完美適配
+- ⚡ **本地降級模式** - Firebase 無法連線時自動切換
+- 🎮 **直覺式操作** - 卡牌選擇與動畫互動
 
 ## 程式碼規範
 
@@ -66,78 +66,105 @@ function updateScore() {
 
 ## 檔案結構說明
 
+**🏗️ 生產環境優化架構 (v3.2.0)**
+
 ```
 scrum-poker/
-├── index.html              # 主頁面 - 登入和遊戲界面
-├── firebase-rules.json     # Firebase 安全規則
-├── package.json            # 專案設定和依賴
-├── sw.js                   # Service Worker (PWA)
+├── public/                    # 🎯 生產版本入口
+│   ├── redirect.html         # 📍 主入口 - 自動裝置檢測重定向
+│   ├── desktop/             # 🖥️ 桌面版本
+│   │   └── index.html       # 桌面完整功能版本
+│   ├── mobile/              # 📱 行動版本  
+│   │   └── index.html       # 行動優化版本
+│   └── shared/              # 🔗 共用資源
+│       ├── firebase-adapter.js   # Firebase 統一介面
+│       ├── styles/base.css       # 基礎樣式
+│       └── utils/                # 工具函式
+│           ├── querystring.js    # URL 參數處理
+│           └── fmt.js            # 格式化工具
 │
-├── src/                    # 原始碼目錄
-│   ├── app.js             # 主應用程式控制器
-│   │
-│   ├── components/        # UI 組件
-│   │   ├── Card.js       # 卡牌組件和卡牌組
-│   │   ├── Player.js     # 玩家組件和玩家列表
-│   │   └── GameTable.js  # 遊戲桌面主控制器
-│   │
-│   ├── core/             # 核心工具和管理器
-│   │   ├── EventBus.js   # 全域事件匯流排
-│   │   ├── GameState.js  # 遊戲狀態管理
-│   │   ├── TouchManager.js # 觸控手勢管理
-│   │   └── Utils.js      # 通用工具函數
-│   │
-│   ├── managers/         # 統一管理器
-│   │   └── FirebaseConfigManager.js # Firebase 設定統一管理器
-│   │
-│   ├── services/         # 服務層
-│   │   ├── FirebaseService.js     # Firebase 資料管理
-│   │   ├── LocalRoomService.js    # 本機房間服務
-│   │   ├── RoomProviderFactory.js # 房間資料提供者工廠
-│   │   ├── ScrumAdviceEngine.js   # 智慧建議引擎
-│   │   ├── ScrumAdviceUI.js       # 智慧建議界面
-│   │   └── StorageService.js      # 本地儲存管理
-│   │
-│   └── styles/           # 樣式文件
-│       ├── variables.css # CSS 變數定義
-│       └── main.css      # 主要樣式文件
+├── src/                      # 🧩 核心服務模組
+│   ├── managers/            # 🔧 管理器
+│   │   └── FirebaseConfigManager.js # Firebase 配置統一管理
+│   ├── services/            # 🛠️ 服務層 (10個核心服務)
+│   │   ├── FirebaseService.js        # Firebase 資料管理
+│   │   ├── AdviceTemplateLoader.js   # 建議模板載入器
+│   │   ├── ScrumAdviceEngine.js      # 智慧建議引擎
+│   │   └── ...                       # 其他服務模組
+│   └── data/advice/         # 📋 智慧建議模板 (JSON)
+│       ├── frontend.json    # 前端開發建議
+│       ├── backend.json     # 後端開發建議
+│       ├── testing.json     # 測試相關建議
+│       └── ...              # 其他類型建議模板
 │
-├── FEATURE_DEMO.md        # 功能演示說明
-├── FIREBASE_SETUP.md     # Firebase 設定教學
-├── LOCAL_DEVELOPMENT_GUIDE.md # 本地開發指南
-└── CLAUDE.md              # 本文件
+├── tests/                   # 🧪 E2E 自動化測試
+│   ├── e2e-cross-device.spec.js # 跨裝置同步測試
+│   └── README.md                 # 測試說明
+│
+├── 設定檔案                  # ⚙️ 專案配置
+│   ├── package.json         # 專案設定 (入口: public/redirect.html)
+│   ├── firebase.json        # Firebase 部署設定
+│   ├── database.rules.json  # Firebase 安全規則
+│   ├── sw.js                # Service Worker (PWA支援)
+│   └── playwright.config.js # 測試設定
+│
+└── 文件                     # 📚 專案文件
+    ├── CLAUDE.md            # AI 協作指南 (本文件)
+    ├── README.md            # 使用者指南
+    ├── FIREBASE_SETUP.md    # Firebase 設定教學
+    └── docs/legacy-notes/   # 歷史文件存檔
 ```
 
-## Firebase 使用說明
+**✨ 關鍵改進**
+- **統一入口**: `public/redirect.html` 自動檢測裝置並重定向
+- **雙版本架構**: Desktop 與 Mobile 各自優化的完整版本
+- **模組化設計**: 核心服務與資料分離，便於維護
+- **生產就緒**: 移除舊版複雜架構，專注實用功能
 
-### Realtime Database 結構
+## 🔥 Firebase 整合架構
+
+### 🏢 統一配置管理
+專案採用 `FirebaseConfigManager` 統一管理 Firebase 配置，避免重複設定：
+
+```javascript
+// 透過 FirebaseConfigManager 統一初始化
+const configManager = window.firebaseConfigManager;
+await configManager.initialize(config);
+
+// 各版本透過 firebase-adapter.js 統一存取
+const adapter = window.createFirebaseAdapter();
+```
+
+### 📊 Realtime Database 結構
 ```json
 {
   "rooms": {
     "room_id": {
       "phase": "voting|revealing|finished",
-      "created_at": "timestamp",
+      "created_at": "timestamp", 
       "last_activity": "timestamp",
+      "revealed_at": "timestamp",
       "players": {
         "player_id": {
           "name": "玩家名稱",
-          "role": "dev|qa|scrum_master|po|other",
+          "role": "dev|qa|scrum_master|po|designer|pm|other",
           "joined_at": "timestamp",
-          "last_active": "timestamp"
+          "last_active": "timestamp",
+          "online": true
         }
       },
       "votes": {
         "player_id": {
-          "value": 1|2|3|5|8|13|21|"coffee"|"question",
-          "timestamp": "timestamp",
+          "value": 0|1|2|3|5|8|13|21|34|55|89|"?",
+          "timestamp": "timestamp", 
           "player_role": "dev|qa|scrum_master|po|other"
         }
       },
-      "task_type": "frontend|backend|fullstack|mobile_app|...",
+      "task_type": "frontend|backend|testing|mobile|design|devops|general",
       "session_info": {
         "total_rounds": 0,
-        "average_votes": [],
-        "completion_time": []
+        "completion_times": [],
+        "vote_histories": []
       }
     }
   }
@@ -167,114 +194,193 @@ if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
 }
 ```
 
-## 事件驅動架構
+## 🎯 Desktop/Mobile 雙版本架構
 
-### EventBus 系統
-專案使用全域事件匯流排進行組件間通訊，避免直接依賴關係：
+### 🔀 自動重定向機制
+`public/redirect.html` 作為統一入口，透過裝置檢測自動導向合適版本：
 
 ```javascript
-// 發送事件
-window.eventBus.emit('game:vote-submitted', {
-    playerId: this.currentPlayerId,
-    vote: value,
-    timestamp: Date.now()
-});
-
-// 監聽事件
-window.eventBus.on('game:vote-submitted', (data) => {
-    this.handleVoteSubmitted(data);
-});
+// 裝置檢測邏輯
+class DeviceRedirector {
+    detectDevice() {
+        // 綜合判斷：平台、螢幕尺寸、觸控支援、User Agent
+        const isDesktopPlatform = ['MacIntel', 'Win32', 'Win64'].includes(navigator.platform);
+        const isMobileUA = /android|iphone|ipad/i.test(navigator.userAgent);
+        const hasRealTouch = navigator.maxTouchPoints > 1;
+        const isLargeScreen = window.innerWidth >= 1024;
+        
+        // 決策邏輯：平台優先，兼顧螢幕大小和觸控
+        return (isDesktopPlatform && isLargeScreen && !isMobileUA) ? 'desktop' : 'mobile';
+    }
+    
+    redirect(deviceType, queryString) {
+        const targetUrl = `${location.origin}/public/${deviceType}/index.html${queryString ? '?' + queryString : ''}`;
+        window.location.href = targetUrl;
+    }
+}
 ```
 
-### 主要事件類型
+### 📱 版本特色差異
 
-#### 遊戲流程事件
-- `game:vote-submitted` - 投票提交
-- `game:votes-revealed` - 開牌完成
-- `game:votes-cleared` - 清除投票
-- `game:phase-changed` - 階段變更
-- `game:leave-room` - 離開房間
+#### 🖥️ Desktop 版本特色
+- **多欄式佈局** - 左側遊戲區 + 右側統計/建議面板
+- **鍵盤快捷鍵** - 數字鍵選卡、空白鍵開牌、Ctrl+R 重置
+- **懸停效果** - 豐富的滑鼠互動回饋
+- **完整功能** - 所有進階功能完整展示
 
-#### 玩家事件
-- `players:player-added` - 玩家加入
-- `players:player-removed` - 玩家離開
-- `players:voting-progress` - 投票進度更新
+#### 📱 Mobile 版本特色  
+- **分頁式設計** - Vote / Players / Stats 三個主要分頁
+- **觸控優化** - 大按鈕、手勢支援、觸覺回饋
+- **螢幕適配** - 響應式卡牌網格、摺疊式建議區域
+- **效能優化** - 減少不必要的動畫和渲染
 
-#### 卡牌事件
-- `deck:card-selected` - 卡牌選擇
-- `deck:card-hover` - 卡牌懸停
+### 🔄 資料同步機制
+兩版本透過相同的 Firebase 資料結構保持同步：
 
-#### Firebase 事件
-- `firebase:connected` - 連線成功
-- `firebase:disconnected` - 連線中斷
-- `room:players-updated` - 玩家列表更新
-- `room:votes-updated` - 投票數據更新
+```javascript
+// 共用的 Firebase Adapter
+class FirebaseAdapter {
+    async submitVote(value) {
+        // 同步到 Firebase，自動觸發其他裝置更新
+        return await this.firebaseService.submitVote(value);
+    }
+    
+    subscribeRoom(roomId, callback) {
+        // 監聽房間變化，跨裝置即時同步
+        this.firebaseService.subscribeRoom(roomId, callback);
+    }
+}
+```
 
-## 開發與維護規則
+## 🧠 智慧建議系統
 
-### 新功能開發注意事項
+### 📋 動態模板載入
+專案採用外部 JSON 模板，支援 10 種任務類型的專業建議：
 
-1. **事件驅動原則**
-   - 使用 EventBus 進行組件間通訊
-   - 避免直接修改其他組件的狀態
-   - 新功能應該監聽相關事件並做出響應
+```javascript
+// AdviceTemplateLoader 動態載入建議模板
+const loader = new AdviceTemplateLoader();
+const template = await loader.loadTemplate('frontend'); // 載入前端開發建議
 
-2. **狀態管理原則**
+// 支援的任務類型
+const supportedTypes = [
+    'frontend', 'backend', 'testing', 'mobile', 'design', 
+    'devops', 'manual_testing', 'automation_testing', 
+    'study', 'general'
+];
+```
+
+### 🎯 建議生成邏輯
+根據投票結果的統計特徵生成對應建議：
+
+```javascript
+class ScrumAdviceEngine {
+    generateAdvice(taskType, statistics, options) {
+        const { variance, average, distribution } = statistics;
+        
+        // 根據統計特徵選擇建議類型
+        if (variance > threshold.high) {
+            return template.highVariance; // 團隊分歧大
+        } else if (average > threshold.complex) {
+            return template.highEstimate; // 高複雜度任務
+        } else if (variance < threshold.low) {
+            return template.lowVariance; // 團隊共識高
+        } else {
+            return template.lowEstimate; // 相對簡單任務
+        }
+    }
+}
+```
+
+### 📊 建議模板結構
+每個任務類型包含 4 種場景的專業建議：
+
+```json
+{
+  "category": "frontend",
+  "displayName": "前端開發",
+  "icon": "🎨",
+  "templates": {
+    "highVariance": {
+      "title": "🤔 前端技術架構需要討論",
+      "content": "團隊對前端實作方式有不同看法...",
+      "keywords": ["組件設計", "狀態管理", "效能優化"]
+    },
+    "lowVariance": { /* 高共識場景 */ },
+    "highEstimate": { /* 高複雜度場景 */ },
+    "lowEstimate": { /* 低複雜度場景 */ }
+  }
+}
+```
+
+## 🚀 開發與維護規則
+
+### 💡 新功能開發注意事項
+
+1. **雙版本兼容原則**
+   - 新功能需同時考慮 Desktop 和 Mobile 版本的體驗
+   - 使用共用的 `firebase-adapter.js` 確保資料同步一致性
+   - 優先在 Desktop 版本實作完整功能，Mobile 版本可適度簡化
+
+2. **模組化開發原則**
    ```javascript
-   // ✅ 好的做法
+   // ✅ 好的做法：使用統一的服務介面
    class NewFeature {
        constructor() {
-           this.isEnabled = false;
-           this.data = {};
-           this.setupEventListeners();
+           this.firebaseAdapter = window.createFirebaseAdapter();
+           this.adviceEngine = new ScrumAdviceEngine();
        }
        
-       setupEventListeners() {
-           window.eventBus.on('game:phase-changed', (data) => {
-               this.handlePhaseChange(data);
-           });
+       async handleNewFeature() {
+           // 透過統一介面操作資料
+           await this.firebaseAdapter.submitData(data);
        }
    }
    
-   // ❌ 避免的做法
-   let globalNewFeatureFlag = true; // 避免全域狀態
+   // ❌ 避免的做法：直接操作 Firebase
+   firebase.database().ref().set(data); // 繞過統一管理
    ```
 
-3. **狀態保護機制**
-   - 開牌狀態 (`isRevealed`) 需要特別保護
-   - 區分「重新開始遊戲」與「Firebase 同步」場景
-   - 使用智慧參數控制狀態重置行為
+3. **效能與體驗平衡**
+   - Desktop：著重功能完整性和視覺效果
+   - Mobile：著重載入速度和觸控體驗
+   - 共用：智慧建議和核心商業邏輯保持一致
 
-### Debug / 測試方式
+### 🧪 測試與除錯
 
-1. **瀏覽器開發者工具**
-   ```javascript
-   // 使用階層式 console 輸出
-   console.group('🎮 遊戲初始化');
-   console.log('玩家數量:', players.length);
-   console.log('房間狀態:', roomPhase);
-   console.groupEnd();
+1. **自動化 E2E 測試**
+   ```bash
+   # 跨裝置同步測試
+   npm run test:cross-device
    
-   // 錯誤追蹤
-   try {
-       riskyOperation();
-   } catch (error) {
-       console.error('操作失敗:', error);
-       this.showToast('error', '操作失敗，請重試');
-   }
+   # 含視覺化介面
+   npm run test:ui
+   
+   # Firebase 環境測試
+   npm run test:firebase
    ```
 
-2. **本地測試伺服器**
+2. **開發伺服器與即時測試**
    ```bash
+   # 啟動開發伺服器
    npm start
-   # 或
-   python3 -m http.server 8080
-   # 訪問 http://localhost:8080
+   # 訪問 http://localhost:8080 (自動重定向)
+   
+   # 強制指定版本測試
+   http://localhost:8080/public/desktop/
+   http://localhost:8080/public/mobile/
    ```
 
-3. **Firebase 模擬器** (可選)
-   ```bash
-   firebase emulators:start --only database
+3. **除錯工具與檢查**
+   ```javascript
+   // Desktop 版本內建診斷工具
+   window.diagnosticReport(); // 完整系統檢查
+   
+   // Mobile 版本診斷按鈕
+   mobileUI.showDiagnosticReport(); // 行動版系統診斷
+   
+   // Service Worker 快取管理
+   window.clearServiceWorkerCache(); // 清除所有快取
    ```
 
 ### Firebase 限制處理
@@ -324,92 +430,69 @@ window.eventBus.on('game:vote-submitted', (data) => {
    }
    ```
 
-## 常見任務的提示
+## 🛠️ 常見開發任務
 
-### 新增互動功能
+### 🎨 新增 UI 功能
 
-1. **事件監聽**
+1. **雙版本 UI 更新流程**
    ```javascript
-   // 在組件初始化時設置事件監聽
-   setupEventListeners() {
-       window.eventBus.on('deck:card-selected', (data) => {
-           this.handleCardSelection(data);
-       });
-   }
+   // 步驟 1: 先在 Desktop 版本實作完整功能
+   // public/desktop/index.html - 完整 UI 實作
    
-   // 觸控裝置支援
-   this.touchManager.on('tap', (gestureData) => {
-       const target = gestureData.target;
-       if (target.closest('.card')) {
-           // 處理卡牌點擊
-       }
+   // 步驟 2: 在 Mobile 版本實作適配版本  
+   // public/mobile/index.html - 簡化/優化版本
+   
+   // 步驟 3: 確保共用資料邏輯一致
+   // 透過 firebase-adapter.js 統一資料操作
+   ```
+
+2. **新增智慧建議模板**
+   ```javascript
+   // 步驟 1: 新增 JSON 模板
+   // src/data/advice/new_category.json
+   
+   // 步驟 2: 更新 AdviceTemplateLoader 支援清單
+   this.supportedCategories = {
+       // ... 現有類型
+       'new_category': 'new_category.json'
+   };
+   
+   // 步驟 3: 在兩個版本的 Story Type 選單中新增選項
+   ```
+
+### 🔥 Firebase 資料操作
+
+1. **透過統一 Adapter 操作**
+   ```javascript
+   // ✅ 推薦方式：使用 firebase-adapter.js
+   const adapter = window.createFirebaseAdapter();
+   
+   // 初始化連線
+   await adapter.init(roomId, playerInfo);
+   
+   // 提交投票
+   await adapter.submitVote(value);
+   
+   // 監聽房間變化
+   adapter.subscribeRoom(roomId, (roomData) => {
+       // 處理即時更新
    });
    ```
 
-2. **鍵盤快捷鍵**
+2. **直接使用 FirebaseConfigManager**
    ```javascript
-   setupKeyboardShortcuts() {
-       document.addEventListener('keydown', (event) => {
-           if (this.currentState !== 'game') return;
-           
-           switch (event.key) {
-               case ' ': // 空白鍵
-                   this.revealVotes();
-                   break;
-               case 'r': // R 鍵
-                   if (event.ctrlKey || event.metaKey) {
-                       event.preventDefault();
-                       this.clearVotes();
-                   }
-                   break;
-           }
-       });
-   }
-   ```
-
-### Firebase 資料操作
-
-1. **新增資料**
-   ```javascript
-   async function addGameData(roomId, data) {
-       try {
-           // 使用 FirebaseConfigManager 統一介面
-           if (!window.firebaseConfigManager || !window.firebaseConfigManager.isReady()) {
-               throw new Error('Firebase 尚未準備好');
-           }
-           
-           const database = window.firebaseConfigManager.getDatabase();
-           const ref = database.ref(`rooms/${roomId}/custom_data`);
-           await ref.push(data);
-           console.log('資料新增成功');
-       } catch (error) {
-           console.error('資料新增失敗:', error);
-           throw error;
-       }
-   }
-   ```
-
-2. **即時監聽**
-   ```javascript
-   function setupDataListener(roomId) {
-       // 使用 FirebaseConfigManager 統一介面
-       if (!window.firebaseConfigManager || !window.firebaseConfigManager.isReady()) {
-           console.error('Firebase 尚未準備好，無法設置監聽器');
-           return;
-       }
-       
+   // 適用於需要更底層控制的場合
+   if (window.firebaseConfigManager?.isReady()) {
        const database = window.firebaseConfigManager.getDatabase();
-       const ref = database.ref(`rooms/${roomId}`);
-       ref.on('value', (snapshot) => {
-           const data = snapshot.val();
-           if (data) {
-               // 發送事件而非直接更新狀態
-               window.eventBus.emit('firebase:data-updated', data);
-           }
-       });
+       const ref = database.ref(`rooms/${roomId}/custom_data`);
        
-       // 記得在適當時機移除監聽
-       // ref.off();
+       // 新增資料
+       await ref.push(data);
+       
+       // 監聽變化
+       ref.on('value', (snapshot) => {
+           console.log('資料更新:', snapshot.val());
+       });
    }
    ```
 
@@ -666,14 +749,72 @@ setVote(vote, animate = true) {
 
 ---
 
-## 🔄 持續改進
+## 📚 部署與生產指南
 
-這個專案由 Claude AI 協助開發，歡迎持續優化和擴充功能。開發時請遵循本文件的規範，確保程式碼品質和專案的可維護性。
+### 🚀 快速部署
+```bash
+# 1. 克隆專案
+git clone https://github.com/your-username/scrum-poker.git
+cd scrum-poker
 
-**記住**: 簡潔、清晰、可維護 > 炫技和過度優化
+# 2. 安裝依賴（僅用於開發和測試）
+npm install
+
+# 3. 啟動本地伺服器
+npm start
+
+# 4. 訪問應用
+# http://localhost:8080 (自動重定向)
+```
+
+### ☁️ 靜態網站部署
+專案已優化為純靜態網站，可直接部署到：
+
+- **GitHub Pages**: 設定 `public/redirect.html` 為首頁
+- **Netlify**: 上傳整個專案，自動識別靜態檔案
+- **Vercel**: 零配置部署，支援 PWA 功能
+- **Firebase Hosting**: 與 Firebase Database 完美整合
+
+### 🔧 Firebase 設定
+1. 建立 Firebase 專案
+2. 啟用 Realtime Database
+3. 設定安全規則 (參考 `database.rules.json`)
+4. 取得 Project ID 和 API Key
+5. 在應用中輸入配置資訊
 
 ---
 
-*最後更新: 2025-01-01*
-*版本: v3.0.0-vanilla*
-*架構: Vanilla JavaScript + CSS + EventBus*
+## 🧾 歷史文件參考
+
+開發過程中的歷史文件已整理至 `docs/legacy-notes/`，包含：
+
+### 📋 重要參考文件
+- [`FIREBASE_SETUP.md`](FIREBASE_SETUP.md) - Firebase 完整設定指南
+- [`LOCAL_DEVELOPMENT_GUIDE.md`](LOCAL_DEVELOPMENT_GUIDE.md) - 本地開發環境設置
+- [`docs/legacy-notes/game-rules.md`](docs/legacy-notes/game-rules.md) - Scrum Poker 遊戲規則
+- [`tests/README.md`](tests/README.md) - E2E 測試說明
+
+### 🔍 架構演進記錄
+- [`docs/legacy-notes/`](docs/legacy-notes/) - 完整的歷史設計文件
+- 包含架構演進、安全性檢查、功能測試等記錄
+- 供 AI 協作時參考設計脈絡和技術決策
+
+---
+
+## 🎉 專案成就
+
+- ✅ **雙版本架構** - Desktop/Mobile 各自優化
+- ✅ **自動裝置檢測** - 智慧重定向用戶體驗  
+- ✅ **Firebase 即時協作** - 多人同步投票系統
+- ✅ **智慧建議系統** - 10 種任務類型專業建議
+- ✅ **完整測試覆蓋** - E2E 跨裝置自動化測試
+- ✅ **生產就緒** - 程式碼清理與效能優化
+- ✅ **PWA 支援** - Service Worker 離線功能
+
+**記住**: 實用性 > 復雜性，使用者體驗 > 技術炫技
+
+---
+
+*最後更新: 2025-01-14*  
+*版本: v3.2.0-production-ready*  
+*架構: Desktop/Mobile 雙版本 + Firebase 即時協作*
