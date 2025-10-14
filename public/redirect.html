@@ -193,10 +193,17 @@
             }
 
             redirect(deviceType, queryString) {
-                // 建構目標 URL
+                // 建構目標 URL - 修復 GitHub Pages 子路徑問題
                 const targetPath = deviceType === 'mobile' ? '/mobile/' : '/desktop/';
-                const targetUrl = `${window.location.origin}/public${targetPath}${queryString ? '?' + queryString : ''}`;
+                
+                // 檢測是否為 GitHub Pages 子目錄部署
+                const currentPath = window.location.pathname;
+                const basePath = currentPath.includes('/scrum-poker/') ? '/scrum-poker' : '';
+                
+                const targetUrl = `${window.location.origin}${basePath}/public${targetPath}${queryString ? '?' + queryString : ''}`;
 
+                this.logDebug(`當前路徑: ${currentPath}`);
+                this.logDebug(`基礎路徑: ${basePath}`);
                 this.logDebug(`重定向至: ${targetUrl}`);
 
                 // 延遲重定向，讓使用者看到載入過程
@@ -227,13 +234,22 @@
         // 錯誤處理
         window.addEventListener('error', (event) => {
             console.error('重定向過程中發生錯誤:', event.error);
+            
+            // 修復 fallback 連結路徑
+            const currentPath = window.location.pathname;
+            const basePath = currentPath.includes('/scrum-poker/') ? '/scrum-poker' : '';
+            
             document.body.innerHTML = `
                 <div class="loading-container">
                     <h1>載入錯誤</h1>
                     <p>請手動選擇界面:</p>
                     <div style="margin-top: 20px;">
-                        <a href="/public/desktop/" style="color: white; margin: 0 10px;">桌面版</a>
-                        <a href="/public/mobile/" style="color: white; margin: 0 10px;">行動版</a>
+                        <a href="${basePath}/public/desktop/" style="color: white; margin: 0 10px; text-decoration: underline;">桌面版</a>
+                        <a href="${basePath}/public/mobile/" style="color: white; margin: 0 10px; text-decoration: underline;">行動版</a>
+                    </div>
+                    <div style="margin-top: 15px; font-size: 12px; opacity: 0.7;">
+                        當前路徑: ${currentPath}<br>
+                        基礎路徑: ${basePath}
                     </div>
                 </div>
             `;

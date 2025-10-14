@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>GitHub Pages 路徑測試</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .test-result { 
+            margin: 10px 0; 
+            padding: 10px; 
+            background: white; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .info { border-left: 4px solid #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 GitHub Pages 路徑重定向測試</h1>
+    
+    <div id="results"></div>
+    
+    <script>
+        function runPathTests() {
+            const results = document.getElementById('results');
+            
+            // 模擬不同的 URL 環境
+            const testCases = [
+                {
+                    name: 'GitHub Pages 環境',
+                    pathname: '/scrum-poker/public/redirect.html',
+                    origin: 'https://calebtestbeta.github.io',
+                    expected: 'https://calebtestbeta.github.io/scrum-poker/public/desktop/'
+                },
+                {
+                    name: '本地開發環境',
+                    pathname: '/public/redirect.html',
+                    origin: 'http://localhost:8080',
+                    expected: 'http://localhost:8080/public/desktop/'
+                },
+                {
+                    name: '根目錄部署',
+                    pathname: '/public/redirect.html',
+                    origin: 'https://example.com',
+                    expected: 'https://example.com/public/desktop/'
+                }
+            ];
+            
+            testCases.forEach(testCase => {
+                // 模擬修復後的邏輯
+                const currentPath = testCase.pathname;
+                const basePath = currentPath.includes('/scrum-poker/') ? '/scrum-poker' : '';
+                const targetPath = '/desktop/'; // 假設選擇桌面版
+                const actualUrl = `${testCase.origin}${basePath}/public${targetPath}`;
+                
+                const isCorrect = actualUrl === testCase.expected;
+                
+                results.innerHTML += `
+                    <div class="test-result ${isCorrect ? 'success' : 'error'}">
+                        <strong>${testCase.name}</strong><br>
+                        輸入路徑: ${testCase.pathname}<br>
+                        來源網域: ${testCase.origin}<br>
+                        計算基礎路徑: ${basePath || '(無)'}<br>
+                        生成 URL: ${actualUrl}<br>
+                        預期 URL: ${testCase.expected}<br>
+                        結果: ${isCorrect ? '✅ 通過' : '❌ 失敗'}
+                    </div>
+                `;
+            });
+            
+            // 顯示當前環境資訊
+            results.innerHTML += `
+                <div class="test-result info">
+                    <strong>當前環境資訊</strong><br>
+                    當前路徑: ${window.location.pathname}<br>
+                    當前來源: ${window.location.origin}<br>
+                    當前完整 URL: ${window.location.href}<br>
+                    檢測基礎路徑: ${window.location.pathname.includes('/scrum-poker/') ? '/scrum-poker' : '(無)'}
+                </div>
+            `;
+        }
+        
+        // 頁面載入完成後執行測試
+        document.addEventListener('DOMContentLoaded', runPathTests);
+    </script>
+</body>
+</html>
