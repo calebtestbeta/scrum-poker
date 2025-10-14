@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 安全規則測試</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛡️ Firebase 安全規則測試工具</h1>
+    
+    <div class="test-section">
+        <h2>🔥 Firebase 連線狀態</h2>
+        <div id="connectionStatus" class="status disconnected">未連線</div>
+        <button onclick="initializeFirebase()">初始化 Firebase</button>
+        <button onclick="testAuthentication()">測試匿名登入</button>
+        <div id="authInfo"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 安全規則測試</h2>
+        <button onclick="testUnauthorizedAccess()">測試未授權存取</button>
+        <button onclick="testAuthorizedAccess()">測試授權存取</button>
+        <button onclick="testDataValidation()">測試資料驗證</button>
+        <button onclick="testCrossUserAccess()">測試跨用戶存取</button>
+        <div id="securityTestResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 測試結果摘要</h2>
+        <div id="testSummary"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Firebase 配置 (請替換為您的實際配置)
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-project.firebaseapp.com",
+            databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+            projectId: "your-project-id"
+        };
+
+        let currentUser = null;
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const result = { timestamp, message, type };
+            testResults.push(result);
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `[${timestamp}] ${message}`;
+            
+            document.getElementById('securityTestResults').appendChild(resultDiv);
+            updateSummary();
+        }
+
+        function updateConnectionStatus(status, message) {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = message;
+        }
+
+        function updateAuthInfo(info) {
+            document.getElementById('authInfo').innerHTML = `
+                <pre>${JSON.stringify(info, null, 2)}</pre>
+            `;
+        }
+
+        function updateSummary() {
+            const summary = testResults.reduce((acc, result) => {
+                acc[result.type] = (acc[result.type] || 0) + 1;
+                return acc;
+            }, {});
+
+            document.getElementById('testSummary').innerHTML = `
+                <div class="test-result info">
+                    總測試: ${testResults.length} | 
+                    成功: ${summary.success || 0} | 
+                    錯誤: ${summary.error || 0} | 
+                    警告: ${summary.warning || 0}
+                </div>
+            `;
+        }
+
+        async function initializeFirebase() {
+            try {
+                log('初始化 Firebase...', 'info');
+                
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                
+                updateConnectionStatus('connected', '已連線到 Firebase');
+                log('Firebase 初始化成功', 'success');
+                
+                // 監聽連線狀態
+                const connectedRef = firebase.database().ref('.info/connected');
+                connectedRef.on('value', (snapshot) => {
+                    if (snapshot.val() === true) {
+                        updateConnectionStatus('connected', 'Firebase 已連線');
+                    } else {
+                        updateConnectionStatus('disconnected', 'Firebase 連線中斷');
+                    }
+                });
+                
+            } catch (error) {
+                log(`Firebase 初始化失敗: ${error.message}`, 'error');
+                updateConnectionStatus('disconnected', `連線失敗: ${error.message}`);
+            }
+        }
+
+        async function testAuthentication() {
+            try {
+                log('測試匿名身份驗證...', 'info');
+                
+                const userCredential = await firebase.auth().signInAnonymously();
+                currentUser = userCredential.user;
+                
+                updateAuthInfo({
+                    uid: currentUser.uid,
+                    isAnonymous: currentUser.isAnonymous,
+                    providerData: currentUser.providerData
+                });
+                
+                log(`匿名登入成功，UID: ${currentUser.uid}`, 'success');
+                
+            } catch (error) {
+                log(`身份驗證失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUnauthorizedAccess() {
+            try {
+                log('測試未授權存取 (登出狀態)...', 'info');
+                
+                // 先登出
+                if (currentUser) {
+                    await firebase.auth().signOut();
+                    currentUser = null;
+                    log('已登出，測試未授權存取', 'info');
+                }
+                
+                // 嘗試讀取房間資料
+                const snapshot = await firebase.database().ref('rooms/test-room/phase').once('value');
+                log('❌ 安全漏洞：未授權用戶可以讀取資料', 'error');
+                
+            } catch (error) {
+                if (error.code === 'PERMISSION_DENIED') {
+                    log('✅ 安全正常：未授權存取被正確拒絕', 'success');
+                } else {
+                    log(`未預期的錯誤: ${error.message}`, 'warning');
+                }
+            }
+        }
+
+        async function testAuthorizedAccess() {
+            try {
+                log('測試授權用戶存取...', 'info');
+                
+                // 確保已登入
+                if (!currentUser) {
+                    await testAuthentication();
+                }
+                
+                if (!currentUser) {
+                    log('無法進行授權測試：登入失敗', 'error');
+                    return;
+                }
+                
+                // 嘗試讀取房間資料
+                const snapshot = await firebase.database().ref('rooms/test-room/phase').once('value');
+                log('✅ 授權用戶可以正常讀取資料', 'success');
+                
+                // 嘗試寫入自己的玩家資料
+                await firebase.database().ref(`rooms/test-room/players/${currentUser.uid}`).set({
+                    name: 'Test Player',
+                    role: 'dev',
+                    joined_at: Date.now(),
+                    last_active: Date.now(),
+                    online: true,
+                    hasVoted: false
+                });
+                log('✅ 授權用戶可以寫入自己的玩家資料', 'success');
+                
+            } catch (error) {
+                log(`授權存取測試失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDataValidation() {
+            try {
+                log('測試資料驗證規則...', 'info');
+                
+                if (!currentUser) {
+                    await testAuthentication();
+                }
+                
+                // 測試無效的玩家名稱 (過長)
+                try {
+                    await firebase.database().ref(`rooms/test-room/players/${currentUser.uid}/name`).set('A'.repeat(25));
+                    log('❌ 資料驗證失敗：接受了過長的玩家名稱', 'error');
+                } catch (error) {
+                    if (error.code === 'PERMISSION_DENIED') {
+                        log('✅ 資料驗證正常：拒絕過長的玩家名稱', 'success');
+                    }
+                }
+                
+                // 測試無效的角色
+                try {
+                    await firebase.database().ref(`rooms/test-room/players/${currentUser.uid}/role`).set('invalid_role');
+                    log('❌ 資料驗證失敗：接受了無效的角色', 'error');
+                } catch (error) {
+                    if (error.code === 'PERMISSION_DENIED') {
+                        log('✅ 資料驗證正常：拒絕無效的角色', 'success');
+                    }
+                }
+                
+                // 測試有效資料
+                await firebase.database().ref(`rooms/test-room/players/${currentUser.uid}`).update({
+                    name: 'Valid Name',
+                    role: 'dev'
+                });
+                log('✅ 資料驗證正常：接受有效資料', 'success');
+                
+            } catch (error) {
+                log(`資料驗證測試失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCrossUserAccess() {
+            try {
+                log('測試跨用戶存取防護...', 'info');
+                
+                if (!currentUser) {
+                    await testAuthentication();
+                }
+                
+                // 嘗試修改其他用戶的資料
+                const fakeUserId = 'fake-user-id-12345';
+                try {
+                    await firebase.database().ref(`rooms/test-room/players/${fakeUserId}`).set({
+                        name: 'Hacker',
+                        role: 'dev'
+                    });
+                    log('❌ 安全漏洞：可以修改其他用戶的資料', 'error');
+                } catch (error) {
+                    if (error.code === 'PERMISSION_DENIED') {
+                        log('✅ 跨用戶防護正常：無法修改其他用戶資料', 'success');
+                    } else {
+                        log(`未預期的錯誤: ${error.message}`, 'warning');
+                    }
+                }
+                
+                // 嘗試修改其他用戶的投票
+                try {
+                    await firebase.database().ref(`rooms/test-room/votes/${fakeUserId}`).set({
+                        value: 13,
+                        timestamp: Date.now()
+                    });
+                    log('❌ 安全漏洞：可以修改其他用戶的投票', 'error');
+                } catch (error) {
+                    if (error.code === 'PERMISSION_DENIED') {
+                        log('✅ 投票防護正常：無法修改其他用戶投票', 'success');
+                    } else {
+                        log(`未預期的錯誤: ${error.message}`, 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                log(`跨用戶存取測試失敗: ${error.message}`, 'error');
+            }
+        }
+
+        // 頁面載入時顯示說明
+        window.onload = function() {
+            log('Firebase 安全規則測試工具已載入', 'info');
+            log('請先配置 Firebase 設定，然後點擊「初始化 Firebase」開始測試', 'warning');
+        };
+    </script>
+</body>
+</html>

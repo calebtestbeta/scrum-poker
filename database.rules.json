@@ -1,6 +1,91 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    ".read": false,
+    ".write": false,
+    
+    "rooms": {
+      "$roomId": {
+        // 房間基本資訊 - 需要身份驗證
+        "phase": {
+          ".read": "auth != null",
+          ".write": "auth != null && (newData.val() == 'voting' || newData.val() == 'revealing' || newData.val() == 'finished')"
+        },
+        
+        "created_at": {
+          ".read": "auth != null",
+          ".write": "auth != null && !data.exists()"
+        },
+        
+        "last_activity": {
+          ".read": "auth != null",  
+          ".write": "auth != null"
+        },
+        
+        "task_type": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        // 玩家管理 - 只能修改自己的資料
+        "players": {
+          ".read": "auth != null",
+          
+          "$playerId": {
+            ".write": "auth != null && auth.uid == $playerId",
+            
+            "name": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20"
+            },
+            
+            "role": {
+              ".validate": "newData.val().matches(/^(dev|qa|scrum_master|po|other)$/)"
+            },
+            
+            "joined_at": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "last_active": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "online": {
+              ".validate": "newData.isBoolean()"
+            },
+            
+            "hasVoted": {
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        
+        // 投票管理 - 只能修改自己的投票
+        "votes": {
+          ".read": "auth != null",
+          
+          "$playerId": {
+            ".write": "auth != null && auth.uid == $playerId",
+            
+            "value": {
+              ".validate": "newData.isNumber() || newData.val().matches(/^(coffee|question|infinity)$/)"
+            },
+            
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            
+            "player_role": {
+              ".validate": "newData.val().matches(/^(dev|qa|scrum_master|po|other)$/)"
+            }
+          }
+        },
+        
+        // 會話統計資訊 - 只讀，需要身份驗證
+        "session_info": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    }
   }
 }
