@@ -61,6 +61,30 @@
     <h1>🛡️ Firebase 安全規則測試工具</h1>
     
     <div class="test-section">
+        <h2>⚙️ Firebase 配置</h2>
+        <div class="config-input">
+            <div style="margin-bottom: 15px;">
+                <label for="apiKey">API Key:</label>
+                <input type="text" id="apiKey" placeholder="輸入您的 Firebase API Key" style="width: 100%; padding: 8px; margin-top: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="projectId">Project ID:</label>
+                <input type="text" id="projectId" placeholder="輸入您的 Firebase Project ID" style="width: 100%; padding: 8px; margin-top: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="databaseURL">Database URL:</label>
+                <input type="text" id="databaseURL" placeholder="https://your-project-default-rtdb.firebaseio.com" style="width: 100%; padding: 8px; margin-top: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <button onclick="saveConfig()">保存配置</button>
+                <button onclick="loadConfig()">載入配置</button>
+                <button onclick="showConfigGuide()">配置指南</button>
+            </div>
+            <div id="configStatus" class="test-result info" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
         <h2>🔥 Firebase 連線狀態</h2>
         <div id="connectionStatus" class="status disconnected">未連線</div>
         <button onclick="initializeFirebase()">初始化 Firebase</button>
@@ -88,16 +112,17 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
     <script>
-        // Firebase 配置 (請替換為您的實際配置)
-        const firebaseConfig = {
-            apiKey: "your-api-key",
-            authDomain: "your-project.firebaseapp.com",
-            databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-            projectId: "your-project-id"
+        // 動態 Firebase 配置
+        let firebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            databaseURL: "",
+            projectId: ""
         };
 
         let currentUser = null;
         let testResults = [];
+        let isConfigured = false;
 
         function log(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -140,12 +165,150 @@
             `;
         }
 
+        // 配置管理函數
+        function saveConfig() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const databaseURL = document.getElementById('databaseURL').value.trim();
+
+            if (!apiKey || !projectId || !databaseURL) {
+                showConfigStatus('請填寫所有必要的配置項目', 'error');
+                return;
+            }
+
+            // 驗證配置格式
+            if (!validateConfig(apiKey, projectId, databaseURL)) {
+                return;
+            }
+
+            // 更新配置
+            firebaseConfig = {
+                apiKey: apiKey,
+                authDomain: `${projectId}.firebaseapp.com`,
+                databaseURL: databaseURL,
+                projectId: projectId
+            };
+
+            // 保存到 localStorage
+            try {
+                localStorage.setItem('firebase-test-config', JSON.stringify(firebaseConfig));
+                showConfigStatus('配置已保存成功！', 'success');
+                isConfigured = true;
+                
+                // 自動初始化 Firebase
+                setTimeout(() => {
+                    initializeFirebase();
+                }, 1000);
+
+            } catch (error) {
+                showConfigStatus(`保存配置失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function loadConfig() {
+            try {
+                const savedConfig = localStorage.getItem('firebase-test-config');
+                if (savedConfig) {
+                    const config = JSON.parse(savedConfig);
+                    
+                    document.getElementById('apiKey').value = config.apiKey || '';
+                    document.getElementById('projectId').value = config.projectId || '';
+                    document.getElementById('databaseURL').value = config.databaseURL || '';
+                    
+                    firebaseConfig = config;
+                    isConfigured = true;
+                    
+                    showConfigStatus('配置已載入', 'success');
+                } else {
+                    showConfigStatus('未找到保存的配置', 'warning');
+                }
+            } catch (error) {
+                showConfigStatus(`載入配置失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function validateConfig(apiKey, projectId, databaseURL) {
+            // 驗證 API Key 格式（Firebase API Key 通常以 AIza 開頭）
+            if (!apiKey.startsWith('AIza') || apiKey.length < 30) {
+                showConfigStatus('API Key 格式可能不正確（應以 AIza 開頭且長度足夠）', 'warning');
+            }
+
+            // 驗證 Project ID 格式（小寫字母、數字、連字符）
+            if (!/^[a-z0-9-]+$/.test(projectId)) {
+                showConfigStatus('Project ID 格式不正確（只能包含小寫字母、數字和連字符）', 'error');
+                return false;
+            }
+
+            // 驗證 Database URL 格式
+            if (!databaseURL.includes('firebaseio.com') || !databaseURL.startsWith('https://')) {
+                showConfigStatus('Database URL 格式不正確（應為 https://xxx.firebaseio.com 格式）', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        function showConfigStatus(message, type) {
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.className = `test-result ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+
+            // 3秒後自動隱藏
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function showConfigGuide() {
+            const guide = `
+📋 Firebase 配置取得指南：
+
+1. 前往 Firebase 控制台：https://console.firebase.google.com/
+2. 選擇您的專案
+3. 點擊左側「專案設定」齒輪圖示
+4. 選擇「一般」標籤
+5. 向下捲動到「您的應用程式」區域
+6. 如果沒有 Web 應用程式，點擊「新增應用程式」→「Web」
+7. 複製配置物件中的值：
+
+• API Key: 從 apiKey 欄位複製
+• Project ID: 從 projectId 欄位複製  
+• Database URL: 前往「Realtime Database」→「資料」標籤，URL 顯示在頂部
+
+範例格式：
+• API Key: AIzaSyC7x5X5x5x5x5x5x5x5x5x5x5x5x5x5
+• Project ID: my-scrum-poker-project
+• Database URL: https://my-scrum-poker-project-default-rtdb.firebaseio.com
+
+⚠️ 注意：這些配置僅保存在您的瀏覽器本地，不會上傳到伺服器。
+            `;
+
+            alert(guide);
+        }
+
         async function initializeFirebase() {
             try {
+                // 檢查配置是否完整
+                if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.databaseURL) {
+                    log('❌ Firebase 配置不完整，請先設定配置', 'error');
+                    showConfigStatus('請先填寫 Firebase 配置', 'error');
+                    return;
+                }
+
                 log('初始化 Firebase...', 'info');
+                log(`使用專案: ${firebaseConfig.projectId}`, 'info');
                 
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
+                } else {
+                    // 如果已經初始化但配置不同，重新初始化
+                    const existingApp = firebase.app();
+                    if (existingApp.options.projectId !== firebaseConfig.projectId) {
+                        await existingApp.delete();
+                        firebase.initializeApp(firebaseConfig);
+                        log('重新初始化 Firebase（配置已更改）', 'info');
+                    }
                 }
                 
                 updateConnectionStatus('connected', '已連線到 Firebase');
@@ -332,7 +495,28 @@
         // 頁面載入時顯示說明
         window.onload = function() {
             log('Firebase 安全規則測試工具已載入', 'info');
-            log('請先配置 Firebase 設定，然後點擊「初始化 Firebase」開始測試', 'warning');
+            
+            // 嘗試載入保存的配置
+            const savedConfig = localStorage.getItem('firebase-test-config');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    document.getElementById('apiKey').value = config.apiKey || '';
+                    document.getElementById('projectId').value = config.projectId || '';
+                    document.getElementById('databaseURL').value = config.databaseURL || '';
+                    
+                    firebaseConfig = config;
+                    isConfigured = true;
+                    
+                    log('已載入保存的配置', 'success');
+                    log('點擊「初始化 Firebase」開始測試', 'info');
+                } catch (error) {
+                    log('載入配置失敗，請重新設定', 'warning');
+                }
+            } else {
+                log('請先配置 Firebase 設定，然後點擊「初始化 Firebase」開始測試', 'warning');
+                log('點擊「配置指南」查看如何取得 Firebase 配置', 'info');
+            }
         };
     </script>
 </body>
