@@ -48,13 +48,31 @@ class FirebaseAdapter {
                 return false;
             }
             
-            // 等待 Firebase 準備就緒
+            // 檢查 Firebase 狀態，避免無限重試
+            const managerStatus = window.firebaseConfigManager.getStatus();
+            console.log('🔍 FirebaseConfigManager 狀態:', managerStatus);
+            
+            if (managerStatus === 'error') {
+                console.warn('⚠️ FirebaseConfigManager 處於錯誤狀態，使用本地模式');
+                return false;
+            }
+            
+            // 等待 Firebase 準備就緒 - 改善重試邏輯
             if (!window.firebaseConfigManager.isReady()) {
                 console.log('⏳ 等待 Firebase 連線...');
                 
-                // 等待最多 5 秒
+                // 等待最多 3 秒，減少等待時間防止用戶等待過久
                 let attempts = 0;
-                while (!window.firebaseConfigManager.isReady() && attempts < 50) {
+                const maxAttempts = 30; // 3 秒 (100ms * 30)
+                
+                while (!window.firebaseConfigManager.isReady() && attempts < maxAttempts) {
+                    // 檢查是否進入錯誤狀態
+                    const currentStatus = window.firebaseConfigManager.getStatus();
+                    if (currentStatus === 'error') {
+                        console.warn('⚠️ Firebase 初始化過程中出現錯誤，停止等待');
+                        return false;
+                    }
+                    
                     await new Promise(resolve => setTimeout(resolve, 100));
                     attempts++;
                 }
@@ -74,6 +92,22 @@ class FirebaseAdapter {
             }
             
             console.log('✅ FirebaseService 已準備就緒');
+            
+            // 確保身份驗證完成 - 額外的安全檢查
+            try {
+                console.log('🔐 Firebase Adapter: 確保身份驗證完成...');
+                const authenticatedUser = await window.firebaseConfigManager.ensureAuthenticated();
+                
+                if (!authenticatedUser) {
+                    console.error('❌ Firebase Adapter: 身份驗證失敗');
+                    return false;
+                }
+                
+                console.log('✅ Firebase Adapter: 身份驗證確認成功:', authenticatedUser.uid);
+            } catch (authError) {
+                console.error('❌ Firebase Adapter: 身份驗證過程失敗:', authError);
+                return false;
+            }
             
             // 加入房間
             const playerId = this.generatePlayerId(player);

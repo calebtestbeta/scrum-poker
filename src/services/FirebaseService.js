@@ -440,46 +440,67 @@ class FirebaseService {
     }
     
     /**
-     * 確保身份驗證已完成
+     * 確保身份驗證已完成 - 整合 FirebaseConfigManager
+     * 改進版本：優先使用 FirebaseConfigManager 的統一身份驗證方法
      * @returns {Promise<void>}
      */
     async ensureAuthenticated() {
-        if (typeof firebase === 'undefined' || !firebase.auth) {
-            console.log('🏠 本地模擬模式，跳過身份驗證');
-            return;
-        }
-        
-        // 檢查當前是否已有用戶
-        const currentUser = firebase.auth().currentUser;
-        if (currentUser) {
-            console.log('✅ 身份驗證已存在:', currentUser.uid);
-            return;
-        }
-        
-        console.log('🔄 開始匿名身份驗證...');
-        
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('身份驗證超時'));
-            }, 15000); // 延長到 15 秒超時
+        try {
+            // 優先使用 FirebaseConfigManager 的統一身份驗證
+            if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+                console.log('🔗 使用 FirebaseConfigManager 身份驗證');
+                const authenticatedUser = await window.firebaseConfigManager.ensureAuthenticated();
+                
+                if (authenticatedUser) {
+                    console.log('✅ FirebaseConfigManager 身份驗證成功:', authenticatedUser.uid);
+                    return;
+                } else {
+                    console.warn('⚠️ FirebaseConfigManager 身份驗證失敗，嘗試備用方法');
+                }
+            }
             
-            // 直接進行匿名登入，不依賴 onAuthStateChanged
-            firebase.auth().signInAnonymously()
-                .then((result) => {
-                    clearTimeout(timeout);
-                    console.log('✅ 匿名身份驗證成功:', result.user.uid);
-                    
-                    // 等待一下確保 auth state 完全更新
-                    setTimeout(() => {
-                        resolve();
-                    }, 500);
-                })
-                .catch((error) => {
-                    clearTimeout(timeout);
-                    console.error('❌ 匿名身份驗證失敗:', error);
-                    reject(error);
-                });
-        });
+            // 備用方法：直接使用 Firebase Auth
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                console.log('🏠 本地模擬模式，跳過身份驗證');
+                return;
+            }
+            
+            // 檢查當前是否已有用戶
+            const currentUser = firebase.auth().currentUser;
+            if (currentUser) {
+                console.log('✅ 身份驗證已存在:', currentUser.uid);
+                return;
+            }
+            
+            console.log('🔄 開始匿名身份驗證（備用方法）...');
+            
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('身份驗證超時'));
+                }, 15000); // 延長到 15 秒超時
+                
+                // 直接進行匿名登入，不依賴 onAuthStateChanged
+                firebase.auth().signInAnonymously()
+                    .then((result) => {
+                        clearTimeout(timeout);
+                        console.log('✅ 匿名身份驗證成功:', result.user.uid);
+                        
+                        // 等待一下確保 auth state 完全更新
+                        setTimeout(() => {
+                            resolve();
+                        }, 500);
+                    })
+                    .catch((error) => {
+                        clearTimeout(timeout);
+                        console.error('❌ 匿名身份驗證失敗:', error);
+                        reject(error);
+                    });
+            });
+            
+        } catch (error) {
+            console.error('❌ 身份驗證執行失敗:', error);
+            throw error;
+        }
     }
 
     /**
@@ -1273,8 +1294,9 @@ class FirebaseService {
             
             const roomRef = this.db.ref(`rooms/${roomId}`);
             
-            // 更新遊戲階段為揭曉
+            // 更新遊戲階段為揭曉中
             await roomRef.child('phase').set('revealing');
+            console.log(`🎭 房間 ${roomId} 進入開牌階段 (revealing)`);
             
             // 記錄揭曉事件
             await this.addRoomEvent(roomId, {
@@ -1282,7 +1304,16 @@ class FirebaseService {
                 timestamp: Date.now()
             });
             
-            console.log(`🎭 房間 ${roomId} 的投票已揭曉`);
+            // 短暫延遲後設定為完成狀態，觸發智慧建議生成
+            setTimeout(async () => {
+                try {
+                    await roomRef.child('phase').set('finished');
+                    console.log(`🏁 房間 ${roomId} 開牌完成 (finished)，準備生成智慧建議`);
+                } catch (finishError) {
+                    console.error('❌ 設定完成狀態失敗:', finishError);
+                }
+            }, 800); // 0.8秒延遲，提供視覺回饋時間
+            
             this.emitEvent('votes:revealed', { roomId });
             
         } catch (error) {

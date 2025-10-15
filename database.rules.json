@@ -5,6 +5,10 @@
     
     "rooms": {
       "$roomId": {
+        // 房間層級權限 - 允許認證用戶創建和修改房間
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
         // 房間基本資訊 - 需要身份驗證
         "phase": {
           ".read": "auth != null",
@@ -26,12 +30,18 @@
           ".write": "auth != null"
         },
         
-        // 玩家管理 - 只能修改自己的資料
+        "current_task_types": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isString()"
+        },
+        
+        // 玩家管理 - 已驗證用戶可管理玩家資料
         "players": {
           ".read": "auth != null",
           
           "$playerId": {
-            ".write": "auth != null && auth.uid == $playerId",
+            ".write": "auth != null",
             
             "name": {
               ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20"
@@ -59,12 +69,12 @@
           }
         },
         
-        // 投票管理 - 只能修改自己的投票
+        // 投票管理 - 已驗證用戶可管理投票資料
         "votes": {
           ".read": "auth != null",
           
           "$playerId": {
-            ".write": "auth != null && auth.uid == $playerId",
+            ".write": "auth != null",
             
             "value": {
               ".validate": "newData.isNumber() || newData.val().matches(/^(coffee|question|infinity)$/)"
@@ -84,6 +94,24 @@
         "session_info": {
           ".read": "auth != null",
           ".write": "auth != null"
+        },
+        
+        // 智慧建議狀態 - 需要身份驗證
+        "advice_state": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "visible": {
+            ".validate": "newData.isBoolean()"
+          },
+          
+          "generated_at": {
+            ".validate": "newData.isNumber()"
+          },
+          
+          "task_types": {
+            ".validate": "newData.isString()"
+          }
         }
       }
     }

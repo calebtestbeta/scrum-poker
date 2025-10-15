@@ -224,7 +224,7 @@ class DeviceRedirector {
 
 #### 🖥️ Desktop 版本特色
 - **多欄式佈局** - 左側遊戲區 + 右側統計/建議面板
-- **鍵盤快捷鍵** - 數字鍵選卡、空白鍵開牌、Ctrl+R 重置
+- **鍵盤快捷鍵** - 數字鍵選卡、空白鍵開牌、Ctrl+R 重置（含任務類型）
 - **懸停效果** - 豐富的滑鼠互動回饋
 - **完整功能** - 所有進階功能完整展示
 
@@ -533,6 +533,35 @@ class ScrumAdviceEngine {
    }
    ```
 
+3. **任務類型重置功能** (v3.2.0 新增)
+   ```javascript
+   resetLocalUI() {
+       // 重置卡牌選擇
+       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+       this.selectedCard = null;
+
+       // 重置任務類型選擇 (NEW!)
+       if (this.selectedTaskTypes) {
+           console.log('🧹 清除任務類型選擇');
+           this.selectedTaskTypes.clear();
+           
+           // 移除所有任務類型按鈕的選中狀態
+           document.querySelectorAll('.task-type-btn').forEach(btn => {
+               btn.classList.remove('selected');
+           });
+
+           // 同步清空的任務類型到 Firebase
+           if (this.isFirebaseConnected) {
+               this.syncTaskTypesToFirebase().catch(error => {
+                   console.warn('⚠️ 任務類型 Firebase 同步失敗:', error);
+               });
+           }
+       }
+
+       // 其他重置邏輯...
+   }
+   ```
+
 ### 錯誤處理
 
 1. **API 呼叫失敗**
@@ -815,6 +844,6 @@ npm start
 
 ---
 
-*最後更新: 2025-01-14*  
-*版本: v3.2.0-production-ready*  
+*最後更新: 2025-01-15*  
+*版本: v3.2.1-task-type-reset*  
 *架構: Desktop/Mobile 雙版本 + Firebase 即時協作*

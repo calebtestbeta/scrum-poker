@@ -9,7 +9,7 @@
  */
 class ScrumAdviceEngine {
     constructor() {
-        this.version = '1.0.0-phase3-external-templates';
+        this.version = '1.0.0-phase3-multiselect-support';
         this.initialized = false;
         
         // 建議模板載入器 (Phase 3 新增)
@@ -36,7 +36,7 @@ class ScrumAdviceEngine {
         this.initializeTemplateLoader();
         
         this.initialized = true;
-        console.log('🧠 ScrumAdviceEngine v' + this.version + ' 已初始化 (Phase 3 External Templates)');
+        console.log('🧠 ScrumAdviceEngine v' + this.version + ' 已初始化 (Phase 3 + Multi-Select Support)');
     }
     
     /**
@@ -283,8 +283,8 @@ class ScrumAdviceEngine {
     // 硬編碼建議模板已移除，現在使用外部 JSON 檔案載入
     
     /**
-     * 根據任務類型和投票統計產生建議 (Phase 2 Enhanced)
-     * @param {string} taskType - 任務類型 (frontend|backend|testing|etc.)
+     * 根據任務類型和投票統計產生建議 (Phase 2 Enhanced + Multi-Select Support)
+     * @param {string|Array} taskType - 任務類型 (單選: 'frontend' 或多選: ['frontend', 'backend'])
      * @param {Object} statistics - 投票統計結果
      * @param {Object} options - 額外選項 (Phase 2)
      * @param {Array} options.playerRoles - 玩家角色分布 (Phase 2)
@@ -293,37 +293,42 @@ class ScrumAdviceEngine {
      */
     async generateAdvice(taskType, statistics, options = {}) {
         try {
-            console.log('🧠 正在產生建議 (Phase 3):', { taskType, statistics, options });
+            console.log('🧠 正在產生建議 (Phase 3 + Multi-Select):', { taskType, statistics, options });
             
             // 驗證輸入參數
             if (!statistics || typeof statistics !== 'object') {
                 throw new Error('統計資料無效');
             }
             
+            // 處理多選任務類型
+            const { primaryTaskType, taskTypeArray, isMultiSelect } = this.normalizeTaskTypes(taskType);
+            console.log('🎯 任務類型分析:', { primaryTaskType, taskTypeArray, isMultiSelect });
+            
             // 分析投票統計
             const analysis = this.analyzeStatistics(statistics);
             console.log('📊 統計分析結果:', analysis);
             
-            // Phase 2: 角色分析
-            const roleAnalysis = this.analyzeRoleDistribution(options.playerRoles, options.votesByRole, taskType);
+            // Phase 2: 角色分析 (使用主要任務類型)
+            const roleAnalysis = this.analyzeRoleDistribution(options.playerRoles, options.votesByRole, primaryTaskType);
             console.log('👥 角色分析結果:', roleAnalysis);
             
-            // Phase 2: 技術堆疊分析
-            const techStackAnalysis = this.analyzeTechStack(taskType, analysis);
-            console.log('🔧 技術堆疊分析:', techStackAnalysis);
+            // Phase 2: 技術堆疊分析 (考慮多選類型)
+            const techStackAnalysis = this.analyzeTechStackMultiSelect(taskTypeArray, analysis);
+            console.log('🔧 多選技術堆疊分析:', techStackAnalysis);
             
             // Phase 5: 應用學習模型增強建議
             const gameData = { 
                 votes: options.votes || {}, 
-                taskType, 
+                taskType: primaryTaskType, // 學習模型使用主要類型
+                taskTypes: taskTypeArray, // 新增：多選類型陣列
                 players: options.players || {},
                 sessionInfo: options.sessionInfo || {}
             };
             const learningEnhancement = this.applyLearningModel(gameData);
             console.log('📚 學習模型增強:', learningEnhancement);
             
-            // 選擇適當的建議模板
-            const adviceCategory = this.selectAdviceCategory(taskType);
+            // 選擇適當的建議模板 (使用主要任務類型)
+            const adviceCategory = this.selectAdviceCategory(primaryTaskType);
             const adviceType = this.determineAdviceType(analysis, roleAnalysis);
             
             // Phase 3: 載入外部建議模板
@@ -434,6 +439,41 @@ class ScrumAdviceEngine {
         
         const range = max - min;
         return range / averagePoints;
+    }
+    
+    /**
+     * 標準化任務類型輸入 (支援單選和多選)
+     * @param {string|Array} taskType - 任務類型
+     * @returns {Object} 標準化結果
+     */
+    normalizeTaskTypes(taskType) {
+        let taskTypeArray = [];
+        let isMultiSelect = false;
+        
+        // 處理輸入格式
+        if (Array.isArray(taskType)) {
+            taskTypeArray = taskType.filter(t => t && typeof t === 'string').map(t => t.toLowerCase().trim());
+            isMultiSelect = taskTypeArray.length > 1;
+        } else if (typeof taskType === 'string') {
+            const trimmed = taskType.toLowerCase().trim();
+            if (trimmed) {
+                taskTypeArray = [trimmed];
+            }
+        }
+        
+        // 如果沒有有效的任務類型，使用 general
+        if (taskTypeArray.length === 0) {
+            taskTypeArray = ['general'];
+        }
+        
+        // 主要任務類型：第一個選擇的類型，用於模板選擇
+        const primaryTaskType = taskTypeArray[0];
+        
+        return {
+            primaryTaskType,
+            taskTypeArray,
+            isMultiSelect
+        };
     }
     
     /**
@@ -687,6 +727,179 @@ class ScrumAdviceEngine {
     }
     
     /**
+     * 多選技術堆疊分析 (Multi-Select Support)
+     * @param {Array} taskTypeArray - 任務類型陣列
+     * @param {Object} analysis - 統計分析結果
+     * @returns {Object} 多選技術堆疊分析
+     */
+    analyzeTechStackMultiSelect(taskTypeArray, analysis) {
+        if (!taskTypeArray || taskTypeArray.length === 0) {
+            return this.analyzeTechStack('general', analysis);
+        }
+        
+        // 單選情況直接使用原方法
+        if (taskTypeArray.length === 1) {
+            return this.analyzeTechStack(taskTypeArray[0], analysis);
+        }
+        
+        // 多選情況：合併多個技術堆疊
+        const multiStackAnalysis = {
+            hasStackData: true,
+            isMultiSelect: true,
+            categories: [],
+            technologies: [],
+            complexityFocus: [],
+            commonChallenges: [],
+            estimationGuidance: null,
+            crossDomainChallenges: []
+        };
+        
+        const categoryAnalyses = [];
+        const allTechnologies = new Set();
+        const allChallenges = new Set();
+        const focusAreasMap = new Map();
+        
+        // 分析每個選擇的任務類型
+        taskTypeArray.forEach(taskType => {
+            const singleAnalysis = this.analyzeTechStack(taskType, analysis);
+            if (singleAnalysis.hasStackData) {
+                categoryAnalyses.push({
+                    taskType,
+                    category: singleAnalysis.category,
+                    analysis: singleAnalysis
+                });
+                
+                multiStackAnalysis.categories.push(singleAnalysis.category);
+                
+                // 合併技術
+                singleAnalysis.technologies.forEach(tech => allTechnologies.add(tech));
+                
+                // 合併挑戰
+                singleAnalysis.commonChallenges.forEach(challenge => allChallenges.add(challenge));
+                
+                // 合併關注領域（按權重）
+                singleAnalysis.complexityFocus.forEach(focus => {
+                    const key = focus.area;
+                    if (!focusAreasMap.has(key) || focusAreasMap.get(key).weight < focus.weight) {
+                        focusAreasMap.set(key, {
+                            ...focus,
+                            sources: [singleAnalysis.category]
+                        });
+                    } else {
+                        focusAreasMap.get(key).sources.push(singleAnalysis.category);
+                    }
+                });
+            }
+        });
+        
+        // 整理結果
+        multiStackAnalysis.technologies = Array.from(allTechnologies).slice(0, 8); // 限制數量
+        multiStackAnalysis.commonChallenges = Array.from(allChallenges).slice(0, 5);
+        
+        // 按權重排序關注領域
+        multiStackAnalysis.complexityFocus = Array.from(focusAreasMap.values())
+            .sort((a, b) => b.weight - a.weight)
+            .slice(0, 4)
+            .map(focus => ({
+                ...focus,
+                reason: focus.sources.length > 1 ? 
+                    `跨領域重點 (${focus.sources.join('、')})` : 
+                    focus.reason
+            }));
+        
+        // 識別跨領域挑戰
+        multiStackAnalysis.crossDomainChallenges = this.identifyCrossDomainChallenges(categoryAnalyses);
+        
+        // 使用主要類型的估點指導
+        const primaryCategory = multiStackAnalysis.categories[0] || 'general';
+        multiStackAnalysis.estimationGuidance = this.getEstimationGuidance(primaryCategory, analysis.averagePoints);
+        
+        // 新增多選特有建議
+        multiStackAnalysis.multiSelectAdvice = this.generateMultiSelectAdvice(categoryAnalyses, analysis);
+        
+        console.log('🔗 多選技術堆疊分析完成:', multiStackAnalysis);
+        return multiStackAnalysis;
+    }
+    
+    /**
+     * 識別跨領域挑戰
+     * @param {Array} categoryAnalyses - 各類別分析結果
+     * @returns {Array} 跨領域挑戰
+     */
+    identifyCrossDomainChallenges(categoryAnalyses) {
+        const challenges = [];
+        const categories = categoryAnalyses.map(ca => ca.category);
+        
+        // 前端 + 後端
+        if (categories.includes('frontend') && categories.includes('backend')) {
+            challenges.push({
+                type: 'integration',
+                description: '前後端 API 介面設計和資料格式統一',
+                priority: 'high'
+            });
+            challenges.push({
+                type: 'authentication',
+                description: '跨域身份驗證和權限管理',
+                priority: 'medium'
+            });
+        }
+        
+        // 任何類型 + 測試
+        if (categories.includes('testing') && categories.length > 1) {
+            challenges.push({
+                type: 'test_coordination',
+                description: '跨組件整合測試和端對端測試規劃',
+                priority: 'high'
+            });
+        }
+        
+        // 前端 + Mobile
+        if (categories.includes('frontend') && categoryAnalyses.some(ca => ca.taskType.includes('mobile'))) {
+            challenges.push({
+                type: 'responsive_design',
+                description: '響應式設計和多平台相容性',
+                priority: 'medium'
+            });
+        }
+        
+        return challenges;
+    }
+    
+    /**
+     * 產生多選特有建議
+     * @param {Array} categoryAnalyses - 各類別分析結果
+     * @param {Object} analysis - 統計分析
+     * @returns {Object} 多選建議
+     */
+    generateMultiSelectAdvice(categoryAnalyses, analysis) {
+        const advice = {
+            coordination: [],
+            prioritization: [],
+            riskManagement: []
+        };
+        
+        // 協調建議
+        if (categoryAnalyses.length >= 2) {
+            advice.coordination.push('建立跨領域協作機制，確保不同專業角色間的有效溝通');
+            advice.coordination.push('定義清楚的介面和整合點，避免後期整合問題');
+        }
+        
+        // 優先級建議
+        if (categoryAnalyses.length >= 3) {
+            advice.prioritization.push('考慮任務間的依賴關係，建立合理的開發順序');
+            advice.prioritization.push('識別關鍵路徑，優先處理阻塞性任務');
+        }
+        
+        // 風險管理
+        if (analysis.isHighVariance && categoryAnalyses.length >= 2) {
+            advice.riskManagement.push('多領域任務增加複雜度，建議分階段實作並持續驗證');
+            advice.riskManagement.push('預留額外時間處理跨領域整合和測試');
+        }
+        
+        return advice;
+    }
+    
+    /**
      * 取得估點指導建議 (Phase 2)
      * @param {string} category - 任務類別
      * @param {number} averagePoints - 平均估點
@@ -876,25 +1089,86 @@ class ScrumAdviceEngine {
             }
         }
         
-        // 添加技術堆疊指導
+        // 添加技術堆疊指導（支援多選）
         if (techStackAnalysis.hasStackData || techStackAnalysis.estimationGuidance) {
-            enhancedContent += '\n\n🔧 技術重點關注：';
-            if (techStackAnalysis.estimationGuidance) {
-                enhancedContent += `\n• 估點等級：${techStackAnalysis.estimationGuidance.level} - ${techStackAnalysis.estimationGuidance.suggestion}`;
-            }
-            
-            if (techStackAnalysis.focusAreas && techStackAnalysis.focusAreas.length > 0) {
-                enhancedContent += '\n• 複雜度關注領域：';
-                techStackAnalysis.focusAreas.forEach(area => {
-                    enhancedContent += `\n  - ${area.area} (權重 ${Math.round(area.weight * 100)}%): ${area.factors.join('、')}`;
-                });
-            }
-            
-            if (techStackAnalysis.challenges && techStackAnalysis.challenges.length > 0) {
-                enhancedContent += '\n• 常見挑戰：';
-                techStackAnalysis.challenges.forEach(challenge => {
-                    enhancedContent += `\n  - ${challenge}`;
-                });
+            // 多選技術堆疊
+            if (techStackAnalysis.isMultiSelect) {
+                enhancedContent += '\n\n🔗 多領域技術分析：';
+                enhancedContent += `\n• 涉及領域：${techStackAnalysis.categories.join('、')}`;
+                
+                if (techStackAnalysis.estimationGuidance) {
+                    enhancedContent += `\n• 估點等級：${techStackAnalysis.estimationGuidance.level} - ${techStackAnalysis.estimationGuidance.suggestion}`;
+                }
+                
+                if (techStackAnalysis.complexityFocus && techStackAnalysis.complexityFocus.length > 0) {
+                    enhancedContent += '\n• 跨領域關注重點：';
+                    techStackAnalysis.complexityFocus.forEach(focus => {
+                        enhancedContent += `\n  - ${focus.area} (權重 ${Math.round(focus.weight * 100)}%): ${focus.factors.join('、')} - ${focus.reason}`;
+                    });
+                }
+                
+                // 跨領域挑戰
+                if (techStackAnalysis.crossDomainChallenges && techStackAnalysis.crossDomainChallenges.length > 0) {
+                    enhancedContent += '\n• 跨領域整合挑戰：';
+                    techStackAnalysis.crossDomainChallenges.forEach(challenge => {
+                        const priorityIcon = challenge.priority === 'high' ? '🔴' : challenge.priority === 'medium' ? '🟡' : '🟢';
+                        enhancedContent += `\n  - ${priorityIcon} ${challenge.description}`;
+                    });
+                }
+                
+                // 多選特有建議
+                if (techStackAnalysis.multiSelectAdvice) {
+                    const advice = techStackAnalysis.multiSelectAdvice;
+                    
+                    if (advice.coordination.length > 0) {
+                        enhancedContent += '\n• 協作協調：';
+                        advice.coordination.forEach(item => {
+                            enhancedContent += `\n  - ${item}`;
+                        });
+                    }
+                    
+                    if (advice.prioritization.length > 0) {
+                        enhancedContent += '\n• 優先級規劃：';
+                        advice.prioritization.forEach(item => {
+                            enhancedContent += `\n  - ${item}`;
+                        });
+                    }
+                    
+                    if (advice.riskManagement.length > 0) {
+                        enhancedContent += '\n• 風險管理：';
+                        advice.riskManagement.forEach(item => {
+                            enhancedContent += `\n  - ${item}`;
+                        });
+                    }
+                }
+                
+                if (techStackAnalysis.commonChallenges && techStackAnalysis.commonChallenges.length > 0) {
+                    enhancedContent += '\n• 綜合技術挑戰：';
+                    techStackAnalysis.commonChallenges.forEach(challenge => {
+                        enhancedContent += `\n  - ${challenge}`;
+                    });
+                }
+                
+            } else {
+                // 單選技術堆疊（原有邏輯）
+                enhancedContent += '\n\n🔧 技術重點關注：';
+                if (techStackAnalysis.estimationGuidance) {
+                    enhancedContent += `\n• 估點等級：${techStackAnalysis.estimationGuidance.level} - ${techStackAnalysis.estimationGuidance.suggestion}`;
+                }
+                
+                if (techStackAnalysis.focusAreas && techStackAnalysis.focusAreas.length > 0) {
+                    enhancedContent += '\n• 複雜度關注領域：';
+                    techStackAnalysis.focusAreas.forEach(area => {
+                        enhancedContent += `\n  - ${area.area} (權重 ${Math.round(area.weight * 100)}%): ${area.factors.join('、')}`;
+                    });
+                }
+                
+                if (techStackAnalysis.challenges && techStackAnalysis.challenges.length > 0) {
+                    enhancedContent += '\n• 常見挑戰：';
+                    techStackAnalysis.challenges.forEach(challenge => {
+                        enhancedContent += `\n  - ${challenge}`;
+                    });
+                }
             }
         }
         
@@ -931,18 +1205,60 @@ class ScrumAdviceEngine {
             }
         }
         
-        // 添加技術堆疊關鍵字
+        // 添加技術堆疊關鍵字（支援多選）
         if (techStackAnalysis.hasStackData) {
-            // 添加主要技術
-            if (techStackAnalysis.technologies) {
-                enhancedKeywords.push(...techStackAnalysis.technologies.slice(0, 3));
-            }
-            
-            // 添加複雜度領域
-            if (techStackAnalysis.focusAreas) {
-                techStackAnalysis.focusAreas.forEach(area => {
-                    enhancedKeywords.push(area.area);
-                });
+            // 多選技術堆疊
+            if (techStackAnalysis.isMultiSelect) {
+                // 添加多選特有關鍵字
+                enhancedKeywords.push('跨領域整合', '多技術協作');
+                
+                // 添加所有涉及的技術領域
+                if (techStackAnalysis.categories) {
+                    enhancedKeywords.push(...techStackAnalysis.categories);
+                }
+                
+                // 添加主要技術（限制數量）
+                if (techStackAnalysis.technologies) {
+                    enhancedKeywords.push(...techStackAnalysis.technologies.slice(0, 4));
+                }
+                
+                // 添加跨領域挑戰關鍵字
+                if (techStackAnalysis.crossDomainChallenges) {
+                    techStackAnalysis.crossDomainChallenges.forEach(challenge => {
+                        switch(challenge.type) {
+                            case 'integration':
+                                enhancedKeywords.push('API整合', '前後端協作');
+                                break;
+                            case 'test_coordination':
+                                enhancedKeywords.push('整合測試', '測試協調');
+                                break;
+                            case 'responsive_design':
+                                enhancedKeywords.push('響應式設計', '多平台相容');
+                                break;
+                        }
+                    });
+                }
+                
+                // 添加複雜度領域
+                if (techStackAnalysis.complexityFocus) {
+                    techStackAnalysis.complexityFocus.forEach(focus => {
+                        enhancedKeywords.push(focus.area);
+                    });
+                }
+                
+            } else {
+                // 單選技術堆疊（原有邏輯）
+                // 添加主要技術
+                if (techStackAnalysis.technologies) {
+                    enhancedKeywords.push(...techStackAnalysis.technologies.slice(0, 3));
+                }
+                
+                // 添加複雜度領域
+                if (techStackAnalysis.focusAreas) {
+                    techStackAnalysis.focusAreas.forEach(area => {
+                        enhancedKeywords.push(area.area);
+                    });
+                }
             }
         }
         
@@ -1134,6 +1450,48 @@ class ScrumAdviceEngine {
                 }
             },
             {
+                name: '多選任務類型測試 - 前端+後端 (Multi-Select)',
+                taskType: ['frontend', 'backend'],
+                statistics: { averagePoints: 10, consensus: 55, totalVotes: 5, min: 5, max: 13, variance: 0.7 },
+                options: {
+                    playerRoles: ['dev', 'dev', 'qa', 'po', 'scrum_master'],
+                    votesByRole: [
+                        { role: 'dev', value: 8 },
+                        { role: 'dev', value: 13 },
+                        { role: 'qa', value: 13 },
+                        { role: 'po', value: 5 },
+                        { role: 'scrum_master', value: 8 }
+                    ]
+                }
+            },
+            {
+                name: '多選任務類型測試 - 前端+測試+DevOps (Multi-Select)',
+                taskType: ['frontend', 'testing', 'devops'],
+                statistics: { averagePoints: 15, consensus: 40, totalVotes: 4, min: 8, max: 21, variance: 1.0 },
+                options: {
+                    playerRoles: ['dev', 'qa', 'qa', 'scrum_master'],
+                    votesByRole: [
+                        { role: 'dev', value: 8 },
+                        { role: 'qa', value: 13 },
+                        { role: 'qa', value: 21 },
+                        { role: 'scrum_master', value: 13 }
+                    ]
+                }
+            },
+            {
+                name: '多選任務類型測試 - 單一選項陣列 (Multi-Select)',
+                taskType: ['backend'],
+                statistics: { averagePoints: 8, consensus: 80, totalVotes: 3, min: 5, max: 13, variance: 0.4 },
+                options: {
+                    playerRoles: ['dev', 'dev', 'dev'],
+                    votesByRole: [
+                        { role: 'dev', value: 5 },
+                        { role: 'dev', value: 8 },
+                        { role: 'dev', value: 13 }
+                    ]
+                }
+            },
+            {
                 name: '錯誤處理測試',
                 taskType: 'frontend',
                 statistics: null
@@ -1146,12 +1504,15 @@ class ScrumAdviceEngine {
                 return {
                     testName: testCase.name,
                     success: true,
+                    isMultiSelect: Array.isArray(testCase.taskType),
                     advice: {
                         title: advice.title,
                         contentPreview: advice.content.substring(0, 150) + '...',
                         keywordCount: advice.keywords.length,
                         hasRoleAnalysis: !!advice.roleAnalysis,
                         hasTechStack: !!advice.techStack,
+                        isMultiSelectTech: advice.techStack?.isMultiSelect || false,
+                        crossDomainChallenges: advice.techStack?.crossDomainChallenges?.length || 0,
                         analysisDepth: advice.metadata.analysisDepth || 'basic'
                     }
                 };
@@ -1164,7 +1525,7 @@ class ScrumAdviceEngine {
             }
         });
         
-        console.log('🧪 Phase 2 測試結果:', results);
+        console.log('🧪 Phase 3 + Multi-Select 測試結果:', results);
         return {
             totalTests: testCases.length,
             passedTests: results.filter(r => r.success).length,
@@ -1173,6 +1534,15 @@ class ScrumAdviceEngine {
                 roleAnalysisTests: results.filter(r => r.success && r.advice.hasRoleAnalysis).length,
                 techStackTests: results.filter(r => r.success && r.advice.hasTechStack).length,
                 enhancedAnalysis: results.filter(r => r.success && r.advice.analysisDepth === 'enhanced').length
+            },
+            multiSelectFeatures: {
+                multiSelectTests: results.filter(r => r.success && r.isMultiSelect).length,
+                multiSelectTechTests: results.filter(r => r.success && r.advice.isMultiSelectTech).length,
+                crossDomainChallengesDetected: results.filter(r => r.success && r.advice.crossDomainChallenges > 0).length,
+                averageCrossDomainChallenges: results
+                    .filter(r => r.success && r.advice.crossDomainChallenges > 0)
+                    .reduce((sum, r) => sum + r.advice.crossDomainChallenges, 0) / 
+                    Math.max(1, results.filter(r => r.success && r.advice.crossDomainChallenges > 0).length)
             },
             results
         };
@@ -1895,4 +2265,4 @@ class ScrumAdviceEngine {
 // 匯出到全域
 window.ScrumAdviceEngine = ScrumAdviceEngine;
 
-console.log('🧠 ScrumAdviceEngine 模組已載入 - Phase 5 Enhanced with Learning');
+console.log('🧠 ScrumAdviceEngine 模組已載入 - Phase 5 Enhanced with Learning + Multi-Select Support');
