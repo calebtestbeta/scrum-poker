@@ -64,21 +64,28 @@
         <h2>⚙️ Firebase 配置</h2>
         <div class="config-input">
             <div style="margin-bottom: 15px;">
-                <label for="apiKey">API Key:</label>
-                <input type="text" id="apiKey" placeholder="輸入您的 Firebase API Key" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <label for="apiKey">Web API Key:</label>
+                <input type="text" id="apiKey" placeholder="AIzaSyC... (以 AIza 開頭的 Web API Key)" style="width: 100%; padding: 8px; margin-top: 5px; font-family: monospace;">
+                <small style="color: #666; font-size: 12px;">⚠️ 請使用 Web API Key，不是 Server Key 或其他類型</small>
             </div>
             <div style="margin-bottom: 15px;">
                 <label for="projectId">Project ID:</label>
-                <input type="text" id="projectId" placeholder="輸入您的 Firebase Project ID" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <input type="text" id="projectId" placeholder="your-project-id (小寫字母、數字、連字符)" style="width: 100%; padding: 8px; margin-top: 5px; font-family: monospace;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label for="databaseURL">Database URL:</label>
-                <input type="text" id="databaseURL" placeholder="https://your-project-default-rtdb.firebaseio.com" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <input type="text" id="databaseURL" placeholder="https://your-project-default-rtdb.firebaseio.com" style="width: 100%; padding: 8px; margin-top: 5px; font-family: monospace;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="authDomain">Auth Domain (自動生成):</label>
+                <input type="text" id="authDomain" placeholder="將根據 Project ID 自動填入" style="width: 100%; padding: 8px; margin-top: 5px; font-family: monospace; background: #f0f0f0;" readonly>
+                <small style="color: #666; font-size: 12px;">通常格式為: your-project-id.firebaseapp.com</small>
             </div>
             <div style="margin-bottom: 15px;">
                 <button onclick="saveConfig()">保存配置</button>
                 <button onclick="loadConfig()">載入配置</button>
                 <button onclick="showConfigGuide()">配置指南</button>
+                <button onclick="diagnoseConfig()" style="background: #17a2b8; color: white;">診斷配置</button>
             </div>
             <div id="configStatus" class="test-result info" style="display: none;"></div>
         </div>
@@ -123,6 +130,9 @@
         let currentUser = null;
         let testResults = [];
         let isConfigured = false;
+        
+        // 診斷狀態
+        let diagnosticMode = false;
 
         function log(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -170,6 +180,7 @@
             const apiKey = document.getElementById('apiKey').value.trim();
             const projectId = document.getElementById('projectId').value.trim();
             const databaseURL = document.getElementById('databaseURL').value.trim();
+            const authDomain = document.getElementById('authDomain').value.trim();
 
             if (!apiKey || !projectId || !databaseURL) {
                 showConfigStatus('請填寫所有必要的配置項目', 'error');
@@ -184,7 +195,7 @@
             // 更新配置
             firebaseConfig = {
                 apiKey: apiKey,
-                authDomain: `${projectId}.firebaseapp.com`,
+                authDomain: authDomain || `${projectId}.firebaseapp.com`,
                 databaseURL: databaseURL,
                 projectId: projectId
             };
@@ -194,6 +205,8 @@
                 localStorage.setItem('firebase-test-config', JSON.stringify(firebaseConfig));
                 showConfigStatus('配置已保存成功！', 'success');
                 isConfigured = true;
+                
+                log(`配置已保存: ${projectId}`, 'success');
                 
                 // 自動初始化 Firebase
                 setTimeout(() => {
@@ -214,11 +227,13 @@
                     document.getElementById('apiKey').value = config.apiKey || '';
                     document.getElementById('projectId').value = config.projectId || '';
                     document.getElementById('databaseURL').value = config.databaseURL || '';
+                    document.getElementById('authDomain').value = config.authDomain || '';
                     
                     firebaseConfig = config;
                     isConfigured = true;
                     
                     showConfigStatus('配置已載入', 'success');
+                    log(`已載入配置: ${config.projectId}`, 'info');
                 } else {
                     showConfigStatus('未找到保存的配置', 'warning');
                 }
@@ -228,24 +243,37 @@
         }
 
         function validateConfig(apiKey, projectId, databaseURL) {
-            // 驗證 API Key 格式（Firebase API Key 通常以 AIza 開頭）
-            if (!apiKey.startsWith('AIza') || apiKey.length < 30) {
-                showConfigStatus('API Key 格式可能不正確（應以 AIza 開頭且長度足夠）', 'warning');
+            let hasErrors = false;
+            
+            // 驗證 API Key 格式（Firebase Web API Key 以 AIza 開頭）
+            if (!apiKey.startsWith('AIza')) {
+                showConfigStatus('❌ API Key 必須以 AIza 開頭（這是 Web API Key 的特徵）', 'error');
+                hasErrors = true;
+            } else if (apiKey.length < 35) {
+                showConfigStatus('⚠️ API Key 長度可能不足（通常為 39 字符）', 'warning');
             }
 
             // 驗證 Project ID 格式（小寫字母、數字、連字符）
             if (!/^[a-z0-9-]+$/.test(projectId)) {
-                showConfigStatus('Project ID 格式不正確（只能包含小寫字母、數字和連字符）', 'error');
-                return false;
+                showConfigStatus('❌ Project ID 格式不正確（只能包含小寫字母、數字和連字符）', 'error');
+                hasErrors = true;
             }
 
             // 驗證 Database URL 格式
             if (!databaseURL.includes('firebaseio.com') || !databaseURL.startsWith('https://')) {
-                showConfigStatus('Database URL 格式不正確（應為 https://xxx.firebaseio.com 格式）', 'error');
-                return false;
+                showConfigStatus('❌ Database URL 格式不正確（應為 https://xxx.firebaseio.com 格式）', 'error');
+                hasErrors = true;
+            }
+            
+            // 檢查 Project ID 和Database URL 是否匹配
+            if (databaseURL && projectId) {
+                const expectedUrl = `https://${projectId}-default-rtdb.firebaseio.com`;
+                if (!databaseURL.includes(projectId)) {
+                    showConfigStatus(`⚠️ Database URL 和 Project ID 可能不匹配\n預期格式: ${expectedUrl}`, 'warning');
+                }
             }
 
-            return true;
+            return !hasErrors;
         }
 
         function showConfigStatus(message, type) {
@@ -264,24 +292,28 @@
             const guide = `
 📋 Firebase 配置取得指南：
 
+🔧 第一步：確保服務已啟用
 1. 前往 Firebase 控制台：https://console.firebase.google.com/
-2. 選擇您的專案
-3. 點擊左側「專案設定」齒輪圖示
-4. 選擇「一般」標籤
-5. 向下捲動到「您的應用程式」區域
-6. 如果沒有 Web 應用程式，點擊「新增應用程式」→「Web」
-7. 複製配置物件中的值：
+2. 選擇您的專案: scrum-poker-eb66e
+3. 左側導航 → Authentication → Sign-in method
+4. 找到「匿名」選項，確保已「啟用」
+5. 左側導航 → Realtime Database，確保資料庫已建立
 
-• API Key: 從 apiKey 欄位複製
-• Project ID: 從 projectId 欄位複製  
+🔑 第二步：取得 Web API Key
+1. 點擊左側「專案設定」齒輪圖示
+2. 選擇「一般」標籤
+3. 向下捲動到「您的應用程式」區域
+4. 如果沒有 Web 應用程式，點擊「新增應用程式」→「Web」
+5. 複製 "Web API 金鑰" (以 AIza 開頭)
+
+⚠️ 重要：請使用 "Web API 金鑰"，不是 Server Key 或其他類型！
+
+📍 第三步：取得其他配置
+• Project ID: scrum-poker-eb66e
 • Database URL: 前往「Realtime Database」→「資料」標籤，URL 顯示在頂部
+• Auth Domain: 會自動填入為 scrum-poker-eb66e.firebaseapp.com
 
-範例格式：
-• API Key: AIzaSyC7x5X5x5x5x5x5x5x5x5x5x5x5x5x5
-• Project ID: my-scrum-poker-project
-• Database URL: https://my-scrum-poker-project-default-rtdb.firebaseio.com
-
-⚠️ 注意：這些配置僅保存在您的瀏覽器本地，不會上傳到伺服器。
+🔍 如果仍有問題，請點擊「診斷配置」按鈕進行詳細檢查。
             `;
 
             alert(guide);
@@ -518,6 +550,150 @@
                 log('點擊「配置指南」查看如何取得 Firebase 配置', 'info');
             }
         };
+        
+        // 自動填入 Auth Domain
+        function updateAuthDomain() {
+            const projectId = document.getElementById('projectId').value.trim();
+            const authDomainField = document.getElementById('authDomain');
+            
+            if (projectId && /^[a-z0-9-]+$/.test(projectId)) {
+                authDomainField.value = `${projectId}.firebaseapp.com`;
+            } else {
+                authDomainField.value = '';
+            }
+        }
+        
+        // 監聽 Project ID 變更
+        document.addEventListener('DOMContentLoaded', () => {
+            const projectIdField = document.getElementById('projectId');
+            if (projectIdField) {
+                projectIdField.addEventListener('input', updateAuthDomain);
+            }
+        });
+        
+        // 新增診斷配置功能
+        async function diagnoseConfig() {
+            log('🔍 開始診斷 Firebase 配置...', 'info');
+            diagnosticMode = true;
+            
+            // 第一步：檢查基本配置
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const databaseURL = document.getElementById('databaseURL').value.trim();
+            const authDomain = document.getElementById('authDomain').value.trim();
+            
+            if (!apiKey || !projectId || !databaseURL) {
+                log('❌ 基本配置不完整', 'error');
+                return;
+            }
+            
+            log('✅ 基本配置完整', 'success');
+            
+            // 第二步：格式檢查
+            if (apiKey.startsWith('AIza')) {
+                log('✅ API Key 格式正確 (Web API Key)', 'success');
+            } else {
+                log('❌ API Key 格式錯誤 - 應該以 AIza 開頭', 'error');
+                log('💡 建議：確認您使用的是 Web API Key，不是 Server Key', 'warning');
+            }
+            
+            if (/^[a-z0-9-]+$/.test(projectId)) {
+                log('✅ Project ID 格式正確', 'success');
+            } else {
+                log('❌ Project ID 格式錯誤', 'error');
+            }
+            
+            if (databaseURL.includes('firebaseio.com') && databaseURL.startsWith('https://')) {
+                log('✅ Database URL 格式正確', 'success');
+            } else {
+                log('❌ Database URL 格式錯誤', 'error');
+            }
+            
+            // 第三步：嘗試初始化 Firebase
+            try {
+                log('🔥 嘗試初始化 Firebase...', 'info');
+                
+                const testConfig = {
+                    apiKey: apiKey,
+                    authDomain: authDomain || `${projectId}.firebaseapp.com`,
+                    databaseURL: databaseURL,
+                    projectId: projectId
+                };
+                
+                // 如果已有 app，先刪除
+                if (firebase.apps.length > 0) {
+                    await firebase.app().delete();
+                    log('🧹 清理舊的 Firebase 實例', 'info');
+                }
+                
+                firebase.initializeApp(testConfig);
+                log('✅ Firebase 初始化成功', 'success');
+                
+                // 第四步：測試 Database 連線
+                try {
+                    const db = firebase.database();
+                    log('✅ Database 服務可用', 'success');
+                    
+                    // 測試連線狀態
+                    const connectedRef = db.ref('.info/connected');
+                    connectedRef.once('value', (snapshot) => {
+                        if (snapshot.val() === true) {
+                            log('✅ Database 連線正常', 'success');
+                        } else {
+                            log('⚠️ Database 連線狀態未知', 'warning');
+                        }
+                    });
+                    
+                } catch (dbError) {
+                    log(`❌ Database 連線失敗: ${dbError.message}`, 'error');
+                }
+                
+                // 第五步：測試 Authentication
+                try {
+                    const auth = firebase.auth();
+                    log('✅ Authentication 服務可用', 'success');
+                    
+                    // 嘗試匿名登入
+                    log('🔐 測試匿名身份驗證...', 'info');
+                    const userCredential = await auth.signInAnonymously();
+                    
+                    if (userCredential.user) {
+                        log('✅ 匿名登入成功！', 'success');
+                        log(`👤 用戶 UID: ${userCredential.user.uid}`, 'info');
+                        
+                        // 登出
+                        await auth.signOut();
+                        log('🚪 已登出', 'info');
+                    }
+                    
+                } catch (authError) {
+                    log(`❌ Authentication 失敗: ${authError.code}`, 'error');
+                    
+                    if (authError.code === 'auth/api-key-not-valid') {
+                        log('💡 解決建議:', 'warning');
+                        log('  1. 確認使用 Web API Key (以 AIza 開頭)', 'warning');
+                        log('  2. 檢查 API Key 是否完整複製', 'warning');
+                        log('  3. 確認 Firebase 專案設定正確', 'warning');
+                    } else if (authError.code === 'auth/operation-not-allowed') {
+                        log('💡 解決建議: 請到 Firebase 控制台啟用匿名登入', 'warning');
+                        log('  路徑: Authentication → Sign-in method → 匿名 → 啟用', 'warning');
+                    }
+                }
+                
+                log('🔍 診斷完成', 'success');
+                
+            } catch (initError) {
+                log(`❌ Firebase 初始化失敗: ${initError.message}`, 'error');
+                
+                if (initError.code === 'app/invalid-api-key') {
+                    log('💡 API Key 無效，請檢查是否正確', 'warning');
+                } else if (initError.code === 'app/invalid-project-id') {
+                    log('💡 Project ID 無效，請檢查格式', 'warning');
+                }
+            }
+            
+            diagnosticMode = false;
+        }
     </script>
 </body>
 </html>

@@ -30,10 +30,17 @@ const firebaseConfig = {
 ### 第四步：取得各項配置值
 
 #### 1. API Key 📍
-- **位置**: `firebaseConfig.apiKey`
-- **格式**: 通常以 `AIza` 開頭
+- **位置**: Firebase 控制台 > 專案設定 > 一般 > **Web API 金鑰**
+- **格式**: 必須以 `AIza` 開頭（Web API Key 特徵）
 - **範例**: `AIzaSyC7x5X5x5x5x5x5x5x5x5x5x5x5x5x5`
-- **用途**: Firebase SDK 身份驗證
+- **用途**: Firebase SDK 客戶端身份驗證
+
+⚠️ **重要：API Key 類型說明**
+- ✅ **Web API Key**: 以 `AIza` 開頭，用於瀏覽器和行動應用程式
+- ❌ **Server Key**: 以其他格式開頭，僅用於伺服器端應用程式
+- ❌ **Legacy Server Key**: 舊版伺服器金鑰，不適用於客戶端
+
+如果您使用了錯誤的 API Key 類型，會出現 `auth/api-key-not-valid` 錯誤。
 
 #### 2. Project ID 📍
 - **位置**: `firebaseConfig.projectId`
@@ -107,6 +114,25 @@ const firebaseConfig = {
 1. 確保複製完整的 API Key（通常約 39 字符）
 2. 檢查是否包含額外的空格或字符
 3. 嘗試重新產生 API Key（專案設定 → 一般 → Web API Key）
+
+### Q: 出現 `auth/api-key-not-valid` 錯誤？
+**A**:
+1. **確認使用 Web API Key**：必須以 `AIza` 開頭，不是 Server Key
+2. **檢查 API Key 完整性**：確保沒有遺漏字符
+3. **驗證 Firebase 專案設定**：確保 Project ID 正確匹配
+
+### Q: 出現 `auth/operation-not-allowed` 錯誤？
+**A**: 需要啟用 Firebase 匿名身份驗證
+1. Firebase 控制台 → **Authentication**
+2. 點擊 **Sign-in method** 標籤
+3. 找到 **Anonymous** (匿名) 選項
+4. 如果狀態為「已停用」，點擊進入設定
+5. 將「啟用」開關打開並儲存
+
+**為什麼需要匿名登入？**
+- Scrum Poker 使用匿名身份驗證識別玩家
+- 玩家無需註冊就能加入遊戲
+- 滿足安全規則的身份驗證要求
 
 ## 🔄 故障排除步驟
 
