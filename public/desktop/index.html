@@ -479,35 +479,57 @@
 
         /* Smart Advice Section */
         .advice-container {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 24px;
             margin-top: 20px;
-            animation: fadeIn 0.3s ease-in;
+            animation: fadeIn 0.4s ease-out;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .advice-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #007bff, #0056b3, #28a745);
         }
 
         .advice-header {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            background: rgba(0, 123, 255, 0.02);
+            margin: -8px -8px 20px -8px;
+            padding: 16px 8px;
+            border-radius: 8px;
         }
 
         .advice-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 0 0 4px 0;
-            color: #333;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .advice-subtitle {
-            font-size: 13px;
+            font-size: 14px;
             color: #6c757d;
             margin: 0;
+            font-weight: 500;
         }
 
         .advice-content {
-            line-height: 1.6;
+            line-height: 1.7;
+            position: relative;
         }
 
         .advice-loading {
@@ -528,25 +550,97 @@
         }
 
         .advice-text {
-            white-space: pre-line;
             font-size: 14px;
             color: #495057;
+            line-height: 1.7;
+        }
+
+        /* Markdown 樣式 */
+        .advice-heading {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 16px 0 12px 0;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .advice-heading:first-child {
+            margin-top: 0;
+        }
+
+        .advice-strong {
+            font-weight: 600;
+            color: #2c3e50;
+            background: rgba(0, 123, 255, 0.08);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .advice-list {
+            margin: 12px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .advice-item {
+            margin: 8px 0;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+            border-radius: 0 4px 4px 0;
+            color: #495057;
+            position: relative;
+        }
+
+        .advice-item::before {
+            content: "💡";
+            position: absolute;
+            left: -2px;
+            top: 6px;
+            font-size: 12px;
+        }
+
+        .advice-paragraph {
+            margin: 12px 0;
+            line-height: 1.7;
+        }
+
+        .advice-paragraph:first-child {
+            margin-top: 0;
+        }
+
+        .advice-paragraph:last-child {
+            margin-bottom: 0;
         }
 
         .advice-keywords {
-            margin-top: 12px;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #e9ecef;
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
         }
 
         .advice-keyword {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
             border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 2px 8px;
+            border-radius: 12px;
+            padding: 4px 10px;
             font-size: 12px;
             color: #6c757d;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .advice-keyword:hover {
+            background: linear-gradient(135deg, #e9ecef, #dee2e6);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         @keyframes fadeIn {
@@ -2317,12 +2411,51 @@
                     `;
                 }
 
+                // 解析 Markdown 內容
+                const parsedContent = this.parseMarkdown(advice.content);
+
                 adviceContent.innerHTML = `
-                    <div class="advice-text">${advice.content}</div>
+                    <div class="advice-text">${parsedContent}</div>
                     ${keywordsHtml}
                 `;
 
                 console.log('✅ 智慧建議已顯示:', advice.title);
+            }
+
+            /**
+             * 簡單的 Markdown 解析器
+             * 支援 ## 標題、**粗體**、• 列表項目
+             * @param {string} text - 原始 Markdown 文字
+             * @returns {string} - 解析後的 HTML
+             */
+            parseMarkdown(text) {
+                if (!text) return '';
+
+                let html = text;
+
+                // 解析 ## 標題 (h3)
+                html = html.replace(/^## (.+)$/gm, '<h3 class="advice-heading">$1</h3>');
+
+                // 解析 **粗體**
+                html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="advice-strong">$1</strong>');
+
+                // 解析 • 列表項目
+                html = html.replace(/^• (.+)$/gm, '<li class="advice-item">$1</li>');
+
+                // 將連續的 li 包裹在 ul 中
+                html = html.replace(/(<li class="advice-item">.*?<\/li>)(\s*<li class="advice-item">.*?<\/li>)*/gs, (match) => {
+                    return `<ul class="advice-list">${match}</ul>`;
+                });
+
+                // 處理段落分隔（保留原有的 pre-line 行為）
+                html = html.replace(/\n\n/g, '</p><p class="advice-paragraph">');
+                
+                // 如果有段落分隔，包裹在 p 標籤中
+                if (html.includes('</p><p class="advice-paragraph">')) {
+                    html = `<p class="advice-paragraph">${html}</p>`;
+                }
+
+                return html;
             }
 
             shareRoom() {
