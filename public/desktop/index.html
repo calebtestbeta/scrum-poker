@@ -1346,9 +1346,19 @@
                                 console.log('❓ 未找到 Firebase 設定，顯示配置表單...');
                                 this.updateConnectionStatus('connecting', '等待 Firebase 設定...');
 
-                                return new Promise((resolve) => {
+                                const configResult = await new Promise((resolve) => {
                                     this.showFirebaseConfigModal(resolve);
                                 });
+                                
+                                if (!configResult) {
+                                    // 用戶取消或選擇本地模式
+                                    console.log('⚠️ 用戶取消 Firebase 設定，使用本地模式');
+                                    this.updateConnectionStatus('local', '用戶選擇本地模式');
+                                    return false;
+                                }
+                                
+                                // 配置成功，繼續執行 Firebase Adapter 建立
+                                console.log('✅ Firebase 配置完成，開始建立 Adapter...');
                             }
                         }
                     }
@@ -1917,13 +1927,20 @@
 
                 console.log(`🎯 選擇卡牌: ${voteValue} (類型: ${typeof voteValue})`);
 
+                // 除錯：檢查 Firebase 狀態
+                console.log('🔍 Firebase 狀態檢查:', {
+                    isFirebaseConnected: this.isFirebaseConnected,
+                    hasFirebaseAdapter: !!this.firebaseAdapter,
+                    configManagerReady: window.firebaseConfigManager?.isReady()
+                });
+
                 // 更新 UI 選擇狀態
                 document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
                 cardElement.classList.add('selected');
                 this.selectedCard = voteValue;
 
                 // 提交投票
-                if (this.isFirebaseConnected) {
+                if (this.isFirebaseConnected && this.firebaseAdapter) {
                     try {
                         console.log('📤 提交投票到 Firebase...');
                         const success = await this.firebaseAdapter.submitVote(voteValue);
@@ -2061,7 +2078,14 @@
             async revealCards() {
                 console.log('🃏 開牌');
 
-                if (this.isFirebaseConnected) {
+                // 除錯：檢查 Firebase 狀態
+                console.log('🔍 開牌時 Firebase 狀態檢查:', {
+                    isFirebaseConnected: this.isFirebaseConnected,
+                    hasFirebaseAdapter: !!this.firebaseAdapter,
+                    configManagerReady: window.firebaseConfigManager?.isReady()
+                });
+
+                if (this.isFirebaseConnected && this.firebaseAdapter) {
                     try {
                         const success = await this.firebaseAdapter.reveal();
 
@@ -2098,7 +2122,14 @@
             async resetVotes() {
                 console.log('🔄 重置投票');
 
-                if (this.isFirebaseConnected) {
+                // 除錯：檢查 Firebase 狀態
+                console.log('🔍 重置時 Firebase 狀態檢查:', {
+                    isFirebaseConnected: this.isFirebaseConnected,
+                    hasFirebaseAdapter: !!this.firebaseAdapter,
+                    configManagerReady: window.firebaseConfigManager?.isReady()
+                });
+
+                if (this.isFirebaseConnected && this.firebaseAdapter) {
                     try {
                         const success = await this.firebaseAdapter.clearVotes();
 
