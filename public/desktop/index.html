@@ -1329,11 +1329,12 @@
                                 try {
                                     await window.firebaseConfigManager.initialize(savedConfig);
 
-                                    // 檢查初始化後的狀態
-                                    const postInitStatus = window.firebaseConfigManager.getStatus();
-                                    if (postInitStatus === 'error') {
-                                        console.warn('⚠️ Firebase 初始化失敗，使用本地模式');
-                                        this.updateConnectionStatus('local', 'Firebase 初始化失敗，使用本地模式');
+                                    // 使用增強的狀態驗證而非立即檢查
+                                    const isConfigReady = await this.waitForFirebaseReady(15000);
+                                    
+                                    if (!isConfigReady) {
+                                        console.warn('⚠️ Firebase 狀態驗證失敗，使用本地模式');
+                                        this.updateConnectionStatus('local', 'Firebase 狀態驗證失敗，使用本地模式');
                                         return false;
                                     }
                                 } catch (initError) {
@@ -1375,6 +1376,11 @@
                         console.log('✅ Firebase 連線成功');
                         this.updateConnectionStatus('connected', 'Firebase 連線成功');
 
+                        // 觸發 Firebase 連線成功事件
+                        window.dispatchEvent(new CustomEvent('firebase:connection-status', {
+                            detail: { status: 'connected', isConnected: true }
+                        }));
+
                         // 保存我的玩家 ID
                         this.myPlayerId = this.firebaseAdapter.generatePlayerId(player);
                         console.log('👤 我的玩家 ID:', this.myPlayerId);
@@ -1393,6 +1399,12 @@
                     console.error('❌ Firebase 初始化失敗:', error);
                     this.isFirebaseConnected = false;
                     this.updateConnectionStatus('offline', 'Firebase 初始化失敗');
+                    
+                    // 觸發 Firebase 連線失敗事件
+                    window.dispatchEvent(new CustomEvent('firebase:connection-status', {
+                        detail: { status: 'failed', isConnected: false, error: error.message }
+                    }));
+                    
                     return false;
                 }
             }
@@ -2655,6 +2667,28 @@
                 }
             }
 
+            // 等待 Firebase 準備就緒的輔助函數
+            async waitForFirebaseReady(maxWaitTime = 10000, checkInterval = 500) {
+                const startTime = Date.now();
+                
+                while (Date.now() - startTime < maxWaitTime) {
+                    if (window.firebaseConfigManager && window.firebaseConfigManager.isReady()) {
+                        try {
+                            const database = window.firebaseConfigManager.getDatabase();
+                            if (database) {
+                                return true;
+                            }
+                        } catch (error) {
+                            // 繼續嘗試
+                        }
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, checkInterval));
+                }
+                
+                return false;
+            }
+
             // Firebase 配置模態框控制
             showFirebaseConfigModal(resolveCallback) {
                 const modal = document.getElementById('firebaseConfigModal');
@@ -2722,7 +2756,10 @@
                         console.log('🔧 使用表單設定初始化 Firebase...');
                         await window.firebaseConfigManager.initialize(config);
 
-                        if (window.firebaseConfigManager.isReady()) {
+                        // 使用增強的狀態驗證，避免時序問題
+                        const isReallyReady = await this.waitForFirebaseReady(15000);
+                        
+                        if (isReallyReady) {
                             // 記住設定
                             window.firebaseConfigManager.saveConfig(config, true);
                             console.log('✅ Firebase 設定已保存');
@@ -3004,15 +3041,15 @@
             };
         };
 
-        // 頁面載入後自動檢查 Firebase 狀態
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                if (window.desktopUI && window.desktopUI.isFirebaseConnected) {
-                    console.log('🎉 Desktop UI Firebase 連線成功！使用 debugDesktop().testFirebase() 查看詳細狀態');
-                } else if (window.desktopUI) {
-                    console.log('⚠️ Desktop UI 已載入但 Firebase 未連線。使用 debugDesktop().testFirebase() 診斷問題');
-                }
-            }, 3000);
+        // Firebase 狀態監聽器 - 事件驅動，避免時序問題
+        window.addEventListener('firebase:connection-status', (event) => {
+            const { status, isConnected } = event.detail;
+            
+            if (isConnected) {
+                console.log('🎉 Desktop UI Firebase 連線成功！使用 debugDesktop().testFirebase() 查看詳細狀態');
+            } else if (status === 'failed') {
+                console.log('⚠️ Firebase 連線失敗。使用 debugDesktop().testFirebase() 診斷問題');
+            }
         });
     </script>
 </body>

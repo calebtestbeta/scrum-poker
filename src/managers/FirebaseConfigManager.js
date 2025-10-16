@@ -449,7 +449,7 @@ class FirebaseConfigManager {
      * @param {number} timeout - 超時時間（毫秒）
      * @returns {Promise<boolean>} 是否連線成功
      */
-    waitForConnection(timeout = 10000) {
+    waitForConnection(timeout = 20000) {
         return new Promise((resolve) => {
             if (!this.database) {
                 resolve(false);
