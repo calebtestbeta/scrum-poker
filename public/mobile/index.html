@@ -384,7 +384,8 @@
             padding: 12px 16px;
             line-height: 1.5;
             transition: max-height 0.3s ease-out;
-            overflow: hidden;
+            overflow-y: auto;
+            max-height: 250px;
         }
 
         .advice-content.collapsed {
@@ -429,6 +430,80 @@
             padding: 1px 6px;
             font-size: 11px;
             color: #6c757d;
+        }
+
+        /* Markdown 樣式 - 行動版優化 */
+        .advice-heading {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 12px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .advice-heading:first-child {
+            margin-top: 0;
+        }
+
+        .advice-strong {
+            font-weight: 600;
+            color: #2c3e50;
+            background: rgba(0, 123, 255, 0.08);
+            padding: 1px 3px;
+            border-radius: 2px;
+        }
+
+        .advice-list {
+            margin: 8px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .advice-item {
+            position: relative;
+            padding: 2px 0 2px 16px;
+            margin: 4px 0;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .advice-item::before {
+            content: '•';
+            position: absolute;
+            left: 4px;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .advice-paragraph {
+            margin: 8px 0;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #495057;
+        }
+
+        /* 自定義滾動條樣式 - 行動版優化 */
+        .advice-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .advice-content::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+
+        .advice-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+
+        .advice-content::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
         }
 
         @keyframes fadeIn {

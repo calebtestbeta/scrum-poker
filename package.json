@@ -4,7 +4,7 @@
   "description": "敏捷開發團隊的 Scrum Poker 估點工具",
   "main": "public/redirect.html",
   "scripts": {
-    "start": "http-server -p 8080 -c-1 --cors",
+    "start": "http-server . -p 8080 -c-1 --cors",
     "dev": "concurrently \"firebase emulators:start\" \"http-server -p 8080 -c-1 --cors\"",
     "firebase": "firebase emulators:start",
     "serve": "http-server -p 8080 -c-1 --cors",
