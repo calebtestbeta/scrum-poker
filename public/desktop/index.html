@@ -1186,16 +1186,15 @@
                 // 嘗試初始化 Firebase
                 await this.initializeFirebase();
 
-                // Firebase 初始化完成後，確保狀態同步
+                // Firebase 初始化完成後，同步本地狀態（不重複更新連線狀態）
                 if (!this.isFirebaseConnected) {
-                    this.updateConnectionStatus('local', 'Firebase 連線失敗，使用本地模式');
+                    // 本地模式：填充假資料
                     this.populatePlayersList();
                     setTimeout(() => {
                         this.updatePhaseIndicator('voting');
                     }, 1000);
-                } else {
-                    this.updateConnectionStatus('connected', 'Firebase 已連線，開始同步資料');
                 }
+                // Firebase 模式的狀態已在 initializeFirebase() 中處理，無需重複更新
             }
 
             // Toast 通知系統
@@ -1392,6 +1391,12 @@
                     } else {
                         console.warn('⚠️ Firebase 連線失敗，使用本地模式');
                         this.updateConnectionStatus('local', 'Firebase 連線失敗，切換至本地模式');
+                        
+                        // 觸發 Firebase 連線失敗事件
+                        window.dispatchEvent(new CustomEvent('firebase:connection-status', {
+                            detail: { status: 'failed', isConnected: false, error: 'Firebase Adapter 初始化失敗' }
+                        }));
+                        
                         return false;
                     }
 
